@@ -1,0 +1,14 @@
+# imps_config.toml
+
+[database]
+host = "127.0.0.1"
+name = "box_db"
+user = "box_user"
+password = "box_pass"
+
+[directories]
+imps_path = "/var/www/html"
+item_image_dir = "/static/images/items/"
+image_dir = "/static/images/"
+backup_dir = "/var/www/html/static/backup/"
+help_dir = "/static/help/"

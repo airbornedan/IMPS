@@ -1,0 +1,32 @@
+{% include 'header.html' %}
+
+<p class="page_title">Add photo</p>
+<!--Here we display the name of the item from the function -->
+<div class="container-flex">
+{{ item_num[0][0] }}
+	<div class="row">
+		<p>Upload photo for <b> {{item_name}}</b></p>
+	</div>
+	<div class="row">    
+		<div class="col col-1">
+	                <form method="post" action= "/photoadded"  enctype="multipart/form-data">
+                        <!-- This hidden field passes the item_num back so we can 
+                         query and load the results page -->
+                        <input type="hidden" id="item_num" value="{{item_num[0][0]}}">
+			<input class="form-control" type="file" id="file" name="file">
+			<a href="/">
+				<button type="submit" class="imps photo">
+					Upload 
+				</button>
+			</a>
+			</form>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col col-11">
+				<button class="imps bar"> 
+					No photo
+				</button>
+		</div>
+	</div>
+</div>

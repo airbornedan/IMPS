@@ -1,0 +1,116 @@
+{% include 'header.html' %}
+<style>
+.dot {
+  height: 13px;
+  width: 13px;
+  border-radius: 50%;
+  margin-left: 20px;
+  display: inline-block;
+  border: 2px solid black;
+}
+</style>
+<div class="container">
+	<p class="page_title">Welcome to IMPS</p>
+	<p>If this is the first time you have started IMPS, this page will
+	help guide you through the setup process. If all the indicators below 
+        are green, you can delete the <code>first.run</code> file from the
+        directory where you have installed IMPS and start using it.</p>
+	<div class="row border">
+		<div class="col col-2 pt-3">
+			<p><b>Database connection: </b> 
+				<span class="dot"
+					{% if db_conn =="t" %}
+					  style="background-color: green;">
+					{% else %}
+					  style="background-color: red;">
+					{% endif %}
+				</span>
+			</p>
+		</div>
+                <div class="col col-2 pt-3">
+                        <p><b>Database:</b>
+                                <span class="dot"
+                                        {% if db_struct =="t" %}
+                                          style="background-color: green;">
+                                        {% else %}
+                                          style="background-color: red;">
+                                        {% endif %}
+                                </span>
+                        </p>
+                </div>
+
+                <div class="col col-2 pt-3">
+                        <b>IMPS path: </b> 
+                                <span class="dot"
+                                        {% if imps_path_config =="t" %}
+                                          style="background-color: green;">
+                                        {% else %}
+                                          style="background-color: red;">
+                                        {% endif %}
+                                </span>
+
+                </div>
+		<div class="col col-2 pt-3">
+			<b>Item image directory: </b> 
+				<span class="dot"
+					{% if item_image_config =="t" %}
+					  style="background-color: green;">
+					{% else %}
+					  style="background-color: red;">
+					{% endif %}
+				</span>
+
+		</div>
+                <div class="col col-2 pt-3">
+                        <p><b>Backup directory: </b>
+                                <span class="dot"
+                                        {% if backup_config =="t" %}
+                                          style="background-color: green;">
+                                        {% else %}
+                                          style="background-color: red;">
+                                        {% endif %}
+                                </span>
+                        </p>
+                </div>
+        </div>
+
+	
+<p class="pt-3">IMPS uses a configuration file (config.ini) for many of its settings, 
+including the database connection, server settings, and file 
+directories. The file is in the same directory where you installed IMPS, 
+most likely in <code>/var/www/html</code> if you are using Apache and MySQL
+on Linux. You will need to edit this file so that IMPS will
+work correctly.</p>
+<p class="page_subtitle">Settings</p>
+<p>The config.ini file contains several sections that you must set for IMPS
+to work.</p>
+<p><b>DATABASE CONNECTION</b></p>
+<p>Configure your database connection here. Set:</p> 
+<ul>
+<li><i>host</i> to the host IP address</li>
+<li><i>database</i> to the database name</li>
+<li></i>user</i> to a user with 
+<ul>
+<li>CREATE</li>
+<li>DELETE</li>
+<li>INSERT</li>
+<li>SELECT</li>
+<li>UPDATE</li>
+</ul>
+privileges on the database.</li>
+<li><i>password</i> to the password for the user</li>
+</ul>
+<p><b>DIRECTORIES</b></p>
+<p>Configure your file directories here. Set:</p>                              
+<ul>
+<li><i>item_image_dir</i> to the directory where IMPS should store item 
+    images. The default is /static/images/items, but you may use any
+    directory that IMPS have read/write access to.</li>
+<li><i>image_dir</i> to the directory where IMPS should access the
+    program images. The The default is /static/images, but you may use any
+    directory that IMPS have read/write access to.</li>
+<li></i>backup_dir</i> to directory where IMPS will store database backups.  
+    The default is /var/www/html/static/backups, but you may use any
+    directory that IMPS have read/write access to.</li>
+</div>
+{% include 'footer.html' %}

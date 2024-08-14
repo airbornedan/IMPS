@@ -1,0 +1,74 @@
+{% include 'header.html' %}
+<p class="page_title">List of boxes</p>
+<div class="container-flex">
+	<div class="item_display_table" id="itemdisplaytable">
+		<span class="table_head">
+			<span class="table_label"> # </span>
+			<span class="table_label col col-auto">Category</span>
+			<span class="table_label col col-auto">Name</span>
+                        <span class="table_label col col-auto">Date</span>
+                        <span class="table_label col col-auto">Last change</span>
+			<span class="table_label col col-auto p-3">Items</span>
+		        <span class="table_label col col-auto p-3">Edit</span>
+		        <span class="table_label col col-auto p-3">Delete</span>
+			<span class="table_label col col-auto p-3">Label</span>
+		</span>
+                <span class="table_body">
+		{% for box_num, box_cat, box_name, box_date, box_last_changed in box_list %}
+		<div class="table_row" >
+			<div class="table_cell"  style="border-bottom: 1px solid black;">
+				{{ box_num }}
+			</div>
+			<div class="table_cell"  style="border-bottom: 1px solid black;">
+			        {{ box_cat }}
+		        </div>
+		        <div class="table_cell"  style="border-bottom: 1px solid black;">
+			        {{ box_name }}
+		        </div>
+			<div class="table_cell" style="border-bottom: 1px solid black;">
+			        {{ box_date }}
+		        </div>
+                        <div class="table_cell" style="border-bottom: 1px solid black;">
+                                {{ box_last_changed }}
+                        </div>
+                        <div class="table_cell" style="border-bottom: 1px solid black;">
+                                {% if box_num in not_empty_box_num_list %}
+                                <form action="/showboxcontent/{{box_num}}">
+                                   <button type="submit" id="content_submit_button" class="ico_imps ico_box_full">
+                                   </button>
+                                </form>
+                                {% else %}
+                                   <button type="submit" id="content_submit_button" class="ico_imps ico_box">
+                                   </button>
+                                {% endif %}
+                        </div>
+
+        		<div class="table_cell" style="border-bottom: 1px solid black;">
+				<form action="/boxdetails" method="POST">
+				   <input type="hidden" id="box-num" name="box-num" value="{{box_num}}">
+		                   <button type="submit" id="edit_submit_button" class="ico_imps edit">
+                		   </button>
+			        </form>
+		        </div>
+		        <div class="table_cell" style="border-bottom: 1px solid black;">
+		               <form action="/delbox" method="POST">
+                                  <input type="hidden" id="box_to_del" name="box_to_del" value="{{box_num}}">
+		                  <button type="submit" id="del_submit_button" class="ico_imps ico_trash">
+	                          </button>
+            		       </form>
+                        </div>
+                       <div class="table_cell" style="border-bottom: 1px solid black;">
+			        <a href="#" onclick="window.open('/boxlabel/{{box_num}}','newwindow', 'width=750, height=550'); return false;">
+ 					<button class="ico_imps ico_qr"></button>  	
+		                </a>
+			</div>
+		</div>
+		{% endfor %}
+		</span>
+	</div>
+</div>
+{% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+{% include 'includesort.html' %}
+{% endwith %}
+
+{% include 'footer.html' %}

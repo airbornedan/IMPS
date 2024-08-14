@@ -1,0 +1,33 @@
+{% include 'header.html' %}
+<div class="container-flex">
+<div class="row">
+<p class="page_title">Box {{box_num}} updated</p>
+</div>
+	<div class="row">
+                <div class="col col-auto pe-5">
+			<div class="row">
+				Category:
+			</div>
+			<div class="row">
+	                        <input list="item_cat" name="item_cat" placeholder="{{box_cat}}" readonly></label>
+        	         </div>
+		</div>
+                <div class="col col-auto">
+			<div class="row">
+				Box name
+			</div>
+			<div class="row">
+				<input type="text" id="box_name" name="box_name" size="25" value="{{- box_name -}}" readonly>
+			</div>
+                </div>
+
+	</div>
+	<div class="row pt-3">
+		<div>
+               <div class="col">
+                        <p><b>Redirecting in 2 seconds</b></p>
+                </div>
+		</div>
+	</div>
+</div>
+<meta http-equiv="refresh" content="2;url=/" />

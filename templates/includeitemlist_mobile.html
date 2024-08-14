@@ -1,0 +1,33 @@
+<div class="container-flex"
+{% set ns = namespace(c = 0) %}
+{{ITEM_IMAGE_DIR}}
+<div class="item_display_table" id="itemdisplaytable">
+    <span class="table_body">
+        <div class="table_row">
+        {%- for item_num, item_name, box_num, item_pic, item_date, item_cat, item_desc in item_list %}
+        {% set inv_len=(inv_len|length) %}
+        {% set ns.c = ns.c + 1 %}
+         <div class="table_cell col col-auto p-4 border">
+            <a href="/edititemdetail/{{item_num}}">
+                {% if item_pic=="none.jpg" %}                  
+                    <div style="text-align: center;"> 
+                                <img src="/static/images/items/none.jpg">
+                         <div style="position:relative;  top:-120px; ">
+                             <span style="font-size: 36px; background-color: white; 
+                                          height: 48px;">
+                                 {{item_name}}
+                             </span>
+                         </div>
+                    </div>
+                {% else %}
+            <img src="{{ITEM_IMAGE_DIR}}{{item_pic}}" class="p_photos" width="300px;">
+                {% endif %}
+            </a>
+         </div>
+       {% if (ns.c/3)==((ns.c/3)|int) %}
+           </div>
+           <div class="table_row">
+       {% endif %}
+ {%- endfor %}
+</div>
+</div>

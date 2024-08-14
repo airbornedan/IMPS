@@ -1,0 +1,14 @@
+{% include 'header.html' %}
+<p class="page_title">Enter search term</p>
+<form action="/search_result" method = "POST">
+  <div class="container-fluid">
+  <div class="row">
+    <div class="col col-auto pt-2"><input id="search-term" type="text" name="search-term"></div>
+    <div class="col">
+     <button type="submit" class="imps search">Search</button>
+    </div>
+  </div>
+</div>
+</form>
+
+{% include 'footer.html' %}

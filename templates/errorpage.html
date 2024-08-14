@@ -1,0 +1,15 @@
+{% include "header.html" %}
+
+<div class="pb-3 mt-5"><h1>Sorry!</h1>
+{{err_message}}<br>
+</div>
+<div class="mb-3 mt-2">
+<img src="/static/images/sad_imps.png">
+</div>
+<div class="mb-3 mt-2">
+<a href="{{err_page_from}}"><br>
+<button class="imps back">Back</button>
+</a>
+</div>
+
+{% include 'footer.html' %}

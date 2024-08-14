@@ -1,0 +1,33 @@
+{% include 'header.html' %}
+<p class="page_title">Photo File Cleanup</p>
+<b>Orphans</b>
+<hr>
+<div class="container-flex">
+{% for elem in orphans %}
+       <input type="hidden" name="oa_{{loop.index}}" value="{{elem}}"></inpu>
+{% endfor %}
+
+{% for elem in orphans %}
+	<div class="row m-3 border">
+		<div class="col col-auto">
+			<input type="checkbox" id="{{elem}}"></input>
+		</div>
+		<div class="col col-auto">
+			{{elem}}
+		</div>
+		<div class="col col-9">
+			<img src="{{ITEM_IMAGE_DIR}}{{elem}}" class="thumbnail"
+		             style="display:inline-block;  max-width:230px;  
+                                    max-height:50px;  width: auto;  height: auto;">
+		</div>
+	</div>
+{% endfor %}
+</div>
+<a href="/cp_delorphans">
+<button class="btn btn-rounded imps trash" style="width: 180px;">Delete selected</button>
+</a>
+<a href="/del_allorphans">
+<button class="btn btn-rounded imps trash" style="width: 140px;">Delete all</button>
+</a>
+
+{% include 'footer.html' %}

@@ -1,0 +1,20 @@
+{% include 'header.html' %}
+<p class="page_title">Select category to show items</p>
+<form action="/itemsbycategory" method="POST">
+  <div class="container-fluid">
+  <div class="row">
+    <div class="col md-auto col-1 pt-2">
+     <select id="category" name="category">
+        {% for cat_name in available_cats %}
+		<option value="{{cat_name}}">{{cat_name}}</option>
+        {% endfor %}
+    </select>
+    </div>
+    <div class="col col-11 ps-2">&nbsp;
+      <button type="submit" class="imps categories">Items</button>
+    </div>
+  </div>
+</div>
+</form>
+
+{% include 'footer.html' %}

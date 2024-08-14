@@ -1,0 +1,21 @@
+{% include 'header.html' %}
+<p class="page_title">Added box number: {{box_num}}</p>
+<div class="row">
+  <div class="col">
+    <p><b>Box category:</b> {{box_cat}}</p>
+    <p><b>Box name:</b> {{box_name}}</p>
+  </div>
+  <div class="col">
+       <a href="#" 
+       onclick="window.open('/boxlabel/{{box_num}}',
+      'newwindow', 'width=750, height=550'); return false;">
+      <img src="/static/images/icons/qr_icon.png" height="30" width="30">
+       </a>
+   </div>
+</div>
+<div class="row">
+  <a href="/additem">
+    <button class="imps add" style="width: 160px;">Add items</button>
+  </a>
+</div>
+{% include 'footer.html' %}

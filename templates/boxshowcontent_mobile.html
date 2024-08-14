@@ -1,0 +1,44 @@
+{% include 'header.html' %}
+<div class="container-flex">
+<div style="position:absolute; top:0; left:800px; z-index:1000; width: 150px;">
+    <div class="row mt-1" >
+      <div class="col col-auto p-1">
+        <div class="border view_switch">
+         <button type="submit" class="mobile_set_view btn btn-circle">
+         </button>
+         <a href="/boxviewswitch/{{box_num}}">
+         <button class="desktop btn btn-circle">
+         </button></a>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<div class="row w-100">
+        <div class="col col-10">
+		<div class="row">
+			<div class="col col-2 p-2 page_title">
+                		Box {{box_num}} contents
+			</div>
+			<div class="col col-10 pt-3">
+                                {% if box_name != "" %}
+                                        {{box_name}}&nbsp;
+                                {% endif %}
+			</div>
+		</div>
+	</div>
+        <div class="col col-2">
+                <a href="/static/images/qrcodes/qr_code_for_box_{{box_display}}.png"
+                onclick="window.open('/boxlabel/{{box_num}}',
+                'newwindow', 'width=750, height=550'); return false;">
+                <button class="ico_imps ico_qr"></button>
+                </a>
+        </div>
+</div>
+{% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+{% include 'includeitemlist_mobile.html' %}
+{% endwith %}
+
+
+{% include 'footer.html' %}
+

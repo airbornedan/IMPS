@@ -1,0 +1,56 @@
+{% include 'header.html' %}
+	<p class="page_title">Item <span class="item_in_title">{{item_name}}</span></p>
+	<div class="row">
+		<div class="col col-3">		
+	                <div class="row">
+                	        <div class="col col-auto p-2">
+					<b>Box:</b>
+				</div>
+                                <div class="col col-auto p-2">
+					 {{box_num}}
+				</div>
+        	        </div>
+	                <div class="row">
+                                <div class="col col-auto p-2">
+	        	                <b>Date:</b>
+				</div>
+                                <div class="col col-auto p-2">
+					{{item_date}}
+				</div>
+	                </div>
+        	        <div class="row">
+                                <div class="col col-auto p-2">
+	                	        <b>Category</b>
+				</div>
+                                <div class="col col-auto p-2">
+					{{ item_cat }}
+				</div>
+	                </div>
+       			<div class="row">
+                                <div class"col col-auto p-2">
+					{% if (item_desc != "") %}
+						<b>Description:</b>
+					{%endif %} &nbsp;
+				</div>
+				<div class"col col-auto p-2">
+					{{item_desc}}
+				</div>
+		        </div>
+		</div>
+	        <div class="col col-auto p3 border">
+	                <div>
+        	                <img src="{{ITEM_IMAGE_DIR}}/{{ item_pic }}" style="height: 150px; overflow: hidden;">
+                	</div>
+	        </div>
+        <div class="row mt-4">
+                <div>
+			<a href="/">
+	                       	<button class="imps home">
+					HOME
+				</button>
+			</a>
+                </div>
+        </div>
+
+{% include 'footer.html' %}
+

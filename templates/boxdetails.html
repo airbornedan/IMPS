@@ -1,0 +1,42 @@
+{% include 'header.html' %}
+<div class="container-flex">
+	<div class="row">
+		<p class="page_title">Edit box {{box_num}}</p>
+		<form name="update_box" action="/boxeditsuccess" method = "POST">
+		<input type="hidden" name="box_num" id="box_num" value="{{box_num}}">
+	</div>
+	<div class="row">
+                <div class="col col-auto pe-5">
+			<div class="row">
+				Category:
+			</div>
+			<div class="row">
+                        <input list="box_cat" name="box_cat" placeholder="{{box_cat}}"></label>
+                          	<datalist id="box_cat">
+                                        {% for cat_num , cat_name in categories%}
+                                                <option value="{{cat_name}}">{{cat_name}}</option>
+                                        {%endfor%}
+                              	</datalist></label></i>
+        	         </div>
+		</div>
+                <div class="col col-auto">
+			<div class="row">
+				Box name
+			</div>
+			<div class="row">
+				<input type="text" id="box_name" name="box_name" size="25" value="{{- box_desc -}}">
+			</div>
+                </div>
+
+	</div>
+	<div class="row pt-3">
+		<div>
+               <div class="col">
+                        <button type="submit" id="submit_button" class="imps update">
+ 				Update
+			</button>
+                </div>
+		</div>
+	</form>
+	</div>
+</div>

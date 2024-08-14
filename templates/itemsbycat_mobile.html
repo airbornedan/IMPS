@@ -1,0 +1,33 @@
+{% include "header.html" %}
+<div style="position:absolute; top:0; left:800px; z-index:1000; width: 150px;">
+  <div class="container-flex">
+    <div class="row mt-1" >
+      <div class="col col-auto p-1">
+        <div class="border view_switch">
+	  <button type="submit" class="mobile_set_view btn btn-circle">
+          </button>
+         <a href="/itemsbycat_view_switch/{{cat_name}}">
+         <button type="submit" class="desktop btn btn-circle">
+         </button></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row w-100 m-3">
+        <div class="col col-9">
+                <p class="page_title">Items categorized as </i>{{cat_name}}<i></p>
+        </div>
+        <div class="col col-2 ms-0">
+                <p class="page_title">&nbsp;</p>
+        </div>
+        <div class="col col-1">
+		&nbsp;
+        </div>
+</div>
+{% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+{% include 'includeitemlist_mobile.html' %}
+{% endwith %}
+{% include 'includesort.html' %}
+{% include 'footer.html' %}

@@ -1,0 +1,164 @@
+{% include 'header.html' %}
+
+<!-- Modal dialog box html-->
+<div id="myModal" class="modal">
+	<div class="modal-content">
+		<div class="row mt-2">
+			<div class="col">
+				<div class="warning"></div>
+			</div>
+			<div class="col col-auto mt-3 mb-3">
+				<span id="err_message"></span>
+			</div>
+			<div class="col col-auto">
+				<div>
+					<span class="close">&times;</span>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Page contents -->
+<div class="row pb-3">
+<p class="page_title">Delete a box</p>
+</div>
+<form name="del_box_form" id="del_box_form" action="/delboxconf" method = "POST" onsubmit="return validateForm();">
+<div class="container-flex>
+        <div class="row mt-auto">
+                <div class="col">Enter box number to delete: 
+			<input type="text" size="5" id="box_to_del" name="box_to_del" value="{{box_to_del}}">
+                </div>
+        </div>
+<hr>
+	<div class="row mt-3 mb-3">
+		<b>Choose what to do with items assigned ot this box:</b>
+	</div>
+		<p>
+			<input type="radio" id="orphan" name="item_handling" value="orphan" checked> Delete box only, leave items.
+		</p>
+		<p>
+                        <input type="radio" id="move" name="item_handling" value="move"> Delete box, move all items to a different box.
+		</p>
+		<p>
+                	<input type="radio" id="delete" name="item_handling" value="delete"> Delete box and all items in it.
+		</p>
+	<div class="row mt-4">
+		<div class="col align-auto-self-start"> 
+                        <button type="submit" id="submit_button" class="imps trash">
+                        	&nbsp;Next
+			</button>
+		</div>
+        </div>   
+</div>
+</form>
+
+<!-- Modal dialog and form validation HTML -->
+<script>
+var modal = document.getElementById("myModal");
+var btn = document.getElementById("myBtn");
+var span = document.getElementsByClassName("close")[0];
+span.onclick = function() {
+  modal.style.display = "none";
+}
+
+document.getElementById("submit_button").addEventListener("click", function(event){
+  event.preventDefault()
+  validateForm();
+});
+
+function validateForm() {
+    var no_box_selected_flag;
+    var no_such_box_flag;
+    var not_empty_flag;
+
+    no_box_selected_flag="false";
+    let box_num = document.forms["del_box_form"]["box_to_del"].value;
+    if (box_num == ""){
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="You must enter a box number.";
+        no_box_selected_flag = "true";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+    }
+
+  // Check the the number is a numeral
+
+    if (isNaN(box_num)){
+      modal.style.display = "block";
+      document.getElementById('err_message').innerHTML="Box numbers must be numerals.";
+      span.onclick = function() {
+          modal.style.display = "none";
+      }
+      return false;
+    }
+
+  //Check if box is in use
+
+    const boxes_in_use = {{box_nums|tojson}};
+    //convert to string array for comparison to box_num from form
+    boxes_in_use_str = boxes_in_use.map(function(e){return e.toString()});
+    no_such_box_flag = "true";
+    for (let i=0; i < boxes_in_use.length; i++){
+        cur_type = typeof(boxes_in_use_str[i]);
+        if (boxes_in_use_str[i] == box_num){
+           no_such_box_flag = "false";
+        }
+    }
+    if (no_such_box_flag == "true"){
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="Box "+box_num+" is not in use. <br>Please select a different box number.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+       return false;
+    }
+
+//    const not_empty_boxes = {{not_empty_box_num_list|tojson}};
+    //convert to string array for comparison
+//    used_boxes = not_empty_boxes.map(function(e){return e.toString()});
+
+//    empty_flag = "true";
+//    for (let i=0; i < used_boxes.length; i++){
+//        cur_type = typeof(used_boxes[i]);
+//        if (used_boxes[i] == box_num){
+//           empty_flag = "false";
+//        }
+//    }
+//    if (empty_flag == "false"){
+//        modal.style.display = "block";
+//        document.getElementById('err_message').innerHTML="Box "+box_num+" is not empty.";
+//        document.forms["del_box_form"].preventDefault();
+//        span.onclick = function() {
+//            modal.style.display = "none";
+//        }
+//    }
+//    if (no_box_selected_flag=="false" && no_such_box_flag == "false" && empty_flag == "true"){
+//       document.getElementById("del_box_form").submit();
+//    }
+
+    var ele = document.getElementsByName('item_handling');
+        for (i = 0; i < ele.length; i++) {
+            if (ele[i].checked)
+                item_handling = (ele[i].value);
+        }
+
+    if (item_handling == "move"){
+        document.getElementById('del_box_form').action = "/boxmoveitemsconf";
+        document.getElementById('del_box_form').submit();
+    }
+    else if (item_handling == "orphan"){
+        document.getElementById('del_box_form').action = "/boxorphanitemsconf";
+        document.getElementById('del_box_form').submit();
+    }
+    else if (item_handling == "delete"){
+        document.getElementById('del_box_form').action = "/delboxconf";
+        document.getElementById('del_box_form').submit();
+    }
+    
+}
+
+</script>
+{% include 'footer.html' %}

@@ -1,0 +1,33 @@
+{% include 'header.html' %}
+<style>
+.a{
+  border:0px;
+}
+</style>
+<div class="mt-3">
+<p class="page_title">Delete Box {{ box_to_del }}? </p>
+</div>
+<div class="container-flex">
+<div class="row mt-auto mb-2">
+ <div class="warning"> </div>
+<div class="col">
+<p> You are about to <b>permanently</b> delete box {{box_to_del}}.</p>
+<p> This box is <b>NOT EMPTY</b>. If you continue, all items in 
+    this box will be assigned to <b>no</b> box. This means that 
+    they will not have a box number.</p>
+    <p class="note">Note: You can find these items using IMPS and assign them to a new
+       box after you have deleted the box they are assigned to.
+</p>
+This cannot be undone.
+</div>
+</div>
+</div>
+<div class="row mt-4">
+        <div class="col"><a href="/">
+                <form action="/boxorphanitemssuccess" method="POST">
+		<input type="hidden" name="box_to_del" id="box_to_del" value="{{box_to_del}}">
+                <button type="submit" id="submit_button" class="imps trash">
+                DELETE</button>
+                </form>
+        </div>
+</div>

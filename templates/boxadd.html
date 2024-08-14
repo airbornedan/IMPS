@@ -1,0 +1,208 @@
+{% include 'header.html' %}
+<script type="text/javascript">
+function initTextDisable() {
+    document.getElementById("box_num").readonly = true;
+    document.getElementById("box_num").style.color="gray";
+    document.getElementById("next_available_box_num").readonly = false;
+    document.getElementById("next_available_box_num").style.color="black";
+}
+window.onload = initTextDisable;
+
+function textDisablerBN(){
+   document.getElementById("box_num").readonly = true;
+   document.getElementById("box_num").style.color="gray";
+   document.getElementById("next_available_box_num").readonly = false;
+   document.getElementById("next_available_box_num").style.color="black";
+
+}
+
+function textDisablerNA(){
+   document.getElementById("next_available_box_num").readonly = true;
+   document.getElementById("next_available_box_num").style.color = "gray";
+   document.getElementById("box_num").readonly = false;
+   document.getElementById("box_num").style.color = "black";
+
+}
+
+function radioButtonSwitchNA(){
+   radiobtn = document.getElementById("choose_box_num");
+   radiobtn.checked = true;
+}
+
+function radioButtonSwitchBN(){
+   radiobtn = document.getElementById("next_available_box");
+   radiobtn.checked = true;
+}
+
+function chooseNumberCaller(){
+   radioButtonSwitchNA();
+   textDisablerNA();
+}
+
+function faNumberCaller(){
+   radioButtonSwitchBN();
+   textDisablerBN();
+}
+
+</script>
+
+<!-- Modal dialog box html-->
+<div id="myModal" class="modal">
+        <div class="modal-content">
+                <div class="row mt-2">
+                        <div class="col">
+                                <div class="warning"></div>
+                        </div>
+                        <div class="col col-auto mt-3 mb-3">
+                                <span id="err_message"></span>
+                        </div>
+                        <div class="col col-auto">
+                                <div>
+                                        <span class="close">&times;</span>
+                                </div>
+                        </div>
+                </div>
+        </div>
+</div>
+
+<!-- Page content -->
+<p class="page_title">Add box</p>
+<div class="container-flex">
+<form name="add_box_form" action="/boxadded"  method = "POST" onsubmit="return validateForm();">
+	<div class="row border mb-2">
+		<b>Box number</b>
+		<div class="row mt-2">
+			<div class="col col-2">
+				<input type="radio" id="next_available_box" 
+                        	       name="box_type" value="next_available" checked onchange="textDisablerBN()">
+				First available unused box number: 
+			</div>
+			<div class="col col-auto">
+				<input type="hidden" name="next_num" id="next_num" value="{{first_available_box}}">
+				<input type="text" name="next_available_box_num" 
+        	                       id="next_available_box_num" readonly size="5" value="{{first_available_box}}" onfocus="faNumberCaller()">
+			</div>
+		</div>
+		<div class="row mt-3 mb-3">
+			<div class="col col-2">
+				<input type="radio" id="choose_box_num" 
+        	                       name="box_type" value="choose_number" onchange="textDisablerNA()" >
+			Choose number
+			</div>
+			<div class="col col-auto">
+				<input id="box_num" name="box_num" type="text"  size="5" onfocus="chooseNumberCaller()">
+			</div>
+		</div>
+	</div>
+	<div class="row pt-3">
+		<div class="row"
+	                <div class="col col-2">
+				Category
+			</div>
+			<div class="col">
+				 <input list="box_cat" name="box_cat" placeholder="uncategorized"/></label>
+	                                <datalist id="box_cat" name="box_cat_selector">
+                                        {% for cat_num , cat_name in categories%}
+                                        <option value="{{cat_name}}">{{cat_name}}</option>
+                                        {%endfor%}
+                                </datalist>
+			</div>
+                </div>
+
+        </div>
+	<div class="row pt-1">
+		<div class="col col-2">
+			<span style="color: #777;">Box name</span>
+			<input id="box_name" type="text" placeholder="(optional)" name="box_name">
+		</div>
+	</div>
+	<div class="row mt-4">
+		<div class="col">
+		        <button type="submit" id="submit_button" class="imps box_closed">Add Box</button>
+		</div>
+	</div>
+</form>
+</div>
+
+<!-- Modal dialog and form validation JS --> 
+<script>
+// Modal dialog setup
+var modal = document.getElementById("myModal");
+var btn = document.getElementById("myBtn");
+var span = document.getElementsByClassName("close")[0];
+span.onclick = function() {
+  modal.style.display = "none";
+}
+
+// Validate form fields
+function validateForm() {
+    let box_num = document.forms["add_box_form"]["box_num"].value;
+    let box_type = document.forms["add_box_form"]["box_type"].value;
+
+
+    if (box_num == "" && box_type != "next_available"){
+        //alert ("A box number is required.");
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="You must enter a box number.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+    }
+
+     // Check the the number is a number not string
+
+     if ((isNaN(box_num)) && (box_type=="choose_number")){
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="Box numbers must be numerals.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+     }
+
+     // Check the the number is an int
+
+    intcheck = Math.round(box_num);
+
+    if ((intcheck != box_num) && (box_type == "choose_number")){
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="Box numbers must be integers.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+    }
+
+    if (box_type=="choose_number"){
+        let i=0;
+        const boxes_in_use = {{box_nums|safe}}
+        while (i < boxes_in_use.length){
+             if (boxes_in_use[i] == box_num){
+                 //alert ("Box number currently in use.");
+                 modal.style.display = "block";
+                 document.getElementById('err_message').innerHTML="Box "+box_num+" is already in use. Please choose a different box number.";
+                 span.onclick = function() {
+                     modal.style.display = "none";
+                 }
+                 return false;
+                 break;
+             }
+             i++;
+        }
+    }
+    let selected_cat = document.forms["add_box_form"]["box_cat"].value;
+    if (selected_cat.length==0){
+         document.forms["add_box_form"]["box_cat"].value = "uncategorized";
+
+    }
+
+
+}
+</script>
+
+
+
+{% include 'footer.html' %}
+
+

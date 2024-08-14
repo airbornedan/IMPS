@@ -1,0 +1,75 @@
+{% include 'header.html' %}
+
+{% set item_display = item_result [0][1] %}
+{% set item_to_del = item_result [0][0] %}
+<p class="page_title">Delete <span class="item_in_title">{{item_display}}</span> from IMPS?</p>
+
+
+<div class="container">
+        <div class="row">
+                <p class="page_title">Delete: <i>{{item_display}}</i></p>
+        </div>
+        {%- for item_num, item_name, box_num, item_pic, item_date, item_cat, item_desc in item_result %}
+        <div class="row">
+                <div class="col col-3 p-3">
+                        <div class="row">
+                                <div class="col col-3 p-3">
+                                        Name:
+                                </div>
+                                <div class="col col-3 p-3">
+                                        <input type="text" value="{{ item_name }}" name="item_name" id="item_name" size="15" readonly>
+                                </div>
+                        </div>
+                        <div class="row">
+                                <div class="col col-3 p-3">
+                                        Box # :
+                                </div>
+                                <div class="col col-3 p-3">
+                                        <input type="text" value="{{box_num}}" size="3" name="box_num" id="box_num" readonly>
+                                </div>
+                        </div>
+                        <div class="row">
+                                <div class="col col-3 p-3">
+                                        Date:
+                                </div>
+                                <div class="col col-3 p-3">
+                                <input type="date"
+                                        id="item_date"
+                                        name="item_date"
+                                        value="{{item_date}}"
+                                        readonly>
+                                </div>
+                        </div>
+                        <div class="row">
+                                <div class="col col-3 p-3">
+                                        Category:
+                                </div>
+                                <div class="col col-3 p-3">
+                                        <input type="text" value="{{item_cat}}" readonly>
+                                </div>
+                        </div>
+                        <div class="row">
+                                <div class="col col-auto p-3">
+                                        Description:
+                                </div>
+                                <div class="col col-auto p-3">
+                                        <textarea rows="3" cols="21" name="item_desc" id="item_desc" readonly>
+						{{ item_desc }}
+					</textarea>
+                                </div>
+                        </div>
+                </div>
+                <div class="col col-auto pt-5">
+                        <div style="border: 2px solid black;">
+                                <img src="/static/images/items/{{ item_pic }}" style="height:300px; overflow: hidden;">
+                        </div>
+                </div>
+        </div>
+        {%- endfor %}
+
+<form action="/itemdeleted/{{item_to_del}}" id="submit">
+<button type="submit" name="del_button" id="del_button" value="Delete" class="imps trash">
+DELETE</button>
+</form>
+{% include 'footer.html' %}
+

@@ -1,0 +1,143 @@
+{% include 'header.html' %}
+<!-- Modal dialog box html-->
+<div id="myModal" class="modal">
+        <div class="modal-content">
+                <div class="row mt-2">
+                        <div class="col">
+                                <div class="warning"></div>
+                        </div>
+                        <div class="col col-auto mt-3 mb-3">
+                                <span id="err_message"></span>
+                        </div>
+                        <div class="col col-auto">
+                                <div>
+                                        <span class="close">&times;</span>
+                                </div>
+                        </div>
+                </div>
+        </div>
+</div>
+<!-- Page contents -->
+<p class="page_title">Add a new item</p>
+<form action= "/iteminsert" name="add_item" enctype="multipart/form-data" method="POST" onsubmit="return validateForm(event);">
+<div class="container-flex">
+	<div class="row">
+		<div class="col col-2 mb-3">
+			<div class="row">
+				<div class="col mt-auto align-bottom pb-2">
+					<input id="item_name" type="text" placeholder="item name" name="item_name" size="12">
+				</div>
+				<div class="col float-left">
+					<input name="box_num" id="box_num" type="text" size="5" placeholder="Box #">
+				</div>
+			</div>
+		</div>
+		<div class="col col-7">Category: 
+			<input list="item_cat" name="item_cat" placeholder="uncategorized">
+				<datalist id="item_cat">
+			        {% for cat_num , cat_name in categories%}
+				        <option value="{{cat_name}}">{{cat_name}}</option>
+			        {%endfor%}
+				</datalist>
+		</div>
+	</div>
+	<div class="row float-left">
+		<div class="col">Description (Optional)
+		</div>
+	</div>
+        <div class="row mt-1 mb-3 float-left">
+                <div>
+                        <textarea rows="3" cols="50" name="item_desc" id="item_desc"></textarea>
+                </div>
+        </div>
+        <div class="row border p-1">
+		<div class="row pt-2">
+			<div class="col col-auto">	
+			<input type="radio" id="yes" name="photo_yes_no" value="yes" checked>
+        	        	<label>Photo</label><br>
+			</div>
+		</div>
+		<div class="row pt-2">
+        	        <div class="col col-auto">
+	        	        <input class="form-control" type="file" id="file" name="file" accept="image/*" capture="camera"><br>
+			</div>
+		</div>
+		<div class="row">
+        	        <div class="col col-auto">
+	        	        <input type="radio" id="no" name="photo_yes_no" value="no">
+        	        	        <label>No photo</label>
+			</div>
+        	</div>
+	</div>
+	<div class="row pt-3 mt-auto">
+		<button type="submit" class="imps add">
+			Add 
+		</button>
+	</div>
+</div>
+
+</form>
+
+<!-- Modal dialog and form validation HTML -->
+<script>
+var modal = document.getElementById("myModal");
+var btn = document.getElementById("myBtn");
+var span = document.getElementsByClassName("close")[0];
+span.onclick = function() {
+  modal.style.display = "none";
+}
+
+
+function validateForm() {
+  let name_input = document.forms["add_item"]["item_name"].value;
+  if (name_input == ""){
+    //alert("Item name is required");
+    modal.style.display = "block";
+    document.getElementById('err_message').innerHTML="An item name is required.";
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+    return false;
+  }
+
+  let num_input = document.forms["add_item"]["box_num"].value;
+  if (num_input == ""){
+    //alert("Box number is required");
+    modal.style.display = "block";
+    document.getElementById('err_message').innerHTML="You must enter a box number.";
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+
+    return false;
+  }
+
+  let new_num_input = document.forms["add_item"]["box_num"].value;
+    if (isNaN(new_num_input)){
+      //alert("That box number is not valid");
+      modal.style.display = "block";
+      document.getElementById('err_message').innerHTML=" "+new_num_input+" is not a number.";
+      span.onclick = function() {
+          modal.style.display = "none";
+    }
+    return false;
+  }
+
+  var num_to_check = Number(num_input) ;
+  const valid_numbers = {{available_boxes}};
+  if (valid_numbers.includes(num_to_check)!=1) {
+    //alert("That box number is not valid");
+    modal.style.display = "block";
+    document.getElementById('err_message').innerHTML="Box "+num_to_check+" is not in use. <br>Please select a different box number.";
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+
+    return false;
+  }
+}
+
+</script>
+
+
+{% include 'footer.html' %}

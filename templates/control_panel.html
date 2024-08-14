@@ -1,0 +1,164 @@
+{% include 'header.html' %}
+<style>
+ /* Popup container */
+.popup {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+/* The actual popup (appears on top) */
+.popup .popuptext {
+  visibility: hidden;
+  width: 160px;
+  background-color: #555;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 8px 0;
+  position: absolute;
+  z-index: 1;
+  bottom: 15%;
+  left: 10%;
+  margin-left: 10px;
+}
+
+/* Popup arrow */
+.popup .popuptext::after {
+/*  content: "";*/
+  position: relative;
+  top: 50px;
+  left: 40px;
+  margin-left:  15px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #555 transparent transparent transparent;
+}
+
+/* Toggle this class when clicking on the popup container (hide and show the popup) */
+.popup .show {
+  visibility: visible;
+}
+
+</style>
+<script>
+function myFunction() {
+  var popup = document.getElementById("myPopup");
+  popup.classList.toggle("show");
+}
+</script>
+
+<p class="page_title">Settings</p>
+<div class="container-flex">
+	<div class="row pb-3">
+		<div class="col col-auto"><a href="/cp_categories">
+			<button type="submit" class="imps cp_categories"> 
+        	        Categories
+	                </button></a>
+		</div>
+	</div>
+        <div class="row">
+                <div class="col col-auto"><a href="/cp_photofilescleanup">
+                        <button type="submit" class="imps cp_photo">
+                        Show unlinked photos
+                        </button></a>
+                </div>
+
+        </div>
+        <div class="row">
+                <div class="col col-auto"><a href="/cp_orphaneditemscleanup">
+                        <button type="submit" class="imps cp_orphans">
+                        Show orphaned items
+                        </button></a>
+                </div>
+
+        </div>
+
+
+        </form>
+<hr>
+        <div class="row">
+ 		<p><b>Database settings</b></p>
+	</div>
+        <div class="row">
+                <div class="col col-auto pb-2">
+			<form action ="/cp_dbbackup">
+                        <button type="submit" class="imps backup"> 
+                        Backup Now
+                        </button></form>
+                </div>
+		<div class="col col-auto">
+			<a href="{{backup_loc}}">
+                        <button type="submit" class="btn btn-rounded ico_imps download"></button>
+			Last backup ({{backup_date}})</a>
+		</div>
+
+	</div>
+	<div class="row">
+	<form action="/cp_update">
+		<div class="col border">
+                        <div class="popup" onclick="myFunction()">
+			<i class="fas fa-question-circle"
+                        title="Edit this in the config.ini file" 
+                        style="color:#a40000"></i>
+ 			<span class="popuptext" id="myPopup">Edit these in the config.ini file. </span>
+			</div>
+			<div class="row p-2">
+				<div class="col col-2">
+					Database server URL
+				</div>
+		                <div class="col col-auto">
+					<input type="text" placeholder="{{dbhost}}" name="dbhost" id="dbhost">
+				</div>
+			</div>
+                        <div class="row p-2">
+		                <div class="col col-2">
+					Database name
+				</div>
+		                <div class="col col-auto">
+					<input type="text" placeholder="{{dbname}}" name="dbname" id="dbname">
+				</div>
+			</div>
+                        <div class="row p-2">
+                                <div class="col col-2">
+                                        Database username
+                                </div>
+                                <div class="col col-auto">
+                                        <input type="text" placeholder="{{dbuser}}" name="dbuser" id="dbpass">
+                                </div>
+                        </div>
+                        <div class="row p-2">
+                                <div class="col col-2">
+                                        Database password
+                                </div>
+                                <div class="col col-auto">
+                                        <input type="text" placeholder="{{dbpass}}" name="dbpass" id="dbpass">
+                                </div>
+                        </div>
+			<hr>
+                        <div class="row p-2">
+                                <div class="col col-2">
+                                        Image directory
+                                </div>
+                                <div class="col col-auto">
+                                        <input type="text" placeholder="{{ITEM_IMAGE_DIR}}" name="dbuser" id="dbpass">
+                                </div>
+                        </div>
+                        <div class="row p-2">
+                                <div class="col col-2">
+                                        Backup directory
+                                </div>
+                                <div class="col col-auto">
+                                        <input type="text" placeholder="{{BACKUP_DIR}}" name="dbpass" id="dbpass">
+                                </div>
+                        </div>
+
+		</div>
+
+	</div>
+	</form>
+</div>
+
+{% include 'footer.html' %}
+
+

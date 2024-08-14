@@ -1,0 +1,21 @@
+{% include 'header.html' %}
+
+<p class="page_title">You have deleted Box {{deleted_box}}</p>
+<div class="container">
+        <p>All items that were in box {{deleted_box}} have been moved to box {{new_box_num}}.</p>
+	<div class="row">
+		<div class="col col-auto">
+			<a href="/">
+				<button class="btn imps home">Home</button>
+			</a>
+		</div>
+		<div class="col">
+			<a href="/showboxcontent/{{new_box_num}}">
+				<button class="btn imps search">Box {{new_box_num}}</button>
+			</a>
+		</div>
+	</div>
+</div>
+
+
+{% include 'footer.html' %}

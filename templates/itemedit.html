@@ -1,0 +1,196 @@
+{% include 'header.html' %}
+{% set item_display = item_result [0][1] %}
+{% set item_number = item_result [0][0] %}
+<style>
+.titleDiv {
+  text-align: left;
+}
+.rowDiv {
+  border: 1px solid black;
+  float:left;
+  width: 80%;
+  padding-top: 10px;
+  display: inline;
+}
+.innerDiv {
+  float:left;
+  width: 33%;
+  padding-top: 10px;
+  display: inline-block;
+}
+.photoDiv{
+ border-width: 3px;
+ border-color: black;
+}
+
+</style>
+
+<!-- Modal dialog box html-->
+<div id="myModal" class="modal">
+        <div class="modal-content">
+                <div class="row mt-2">
+                        <div class="col">
+                                <div class="warning"></div>
+                        </div>
+                        <div class="col col-auto mt-3 mb-3">
+                                <span id="err_message"></span>
+                        </div>
+                        <div class="col col-auto">
+                                <div>
+                                        <span class="close">&times;</span>
+                                </div>
+                        </div>
+                </div>
+        </div>
+</div>
+	<div class="row border">
+		<p class="page_title">Edit: <i>{{item_display}}</i></p>
+	</div>
+	<form action="/updateitem/{{item_number}}"  
+               name="update_item" id="update_item" method="POST" 
+               onsubmit="return validateForm(event);">
+	{%- for item_num, item_name, box_num, item_pic, item_date, item_cat, item_desc in item_result %}
+	<div class="row">
+		<div class="col col-3 p-3"> 
+			<div class="row">
+                                <div class="col col-3 p-3">
+					Name: 
+				</div>
+                                <div class="col col-3 p-3">
+					<input type="text" value="{{ item_name }}" name="item_name" id="item_name" size="15">
+				</div>
+			</div>
+			<div class="row">
+				<div class="col col-3 p-3">
+					Box # :
+				</div>
+				<div class="col col-3 p-3">
+					<input type="text" value="{{box_num}}" size="3" name="box_num" id="box_num">
+				</div>
+			</div>
+                        <div class="row">
+                                <div class="col col-3 p-3">
+                                        Date:
+                                </div>
+                                <div class="col col-3 p-3">
+                                <input type="date"
+                                        id="item_date"
+                                        name="item_date" 
+                                        value="{{item_date}}">
+                                </div>
+                        </div>
+                        <div class="row">
+
+                                <div class="col col-3 p-3">
+                                        Category:
+                                </div>
+                                <div class="col col-3 p-3">
+					<input type="hidden" name="passed_in_cat" value="{{item_cat}}">
+	                                <input list="item_cat" name="item_cat" placeholder="{{item_cat}}"/></label>
+        	                                <datalist id="item_cat">
+                	                        {% for cat_num , cat_name in categories%}
+                        	                <option value="{{cat_name}}">{{cat_name}}</option>
+                                	        {%endfor%}
+                                        	</datalist>
+                                </div>
+                        </div>
+                        <div class="row">
+                                <div class="col col-auto p-3">
+					Description:
+                                </div>
+                                <div class="col col-auto p-3">
+	                                <textarea rows="3" cols="21" name="item_desc" id="item_desc">{{ item_desc }}</textarea>
+                                </div>
+                        </div>
+		</div>
+		<div class="col col-auto pt-5">
+			<div style="border: 2px solid black;">
+			<a href="/updatephoto/{{item_num}}">
+	                        <img src="/static/images/items/{{ item_pic }}" style="height:300px; overflow: hidden;">
+			</a>
+			</div>
+		</div>
+	</div>
+	{%- endfor %}
+	<div class="row">
+		<div class="col col-1">
+			<button type="submit" name="update_button" id="udpate_button" value="update" class="imps update">
+			UPDATE</button></form>
+		</div>
+		<div class="col col-10">
+		        <form action="/delitem/{{item_number}}"  name="del_item" id="del_item">
+			<button type="submit" name="delete_button" id="delete_button" value="delete" class="imps trash">
+                        DELETE</button>
+			</form>
+		</div>
+	</div>
+<!-- Modal dialog and form validation JS -->
+<script>
+// Modal dialog setup
+var modal = document.getElementById("myModal");
+var btn = document.getElementById("myBtn");
+var span = document.getElementsByClassName("close")[0];
+span.onclick = function() {
+  modal.style.display = "none";
+}
+
+// Validate form fields
+function validateForm() {
+    let box_num = document.forms["update_item"]["box_num"].value;
+    let item_name = document.forms["update_item"]["item_name"].value;
+
+
+     // Check that the box number is a number not string
+
+     if (isNaN(box_num)){
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="Box numbers must be numerals.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+     }
+
+     // Check that the box number is not empty
+
+     if (box_num == ""){
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="A box number is required.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+     }
+
+     // Check that the box number already exists
+
+     var num_to_check = Number(box_num) ;
+     const valid_numbers = {{available_boxes}};
+     if (valid_numbers.includes(num_to_check)!=1) {
+        //alert("That box number is not valid");
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="Box "+num_to_check+" is not in use. <br>Please select a different box number.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+     }
+
+    // Check that the item name is not empty
+
+    if (item_name == ""){
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="Item name is required.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+     }
+
+
+
+}
+</script>
+
+{% include 'footer.html' %}
+

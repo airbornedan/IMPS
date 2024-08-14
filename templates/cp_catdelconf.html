@@ -1,0 +1,92 @@
+{% include 'header.html' %}
+
+</script>
+
+<!-- Modal dialog box html-->
+<div id="myModal" class="modal">
+        <div class="modal-content">
+                <div class="row mt-2">
+                        <div class="col">
+                                <div class="warning"></div>
+                        </div>
+                        <div class="col col-auto mt-3 mb-3">
+                                <span id="err_message"></span>
+                        </div>
+                        <div class="col col-auto">
+                                <div>
+                                        <span class="close">&times;</span>
+                                </div>
+                        </div>
+                </div>
+        </div>
+</div>
+
+<p class="page_title">Delete category <i>{{cat_name}}</i></p>
+<form action="/cp_catdelsuccess/{{cat_num}}" method = "POST" name="edit_cat" onsubmit="return validateForm(event);">
+  <div class="container-fluid">
+  <div class="row">
+     <input type="hidden" id="can_name" name="cat_name" value="{{cat_name}}">
+     <p>You are about to delete the category "<i>{{cat_name}}</i>". This cannot be undone. </p>
+     <p>All items assigned to this category will have their category set to
+        <i>uncategorized</i>
+    </div>
+    <div class="row">
+      <button type="submit" class="btn btn-rounded imps trash">
+       Delete
+      </button>
+    </div>
+  </div>
+</div>
+</form>
+
+
+<script>
+var modal = document.getElementById("myModal");
+var btn = document.getElementById("myBtn");
+var span = document.getElementsByClassName("close")[0];
+span.onclick = function() {
+  modal.style.display = "none";
+}
+
+function validateForm() {
+  let num_input = document.forms["select_box"]["box-num"].value;
+
+  var num_to_check = Number(num_input) ;
+
+  if (num_input == ""){
+    //alert("Box number is required");
+    modal.style.display = "block";
+    document.getElementById('err_message').innerHTML="You must enter a box number.";
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+    return false;
+  }
+
+  if (isNaN(num_input)){
+    modal.style.display = "block";
+    document.getElementById('err_message').innerHTML="Box numbers must be numerals.";
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+    return false;
+  }
+
+  const valid_numbers = {{available_boxes}};
+
+  if (valid_numbers.includes(num_to_check)!=1) {
+    modal.style.display = "block";
+    document.getElementById('err_message').innerHTML="Box "+num_to_check+" is not in use. <br>Please select a different box number.";
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+
+    return false;
+  }
+}
+
+</script>
+
+
+
+{% include 'footer.html' %}

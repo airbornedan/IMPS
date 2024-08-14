@@ -1,0 +1,35 @@
+{% include "header.html" %}
+
+<div style="position:absolute; top:0; left:800px; z-index:1000; width: 150px;">
+  <div class="container-flex">
+    <div class="row mt-1" >
+      <div class="col col-auto p-1">
+	<div class="border view_switch">
+         <a href="/inventory_view_switch"><button type="submit" class="ico-imps mobile btn btn-circle">&nbsp;
+         </button></a>
+         <button type="submit" class="ico-imps desktop_set_view btn btn-circle">
+         </button>
+	</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row w-100 m-3">
+        <div class="col col-2">
+                <p class="page_title">All items</p>
+        </div>
+        <div class="col col-9 ms-0">
+                <p class="page_title">&nbsp;</p>
+        </div>
+        <div class="col col-1">
+		&nbsp;
+        </div>
+</div>
+
+
+{% include "includeitemlist.html" %}
+{% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+{% include 'includesort.html' %}
+{% endwith %}
+{% include 'footer.html' %}

@@ -1,0 +1,33 @@
+<link rel="stylesheet" href="/static/boxstyle.css">
+{% set box_num = box_num|int %}
+<table style="border: 5px solid black;" width="700px">
+<tbody>
+<tr style="border: 5px solid black;">
+<td colspan="2" style="text-align: center"><hr>I.M.P.S. Box Label<hr></td>
+</tr>
+<tr style="border: 2px solid black;">
+<td rowspan="2" width="50%"><img src="{{box_num_save_loc [1]}}"></td>
+<td style="text-align: center; padding-top: 30px;" width="50%"><b>Box Number</b></td>
+</tr>
+<tr>
+<td style="text-align: center">
+<span style="font-family: sans-serif;
+{% if box_num < 10 %}
+ font-size: 300px; font-weight: 600;">
+{% elif box_num > 99 %}
+ font-size: 100px;">
+{% else %}
+ font-size: 200px; font-weight: 600;">
+{% endif %}
+{{box_num}}
+</span>
+</td>
+</tr>
+<tr>
+<td colspan="2" style="text-align: center">
+<span style="font-family: sans-serif; font-size: 24px;">
+{{box_name}}
+</span></td>
+</tr>
+</table>
+<a href="javascript:window.open('','_self').close();">Close</a>

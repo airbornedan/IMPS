@@ -1,0 +1,55 @@
+{% include 'header.html' %}
+<script src="/static/tinysort.js"></script>
+<div class="container-flex">
+	<div style="position:absolute; top:0; left:800px; z-index:1000; width: 150px;">
+		<div class="container-flex">
+			<div class="row mt-auto" >
+				<div class="col col-auto p-1">
+					<form name="switch_view" action="/search_view_switch" method = "POST">
+						<input type="hidden" id="search-term" name="search-term" value="{{search_term}}">
+					        <div class="border view_switch">
+						        <a href="/inventory_view_switch">
+							<button type="submit" class="ico-imps mobile btn btn-circle">&nbsp;
+						        </button>
+							</a>
+						        <button type="submit" class="ico-imps desktop_set_view btn btn-circle">
+						        </button>
+					        </div>
+				        </form>
+			        </div>
+			</div>
+		</div>
+	</div>
+</div>
+{% if item_list %}
+<p class="page_title">Search results
+{% if (search_term != "") %}
+ for: {{search_term}}
+{% endif %}
+</p>
+{% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+{% include "includeitemlist.html" %}
+{% endwith %}
+{% else %}
+<div class="pb-3 mt-5"><p class="page_title">Sorry!</p>
+<p>No items matched <b> {{search_term}}</b>
+</p>
+</div>
+
+<div class="mb-3 mt-2">
+<img src="/static/images/sad_imps.png">
+</div>
+{% endif %}
+<div class="mb-3 mt-2">
+<a href="/search">
+<button type="button" class="imps back">
+BACK</button>
+</a> or 
+<a href="/"><button type="button" class="imps home">
+Home 
+</button></a>
+</div>
+</div>
+{% include 'includesort.html' %}
+{% include 'footer.html' %}
+

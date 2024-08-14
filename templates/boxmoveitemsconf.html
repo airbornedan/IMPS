@@ -1,0 +1,86 @@
+{% include 'header.html' %}
+
+<!-- Modal dialog box html-->
+<div id="myModal" class="modal">
+        <div class="modal-content">
+                <div class="row mt-2">
+                        <div class="col">
+                                <div class="warning"></div>
+                        </div>
+                        <div class="col col-auto mt-3 mb-3">
+                                <span id="err_message"></span>
+                        </div>
+                        <div class="col col-auto">
+                                <div>
+                                        <span class="close">&times;</span>
+                                </div>
+                        </div>
+                </div>
+        </div>
+</div>
+
+
+<p class="page_title">You are about to delete Box  {{old_box_num}}</p>
+<div class="container">
+	<p>You have chosen to move all items from this box to another box.</p>
+	<div class="col">
+		Select the new box for these items 
+	</div>
+	<div class="col">
+	        <form action="/boxmoveitemssuccess" method = "POST" name="select_box" onsubmit="return validateForm(event);">
+			<input type="hidden" name="box_to_del" id="box_to_del" value="{{old_box_num}}">
+			 <div class="row">
+				<div class="col md-auto col-1 pt-2">
+					<input id="new_box_num" type="text" name="new_box_num" size="5">
+				</div>
+				<div class="col md-auto col-11">
+				      <button type="submit" id="submit_button" class="imps box_closed">
+					       Move
+				      </button>
+				</div>
+			</div>
+		</form>
+	</div>
+</div>
+<script>
+var modal = document.getElementById("myModal");
+var btn = document.getElementById("myBtn");
+var span = document.getElementsByClassName("close")[0];
+span.onclick = function() {
+  modal.style.display = "none";
+}
+
+document.getElementById("submit_button").addEventListener("click", function(event){
+  event.preventDefault()
+  validateForm();
+});
+
+
+function validateForm() {
+  let num_input = document.forms["select_box"]["box-num"].value;
+
+  if (num_input == ""){
+    modal.style.display = "block";
+    document.getElementById('err_message').innerHTML="You must enter a box number.";
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+    return false;
+  }
+
+
+
+
+  if (valid_numbers.includes(num_to_check)!=1) {
+    modal.style.display = "block";
+    document.getElementById('err_message').innerHTML="Box "+num_to_check+" is not in use. <br>Please select a different box number.";
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+
+    return false;
+  }
+}
+
+
+{% include 'footer.html' %}

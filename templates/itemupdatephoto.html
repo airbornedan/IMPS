@@ -1,0 +1,34 @@
+{% include 'header.html' %}
+
+<p class="page_title">Update photo</p>
+<!--Here we display the name of the item from the function -->
+<div class="container-flex">
+	<div class="row">
+		<p>Upload photo for <b> {{item_name}}</b></p>
+	</div>
+        <div class="row">
+		<p>Current photo: </p>
+	</div>
+           <img src="/static/images/items/{{item_pic}}" style="max-width:230px;">
+	</div>
+        <div class="row"> &nbsp;
+	</div>
+	<div class="row">    
+		<div class="col col-2">
+	                <form method="post" action= "/photoupdated"  enctype="multipart/form-data">
+                        <!-- This hidden field passes the item_num back so we can 
+                         query and load the updated item page -->
+                        <input type="hidden" name="item_num" id="item_num" value="{{item_num}}">
+			<input class="form-control" type="file" id="file" name="file" 
+                                      style="color:#a40000;">
+		</div>
+		<div class="col col-1">
+			<a href="/">
+				<button type="submit" class="btn btn-rounded imps photo">
+					Upload 
+				</button>
+			</a>
+			</form>
+		</div>
+	</div>
+</div>

@@ -1,0 +1,156 @@
+{% include 'header.html' %}
+<script src="/static/tinysort.js"></script>
+<style>
+.item_display_table {
+    display: table;
+    border: 1px solid #ccc;
+    font-family: arial,helvetica,sans-serif;
+    border-collapse: collapse
+}
+.table_head {
+    display: table-header-group;
+    background-color: #ddd;
+}
+.table_label {
+    display: table-cell;
+    font-weight: bold;
+    border-bottom: 2px solid #ccc;
+    padding: 3px;
+}
+.table_body {
+    display: table-row-group;
+    background-color: #fff;
+
+}
+.table_row {
+    display: table-row;
+    line-height: 20px;
+    padding: 2px;
+    border-bottom: 1px solid #ddd;
+
+}
+.table_cell {
+    display: table-cell;
+    padding: 6px;
+}
+.table_cellblock {
+    padding: 2px 3px;
+}
+
+.btn-circle {
+           width: 30px;
+            height: 30px;
+            padding: 1px 0px;
+            border-radius: 15px;
+            border: 0px;
+            font-size: 18px;
+            text-align: center;
+}
+a {
+  font-decoration:none;
+}
+</style>
+
+
+
+
+{% set box_display = box_result [0][2] %}
+<div style="position:absolute; top:0; left:800px; z-index:1000; width: 150px;">
+  <div class="container-flex">
+    <div class="row <!--justify-content-sm-left--> p-3" >
+      <div class="col md-auto border  p-1" style="background-color:#ddd; border-radius:20px;border-color: black;">
+         <a href="/p_showboxcontent/{{box_display}}"><button type="submit" class="btn btn-primary btn-circle" style="background-color:#bbb;">
+         <i class="fa-solid fa-mobile-screen-button"></i>
+         </button></a>
+         <button type="submit" class="btn btn-primary btn-circle" style="background-color:#a40000">
+         <i class="fa-solid fa-desktop"></i>
+         </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<table width="940px">
+<tr>
+<td><h3>Inventory of box {{box_display}}</h2></td>
+<td>&nbsp;</td>
+<td width="30">
+<a href="/static/images/qrcodes/qr_code_for_box_{{box_display}}.png" 
+    onclick="window.open('/boxlabel/{{box_display}}',
+     'newwindow', 'width=750, height=550'); return false;">
+     <i class="fa-solid fa-print fa-lg"></i>
+</a>
+</td>
+</tr>
+</table>
+
+<table class="sortable">
+  <tr class="inv_tr">
+   <td>Item</td>
+   <td class="sorttable_nosort">Photo</td>
+   <td>Date</td>
+   <td>Category</td>
+   <td class="sorttable_nosort">Edit</td>
+   <td class="sorttable_nosort">Delete</td>
+</tr>
+  {%- for item_num, item_name, box_num, item_pic, item_date, item_cat, item_desc in box_result %}
+  <tr class="inv_tr">
+    <td class="inv_td">{{ item_name }}</td>
+    <td rowspan="2">
+    <img src="/static/images/items/{{ item_pic }}" style="height: 150px; overflow: hidden;"></td>
+    <td class="inv_td" rowspan="2">{{ item_date }}</td>
+    <td class="inv_td" rowspan="2">{{ item_cat }}</td>
+    <td class="inv_td" rowspan="2">
+        <form action="/edititemdetail/{{item_num}}"> 
+                <input type="image" src="/static/images/edit.png" alt="Submit Form">
+        </form>
+
+    </td>
+    <td class="inv_td" rowspan="2"><input type="image" src="/static/images/trash.png" alt="Submit Form"></td>
+  </tr>
+  <tr>
+  <td>
+   <p>{{ item_desc }}</p>
+  </td>
+  </tr>
+  <tr>
+   <td colspan="6"><hr></td>
+  </tr>
+  {%- endfor %}
+</table>
+
+<script>
+var table = document.getElementById('itemdisplaytable')
+    ,tableHead = table.querySelector('span.table_head')
+    ,tableHeaders = tableHead.querySelectorAll('span.table_label')
+    ,tableBody = table.querySelector('span.table_body')
+;
+tableHead.addEventListener('click',function(e){
+    var tableHeader = e.target
+        ,textContent = tableHeader.textContent
+        ,tableHeaderIndex,isAscending,order
+    ;
+    if (textContent!=='add row') {
+        // Note: the value in the tableHeader.nodeName check must be UPPERCASE
+        while (tableHeader.nodeName!=='SPAN') {
+            tableHeader = tableHeader.parentNode;
+        }
+        tableHeaderIndex = Array.prototype.indexOf.call(tableHeaders,tableHeader);
+        isAscending = tableHeader.getAttribute('data-order')==='asc';
+        order = isAscending?'desc':'asc';
+        tableHeader.setAttribute('data-order',order);
+        tinysort(
+            tableBody.querySelectorAll('div.table_row')
+            ,{
+                selector:'div.table_cell:nth-child('+(tableHeaderIndex+1)+')'
+                ,order: order
+            }
+        );
+    }
+});
+</script>
+
+
+{% include 'footer.html' %}
+

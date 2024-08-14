@@ -1,0 +1,53 @@
+<div class="container-flex">
+<div class="item_display_table" id="itemdisplaytable">
+    <span class="table_head">
+        <span class="table_label">Item</span>
+        <span class="table_label">Photo</span>
+        <span class="table_label">Date</span>
+        <span class="table_label">Category</span>
+        <span class="table_label">Box</span>
+        <span class="table_label">Edit</span>
+        <span class="table_label">Delete</span>
+    </span>
+    <span class="table_body">
+    {%- for item_num, item_name, box_num, item_pic, item_date, item_cat, item_desc in item_list %}
+    	<div class= "table_row">
+        	<div class= "table_cell" style="border-bottom: 1px solid black;">
+          		{{ item_name }}
+         	</div>
+         	<div class="table_cell" style="border-bottom: 1px solid black;">&nbsp;
+           		<img src="{{ITEM_IMAGE_DIR}}{{item_pic}}" class="thumbnail" alt="item image" 
+				style="display:inline-block;  max-width:230px;  max-height:50px;  width: auto;  height: auto;">
+	     	</div>
+         	<div class="table_cell" style="border-bottom: 1px solid black;">
+            		{{  item_date|string }}
+         	</div>
+         	<div class="table_cell" style="border-bottom: 1px solid black;">
+         		   {{ item_cat }}
+         	</div>
+         	<div class="table_cell" style="border-bottom: 1px solid black;"> 
+            		{{ box_num }}
+         	</div>
+         	<div class="table_cell" style="border-bottom: 1px solid black;" >
+          		<div>
+			<form action="/edititemdetail/{{item_num}}">
+                  		<button type="submit" id="edit_submit_button_{{loop.index}}" 
+					class="ico_imps ico_edit" >
+		    		</button>
+            		</form>
+			</div>
+         	</div>
+         	<div class="table_cell"  style="border-bottom: 1px solid black;">
+            		<div>
+			<form action="/delitem/{{item_num}}">
+                  		<button type="submit" id="del_submit_button_{{loop.index}}" 
+					class="ico_imps ico_trash">
+                     		</button>
+            		</form>
+			</div>
+         	</div>
+        </div>
+ 	{%- endfor %}
+	</span>
+</div>
+</div>

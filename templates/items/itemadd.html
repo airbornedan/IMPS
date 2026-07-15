@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'includes/warning.html' %}
+
+<!-- Page content -->
+<p class="page_title">Add a new item</p>
+<form action= "/iteminsert" name="add_item" enctype="multipart/form-data" method="POST" onsubmit="return validateForm(event);">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="container-flex">
+	<div >Name</div>
+	<div>
+		<input id="item_name" type="text" placeholder="Item name" name="item_name" autofocus >
+	</div>
+	<div >Box Number</div>
+	<div >
+               {% if not available_boxes %}
+               <span>No boxes yet.</span>
+               <a href="/boxadd">Add one first</a>
+               {% elif prov_box_num == 0 %}
+		<input name="box_num" id="box_num" type="text" size="5" placeholder="Box #" >
+               {% else %}
+                <input name="box_num" id="box_num" type="text" size="5" value="{{prov_box_num}}" >
+               {% endif %}
+	</div>
+	<div >Category</div>
+	<div >
+		<input list="item_cat" name="item_cat" placeholder="Uncategorized" autocomplete="off">
+			<datalist id="item_cat">
+		        {% for cat_num , cat_name in categories%}
+			        <option value="{{cat_name}}">{{cat_name}}</option>
+		        {%endfor%}
+			</datalist>
+	</div>
+	<div >Description (Optional)</div>
+        <div >
+                <textarea rows="4" cols="40" name="item_desc" id="item_desc"></textarea>
+        </div>
+        <div>
+                <input type="radio" id="no" name="photo_yes_no" value="no" checked>
+                <label>No photo</label>
+        </div>
+        <div>
+		<input type="radio" id="yes" name="photo_yes_no" value="yes">
+               	<label>Photo</label><br>
+	</div>
+	<div >
+       	        <input class="form-control" type="file" id="file" name="file" accept="image/*"><br>
+	</div>
+	<div>
+		<button type="submit" class="imps icon-left add">
+			Add 
+		</button>
+	</div>
+</div>
+
+</form>
+
+<!-- Modal dialog and form validation HTML -->
+
+
+<script>
+
+document.getElementById("file").addEventListener("click", radioButtonSwitchPhoto);
+
+function radioButtonSwitchPhoto(){
+   alert
+   radiobtn = document.getElementById("yes");
+   radiobtn.checked = true;
+}
+</script>
+
+<script>
+// Shared with validateForm()'s submit-time check below.
+const valid_numbers = {{available_boxes}};
+const boxNumInput = document.getElementById("box_num");
+
+// LIVE FEEDBACK: red border as soon as the typed number isn't a real,
+// in-use box -- same behavior as bybox.html/boxadd.html. Purely
+// visual; validateForm() below still does the actual submit-time
+// enforcement. boxNumInput is null when there are no boxes yet (the
+// empty-state message is shown instead of the input) -- nothing to
+// wire up in that case, the form has no submit button reachable
+// without a box existing anyway.
+if (boxNumInput) {
+	boxNumInput.addEventListener("input", function() {
+		const typed = boxNumInput.value;
+		if (typed === "") {
+			boxNumInput.classList.remove("input-invalid");
+			return;
+		}
+		const typed_num = Number(typed);
+		const is_valid = !isNaN(typed) && valid_numbers.includes(typed_num);
+		boxNumInput.classList.toggle("input-invalid", !is_valid);
+	});
+}
+
+
+function validateForm() {
+  if (valid_numbers.length === 0) {
+    showValidationError("You need to add a box <br>before you can add an item.");
+    return false;
+  }
+
+  let name_input = document.forms["add_item"]["item_name"].value;
+  if (name_input == ""){
+    //alert("Item name is required");
+    showValidationError("An item name is <br>required.");
+    return false;
+  }
+
+  let num_input = document.forms["add_item"]["box_num"].value;
+  if (num_input == ""){
+    showValidationError("You must enter a <br>box number.");
+
+    return false;
+  }
+
+  let new_num_input = document.forms["add_item"]["box_num"].value;
+    if (isNaN(new_num_input)){
+      showValidationError(" "+new_num_input+" is not a number.");
+    return false;
+  }
+
+  var num_to_check = Number(num_input) ;
+  if (valid_numbers.includes(num_to_check)!=1) {
+    //alert("That box number is not valid");
+    showValidationError("Box "+num_to_check+" is not in use. <br>Please select a different<br> box number.");
+
+    return false;
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Unlinked Photo Cleanup</p>
+<div class="container-flex">
+<form name="del_item_form" method="POST" action="/cp_photofilesdel">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% if orphans is defined and orphans|length!=0 %}
+	{% for elem in orphans %}
+                {% if elem != "none.jpg" %}
+			<input type="hidden" name="filename" value="{{elem}}"></input>
+		{% endif %}
+	{% endfor %}
+	{% for elem in orphans %}
+         
+		<div class="row pt-3 pb-3" style="min-height: 40px; border-bottom: 2px solid #ddd; align-items: center;">
+			<div class="col col-auto">
+				<label class="cp-checkbox-wrap">
+					<input type="checkbox" class="cp-orphan-checkbox" name="checkbox" value="{{loop.index}}"></input>
+				</label>
+			</div>
+        	        <div class="col col-auto">
+                	        <img src="{{ITEM_IMAGE_DIR}}{{elem}}" class="thumbnail cp-orphan-thumbnail"
+                        	     style="display:inline-block;  max-width:230px;
+                                	    max-height:50px;  width: auto;  height: auto;">
+	                </div>
+			<div class="col col-auto">
+				{{elem}}
+			</div>
+		</div>
+	{% endfor %}
+</div>
+<div class="row mt-3 btn-pair">
+	<div class="col col-auto">
+		<button type="submit" class="imps icon-left trash">Delete selected</button>
+		</form>
+	</div>
+	<div class="col col-auto">
+		<form method="post" action="/cp_delallorphanphotos" style="display:inline;">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+			<button type="submit" class="imps icon-left trash">Delete all</button>
+		</form>
+	</div>
+</div>
+
+{% else %}
+   <br>
+   <div>No unlinked photos exist at this time </div>
+{% endif %}
+{% endblock %}

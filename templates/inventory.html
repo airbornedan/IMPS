@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "includes/view_switch.html" %}
+<div>
+       <p class="page_title">All items</p>
+</div>
+<div class="paginate">
+{% if pagination.has_prev %}<div class="paginate-item">
+        {% set link = 'inventory?page=' + (page-1)| string %}
+                <button type="button" class="imps icon-left back" onclick="location.href='{{link}}'">Previous</button>
+        </div>{% endif %}
+
+        <div class="paginate-item">{% if pagination.has_next %}
+        {% set link = 'inventory?page=' + (page+1) | string %}
+                <button type="button" class="imps icon-right forward" onclick="location.href='{{link}}'">Next</button>
+        {% endif %}
+        </div>
+
+</div>
+{% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+{% if current_view == "mobile" %}
+{% include 'includes/includeitemlist_mobile.html' %}
+{% else %}
+{% include "includes/includeitemlist.html" %}
+{% include 'includes/sort.html' %}
+{% endif %}
+{% endwith %}
+<br>
+<div class="paginate">
+{% if pagination.has_prev %}<div class="paginate-item">
+        {% set link = 'inventory?page=' + (page-1)| string %}
+                <button type="button" class="imps icon-left back" onclick="location.href='{{link}}'">Previous</button>
+        </div>{% endif %}
+
+        <div class="paginate-item">{% if pagination.has_next %}
+        {% set link = 'inventory?page=' + (page+1) | string %}
+                <button type="button" class="imps icon-right forward" onclick="location.href='{{link}}'">Next</button>
+        {% endif %}
+        </div>
+
+</div>
+<br>
+{% endblock %}

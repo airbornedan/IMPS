@@ -1,0 +1,21 @@
+<div class="grid-container">
+        {%- for item_num, item_name, box_num, item_pic, item_date, item_cat, item_desc in item_list %}
+         {% if item_pic=="none.jpg" %}
+             <div class="grid-item" style="background-image: url('/static/images/items/none.jpg'); background-repeat:no-repeat;  width: 160px; height: 160px;" >
+                             <br><br>
+				<div style="justify-content:center; align-items:center; line-height:350%">
+				<span class="no_item_photo_txt">
+                                          <a href="/itemedit/{{item_num}}">{{item_name}}</a>
+				 </span>
+				 </div>
+                {% else %}
+	<div class="grid-item">
+		<div data-tooltip="{{item_name}}">
+			<a href="/itemedit/{{item_num}}">
+				<img src="{{ITEM_IMAGE_DIR}}{{item_pic}}" width="160px;">
+			</a>
+		</div>
+                {% endif %}
+         </div>
+ {%- endfor %}
+</div>

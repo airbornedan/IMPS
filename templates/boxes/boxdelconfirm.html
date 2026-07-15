@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.a{
+  border:0px;
+}
+</style>
+<div>
+<p class="page_title">Delete Box {{ box_to_del }} and all items? </p>
+</div>
+<br>
+<div style="display: flex;">
+        <div style="display:inline-block;padding-top:5px;padding-right:15px;">
+                <img src="static/images/icons/warning_icon.png" width="42px;">
+        </div>
+        <div style="display: inline-block;">
+                <p> You are about to <b>permanently</b> delete box {{box_to_del}}.</p>
+        </div>
+</div>
+
+<p> This box is 
+ {% if box_state=="empty" %} 
+    <b>empty.</span> 
+ {% else %}
+    <span class="warn_text">NOT EMPTY</span>. If you continue, all items in this box will be <b>DELETED</b>.
+ {% endif %}
+</p>
+<p class="warn_text">Deleting a box cannot be undone.</p>
+</div>
+<br>
+</div>
+</div>
+<div>
+	<div>
+        	<form action="/boxdeletesuccess/{{box_to_del}}" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" id="submit_button" class="imps icon-left trash">
+                DELETE</button>
+                </form>
+        </div>
+</div>
+{% endblock %}

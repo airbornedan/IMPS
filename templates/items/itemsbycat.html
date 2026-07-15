@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "includes/view_switch.html" %}
+<div>
+	<p class="page_title">Items categorized as <i>{{cat_name}}</i></p>
+</div>
+{% if pagination.has_prev or pagination.has_next %}
+	<div class="paginate">
+		{% if pagination.has_prev %}
+		<div class="paginate-item">
+	        	{% set link = cat_name + '?page=' + (page-1)| string %}
+        	        <button type="button" class="imps icon-left back" onclick="location.href='{{link}}'">Previous</button>
+	        </div>
+		{% endif %}
+	<div class="paginate-item">
+		{% if pagination.has_next %}
+			{% set link = cat_name+'?page=' + (page+1) | string %}
+                <button type="button" class="imps icon-right forward" onclick="location.href='{{link}}'">Next</button>
+		{% endif %}
+        </div>
+	</div>
+{% endif %}
+
+{% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+{% if current_view == "mobile" %}
+{% include 'includes/includeitemlist_mobile.html' %}
+{% else %}
+{% include 'includes/includeitemlist.html' %}
+{% endif %}
+{% endwith %}
+
+<div class="paginate">
+{% if pagination.has_prev %}<div class="paginate-item">
+        {% set link = cat_name+'?page=' + (page-1)| string %}
+                <button type="button" class="imps icon-left back" onclick="location.href='{{link}}'">Previous</button>
+        </div>{% endif %}
+
+        <div class="paginate-item">{% if pagination.has_next %}
+        {% set link = cat_name+'?page=' + (page+1) | string %}
+                <button type="button" class="imps icon-right forward" onclick="location.href='{{link}}'">Next</button>
+        {% endif %}
+        </div>
+
+</div>
+<br>
+{% include 'includes/sort.html' %}
+{% endblock %}

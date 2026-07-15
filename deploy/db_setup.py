@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+########################################################################
+### IMPS DATABASE SETUP
+########################################################################
+# One-time, root-privileged provisioning: creates the MySQL/MariaDB
+# database and user account IMPS will run as, and grants that user
+# just enough privilege to manage its own tables. Run this ONCE,
+# after imps_config.toml exists (README step 9) and BEFORE visiting
+# /setup in a browser (README step 11-ish).
+#
+# WHAT THIS DOES NOT DO: create IMPS's tables. That happens in the
+# /setup web wizard (app/blueprints/setup.py), the first time you log
+# in -- it already knows how to run schema.sql against the box_user
+# account this script creates. Nothing here touches schema.sql.
+#
+# WHY THIS ISN'T PART OF THE APP ITSELF: the account IMPS runs as
+# (box_user, by default) is deliberately scoped to box_db.* only --
+# it can manage its own tables, but it can't create other databases
+# or users. Doing that instead requires the MySQL/MariaDB root
+# account, and the /setup wizard's routes are reachable over the
+# network with no login yet (there's no password to check until
+# setup finishes) -- see the docstring at the top of
+# app/blueprints/setup.py. Handing root DB credentials to code behind
+# an unauthenticated web route would erase that safety boundary, so
+# this stays a separate script that only ever runs at the terminal,
+# by whoever already has root/sudo on the machine.
+#
+# CREDENTIALS: reads the target database name/user/password straight
+# out of imps_config.toml's [database] section -- whatever's already
+# there from README step 9 -- so there's exactly one place those
+# values live, instead of a second copy to keep in sync. The DB
+# root password is prompted for interactively (never stored, never
+# passed as a command-line argument, never logged) and used only for
+# the duration of this script.
+#
+# USAGE:
+#   source .venv/bin/activate
+#   python3 deploy/db_setup.py
+#
+# Safe to re-run: every statement below is idempotent (CREATE USER/
+# DATABASE IF NOT EXISTS, GRANT is naturally idempotent), so running
+# this again after a partial failure -- or just to double check
+# everything's in place -- won't error out or duplicate anything.
+########################################################################
+
+import getpass
+import os
+import sys
+
+import toml
+
+try:
+    import mysql.connector
+    from mysql.connector import errorcode
+except ImportError:
+    sys.exit(
+        "mysql-connector-python isn't installed in this environment.\n"
+        "Activate the venv first: source .venv/bin/activate\n"
+        "(It's already listed in requirements.txt -- if it's still "
+        "missing after activating, re-run: pip install -r requirements.txt)"
+    )
+
+CONFIG_PATH = "imps_config.toml"
+
+# Privileges box_user needs on its own database: enough to manage its
+# own tables (including the /setup wizard's later CREATE TABLE calls),
+# nothing that reaches outside box_db.* and nothing that can create
+# other users or databases. Mirrors static/backup/setup.sql exactly.
+GRANT_PRIVILEGES = "SELECT, INSERT, UPDATE, DELETE, LOCK TABLES, CREATE, DROP, ALTER, INDEX"
+
+
+def _load_target_config():
+    if not os.path.isfile(CONFIG_PATH):
+        sys.exit(
+            f"Couldn't find {CONFIG_PATH} in the current directory.\n"
+            "Run this from the IMPS install directory (the same place "
+            "run.py lives), and make sure you've already copied "
+            "imps_config.toml.example to imps_config.toml and filled "
+            "in the [database] section (README step 9)."
+        )
+
+    with open(CONFIG_PATH, "r") as f:
+        config = toml.load(f)
+
+    try:
+        db_config = config["database"]
+        name = db_config["name"]
+        user = db_config["user"]
+        password = db_config["password"]
+        host = db_config.get("host", "127.0.0.1")
+    except KeyError as e:
+        sys.exit(
+            f"imps_config.toml is missing the [database] setting {e}.\n"
+            "Fill in the [database] section completely before running this script."
+        )
+
+    if not name or not user or not password:
+        sys.exit(
+            "The [database] name/user/password fields in imps_config.toml "
+            "are blank. Fill them in with the values you want IMPS's "
+            "database account to use, then re-run this script."
+        )
+
+    return host, name, user, password
+
+
+def _prompt_for_root_credentials(db_host):
+    print(f"Connecting to the MySQL/MariaDB server at '{db_host}' as root.")
+    print("This password is used once, for this script, and is never stored.\n")
+    root_user = input("Root (or other admin) DB username [root]: ").strip() or "root"
+    root_password = getpass.getpass("Root DB password: ")
+    return root_user, root_password
+
+
+def _connect_as_root(db_host, root_user, root_password):
+    try:
+        return mysql.connector.connect(
+            host=db_host, user=root_user, password=root_password
+        )
+    except mysql.connector.Error as e:
+        if e.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+            sys.exit(
+                "Access denied -- that username/password wasn't accepted "
+                f"by the DB server at '{db_host}'. Double check the "
+                "credentials and try again."
+            )
+        sys.exit(
+            f"Couldn't connect to the DB server at '{db_host}': {e}\n"
+            "Is MariaDB/MySQL installed and running? (README steps 2, 6)"
+        )
+
+
+def _provision(root_conn, db_host, db_name, db_user, db_password):
+    cursor = root_conn.cursor()
+
+    print(f"Creating user '{db_user}'@'localhost' (if not already present)...")
+    # Host is deliberately hardcoded to 'localhost' here, matching
+    # setup.sql -- IMPS and the database are expected to be on the
+    # same machine (README's Raspberry Pi / single-server setup), and
+    # scoping the account to localhost only means it can't be used to
+    # log in to this database from anywhere else on the network, even
+    # if the credentials ever leaked.
+    cursor.execute(
+        "CREATE USER IF NOT EXISTS %s@'localhost' IDENTIFIED BY %s",
+        (db_user, db_password),
+    )
+
+    print(f"Creating database '{db_name}' (if not already present)...")
+    # Database name can't be parameterized in MySQL/MariaDB the way
+    # values can -- it's identifier position, not a literal. Backtick-
+    # quoted and validated below instead.
+    _assert_safe_identifier(db_name, "database name")
+    cursor.execute(
+        f"CREATE DATABASE IF NOT EXISTS `{db_name}` "
+        "DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
+    )
+
+    print(f"Granting '{db_user}' access to '{db_name}' only...")
+    cursor.execute(
+        f"GRANT {GRANT_PRIVILEGES} ON `{db_name}`.* TO %s@'localhost'",
+        (db_user,),
+    )
+    cursor.execute("FLUSH PRIVILEGES")
+
+    root_conn.commit()
+    cursor.close()
+
+
+def _assert_safe_identifier(name, label):
+    """Database/table names can't be passed as bound parameters, so
+    this rejects anything that isn't plain alphanumerics/underscore
+    before it's ever interpolated into a query string. Not meant to
+    validate config for correctness generally -- just to make sure a
+    stray character in imps_config.toml can't change what SQL runs."""
+    if not name or not all(c.isalnum() or c == "_" for c in name):
+        sys.exit(
+            f"Refusing to continue: the {label} {name!r} in imps_config.toml "
+            "contains characters other than letters, numbers, and "
+            "underscores. Fix it in imps_config.toml and re-run."
+        )
+
+
+def main():
+    db_host, db_name, db_user, db_password = _load_target_config()
+
+    print("IMPS database setup")
+    print("====================")
+    print(f"Target database : {db_name}")
+    print(f"Target DB user  : {db_user}@localhost")
+    print(f"DB host         : {db_host}")
+    print("(These come from imps_config.toml -- edit that file, not this "
+          "script, if any of them are wrong.)\n")
+
+    root_user, root_password = _prompt_for_root_credentials(db_host)
+    root_conn = _connect_as_root(db_host, root_user, root_password)
+
+    try:
+        _provision(root_conn, db_host, db_name, db_user, db_password)
+    except mysql.connector.Error as e:
+        sys.exit(f"Database setup failed: {e}")
+    finally:
+        root_conn.close()
+
+    print(
+        "\nDone. The database and user account are ready.\n"
+        "Next: start IMPS (README step 11) and finish setup in the "
+        "browser at /setup -- that step creates IMPS's actual tables."
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- Page content -->
+
+<p class="page_title">Select location to show boxes</p>
+<div>
+	<select id="locSelect" name="locSelect" autofocus>
+		{% for loc_name in available_locs %}
+		<option name="{{loc_name}}" value="{{loc_name}}">{{loc_name}}</option>
+		{% endfor %}
+	</select>
+</div>
+<div>
+	<a href="/boxlistbyloc/{{available_locs[0]}}" id="locAnchor" name="locAnchor">
+		<button class="imps icon-left loc">
+			Boxes
+		</button>
+	</a>
+</div>
+<script>
+const selectElement = document.getElementById('locSelect'); 
+const anchorElement = document.getElementById('locAnchor'); 
+selectElement.addEventListener('change', function() {
+const selectedValue = this.value;
+anchorElement.href = "/boxlistbyloc/"+selectedValue;
+});
+</script>
+{% endblock %}

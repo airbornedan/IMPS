@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'includes/confirm_modal.html' %}
+<style>
+.dot {
+  height: 13px;
+  width: 13px;
+  border-radius: 50%;
+  margin-left: 20px;
+  display: inline-block;
+  border: 2px solid black;
+}
+.row {
+  line-height: 24pt;
+  padding: 2px;
+  border: 1px solid #ddd;
+}
+</style>
+
+<p class="page_title">Database connection</p>
+<p>Enter the database host, name, user, and password for IMPS to use.
+If you just walked through the MariaDB install steps using the
+defaults in <code>setup.sql</code>, that's host <code>127.0.0.1</code>,
+database <code>box_db</code>, user <code>box_user</code>, password
+<code>box_pass</code> (change that password on a real install).</p>
+<p>Don't have a database yet?
+<a href="{{ url_for('setup.setup_mariadb') }}">See the MariaDB install steps</a>.</p>
+
+<form action="{{ url_for('setup.setup_database') }}" method="POST">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<p>
+		<label>Host<br>
+		<input type="text" name="host" value="{{ host }}" required></label>
+	</p>
+	<p>
+		<label>Database name<br>
+		<input type="text" name="name" value="{{ name }}" required></label>
+	</p>
+	<p>
+		<label>Database user<br>
+		<input type="text" name="user" value="{{ user }}" required></label>
+	</p>
+	<p>
+		<label>Database password{% if has_saved_password %} (leave blank to keep the current password){% endif %}<br>
+		<input type="password" name="password" {% if not has_saved_password %}required{% endif %}></label>
+	</p>
+	<button type="submit" class="imps">Save and test connection</button>
+</form>
+
+{% if conn_ok is not none %}
+<div style="width:400px; border:4px solid #444; margin-top:20px;">
+	<div class="row">
+		<div class="inline_div" style="width: 300px;">
+			<b>Database connection:</b>
+		</div>
+		<div class="inline_div">
+			<span class="dot" {% if conn_ok %}style="background-color: green;"
+			{% else %}style="background-color: red;"{% endif %}></span>
+		</div>
+	</div>
+	<div class="row">
+		<div class="inline_div" style="width: 300px;">
+			<b>Database tables:</b>
+		</div>
+		<div class="inline_div">
+			<span class="dot"
+			{% if existing_tables_found and tables_ok is none %}style="background-color: #ccb800;"
+			{% elif tables_ok %}style="background-color: green;"
+			{% else %}style="background-color: red;"{% endif %}></span>
+		</div>
+	</div>
+</div>
+
+{% if error_detail %}
+<p style="color:#a00;">{{ error_detail }}</p>
+{% endif %}
+
+{% if existing_tables_found and tables_ok is none %}
+<p>This database already has IMPS tables in it -- possibly from a
+previous install. What would you like to do?</p>
+<div class="btn-pair">
+	<form action="{{ url_for('setup.setup_database') }}" method="POST">
+	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<input type="hidden" name="table_action" value="keep">
+		<button type="submit" class="imps">Keep existing data</button>
+	</form>
+	<form id="recreate_form" action="{{ url_for('setup.setup_database') }}" method="POST">
+	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<input type="hidden" name="table_action" value="recreate">
+		<button type="button" id="recreate_btn" class="imps" style="background-color: #a00;">
+			Start fresh
+		</button>
+	</form>
+</div>
+<script>
+(function() {
+	var recreateBtn = document.getElementById("recreate_btn");
+	var yesBtn = document.getElementById("confirm_yes_btn");
+
+	recreateBtn.addEventListener("click", function() {
+		showConfirmModal(
+			"This will permanently delete all existing boxes, items, <br>" +
+			"and categories in this database. Continue?"
+		);
+	});
+	yesBtn.addEventListener("click", function() {
+		document.getElementById("recreate_form").submit();
+	});
+})();
+</script>
+{% elif conn_ok and tables_ok %}
+<p>Connection works and tables are ready.</p>
+{% elif conn_ok and not tables_ok %}
+<p>Connected, but IMPS couldn't create its tables with this user --
+likely a permissions issue. If you used an older copy of
+<code>setup.sql</code>, re-run it as root, or grant
+<code>CREATE, DROP, ALTER, INDEX</code> on this database to this user
+directly, then try again.</p>
+{% else %}
+<p>Couldn't connect with these settings. Double check the host, name,
+user, and password, and that the database server is running
+(<code>sudo systemctl status mariadb</code>).</p>
+{% endif %}
+{% endif %}
+
+<div style="display:flex; justify-content:space-between; align-items:center; max-width:400px; margin-top:20px;">
+	<a href="{{ url_for('setup.setup_landing') }}">
+		<button type="button" class="imps icon-left back">Back</button>
+	</a>
+	{% if conn_ok and tables_ok and not existing_tables_found %}
+	<a href="{{ url_for('setup.setup_samples') }}">
+		<button class="imps">Continue</button>
+	</a>
+	{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- Page content -->
+
+<p class="page_title">Item <span class="item_in_title">{{item_name}}</span></p>
+
+<div class="inline_div">
+	<b>Box:</b>
+</div>
+<div class="inline_div">
+	 {{box_num}}
+</div>
+<br>
+<div class="inline_div">
+       	<b>Date:</b>
+</div>
+<div class="inline_div">
+	{{item_date}}
+</div>
+<br>
+<div class="inline_div">
+   	<b>Category:</b>
+</div>
+<div class="inline_div">
+	{{ item_cat }}
+</div>
+<br>
+<div class="inline_div">
+	{% if (item_desc != "") %}
+		<b>Description:</b>
+	{%endif %} &nbsp;
+</div>
+<div class="inline_div">
+	{{item_desc}}
+</div>
+<br><br>
+<div>
+	<img src="{{ITEM_IMAGE_DIR}}/{{ item_pic }}" style="height: 150px; overflow: hidden;">
+</div>
+{% if from_add == True %}
+<div class="inline_div">   
+        <form action="/itemadd" method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button name="edit_button" class="imps icon-left add" type="submit">Add another</button>
+        <input type="hidden" name="prov_box_num" id="prov_box_num" value="{{box_num}}">
+        </form>
+</div><br>
+{% endif %}
+
+<div class="inline_div btn-pair">
+      	<a href="/itemedit/{{item_num}}">
+      	<button name="edit_button" class="imps icon-left edit">Edit</button>
+	</a>
+			<a href="/">
+       	<button class="imps icon-left home">
+				HOME
+				</button>
+			</a>
+</div>
+{% endblock %}

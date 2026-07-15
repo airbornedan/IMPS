@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+   <head>
+      <title>IMPS</title>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/tinysort/3.2.8/tinysort.min.js" integrity="sha512-P3lisBxY1PusizpelihVrBeciBfWA9r7Ff/8j16b4K399OWJIrY1UdzdE7/BctqKv6Xujr8hp3IA2XiQX3Bsew==" crossorigin="anonymous" referrerpolicy="no-referrer">
+           </script>
+     <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+     <link rel="stylesheet" href="/static/imps.css">
+     <script src="/static/thumbnail_zoom.js" defer></script>
+     <script src="/static/modal.js" defer></script>
+     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+<style>
+#container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+#container div {
+  padding: 20px;
+  border: 1px solid black;
+  margin: 10px; 
+}
+
+.div-1, .div-3 {
+  flex: 1 1 0;
+}
+
+.div-2 {
+   flex: 100%;
+   order: 3;
+}
+
+</style>
+   </head>
+   <body>
+<div id="container">
+       <div-1><a href="/" style="font-size: 24px; font-weight:bold">IMPS2</a>
+		<span style="font-size:16;"> on Demo!</span></div>
+       <div-2><a href="/"><img src="/static/images/imp.png" height="80px;" width="120px;"></a></div> 
+<!--       <div-2><a href="/"><img src="/static/images/imp.png" class="imp_image" width="100px;"></a></div> -->
+           <p>This site resets every 10 minutes</p>
+       <div-3><span class="header_sub">Inventory Management Photo System</span></div>
+</div>
+<hr>

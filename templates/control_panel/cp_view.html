@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">View</p>
+<p>Select columns to show / hide </p>
+
+<div style="background-color: #fafafa; padding-top:4px; border:3px solid #ddd;">
+<p><b>Preview</b></p>
+<div class="container-flex">
+<div class="item_display_table" id="itemdisplaytable">
+<span class="table_head">
+	<span class="table_label">Item</span>
+	<span class="table_label" id="info_column_h"
+		style="text-align: center; {% if info_column == 'False' %}display:none{%endif%}";>
+		<div class="tooltip">
+			<img src="/static/images/infodot.png">
+		 	<span class="tooltiptext" style="font-weight:normal;">
+				Mouse over or tap for full name 
+				(if truncated) and description
+			</span>
+		</div>
+	</span> 
+	<span class="table_label" id="photo_column_h">&nbsp;Photo</span>
+	<span class="table_label" id="date_column_h">Date</span>
+	<span class="table_label" id="cat_column_h">Category</span>
+	<span class="table_label" id="box_column_h">Box</span>
+	<span class="table_label">Edit</span>
+	<span class="table_label">Delete</span>
+</span>
+<span class="table_body" >
+	<div class="table_row">
+	<div class="table_cell">
+			<a style="font-weight:normal;" onmouseover="this.style.color='black';" onmouseout="this.style.color='';">
+			 Sample item 			</a>
+ 	</div>
+	<div class="table_cell" id="info_column" {% if info_column == 'False' %}style="display:none"{%endif%}>
+		<div class="tooltip">
+			<img src="/static/images/infodot.png">
+ 			<span class="tooltiptext" style="font-weight:normal;">
+				Sample item description
+			</span>
+		</div>
+	</div>
+ 	<div class="table_cell" id="photo_column" {% if photo_column == 'False' %}style="display:none"{% endif %}>&nbsp;
+ 		<img src="/static/images/sample_image.png" class="thumbnail" alt="item image" 
+				style="display:inline-block;max-width:230px;max-height:50px;width: auto;height: auto;">
+	 	</div>
+ 	<div class="table_cell" id="date_column" {% if date_column == 'False' %}style="display:none"{% endif %}> 
+	7/16/25
+ 	</div>
+ 	<div class="table_cell" id="cat_column" {% if cat_column == 'False' %}style="display:none"{% else %}style="background-color:#eee"{% endif %}> 
+ 		Samples
+ 	</div>
+ 	<div class="table_cell" id="box_column" {% if box_column == 'False' %}style="display:none"{% endif %}>
+		1
+ 	</div>
+ 	<div class="table_cell">
+		<div>
+		<button class="imps icon-only edit" >
+				</button>
+			</div>
+ 	</div>
+ 	<div class="table_cell"> 
+		<div>
+		<button	class="imps icon-only trash">
+ 		</button>
+			</div>
+ 	</div>
+</div>
+</span>
+</div>
+<br>
+</div>
+</div>
+<p><input type="checkbox" {% if info_column != 'False' %}checked{% endif %} onclick="changeSettings('info_column')"> Show information mouseover column: </p>
+<p> <input type="checkbox" {% if photo_column != 'False' %}checked{% endif %} onclick="changeSettings('photo_column')"> Show item photo thumbnail </p>
+<p> <input type="checkbox" {% if date_column != 'False' %}checked{% endif %} onclick="changeSettings('date_column')"> Show date </p>
+<p> <input type="checkbox" {% if cat_column != 'False' %}checked{% endif %} onclick="changeSettings('cat_column')"> Show category </p>
+<p> <input type="checkbox" {% if box_column != 'False' %}checked{% endif %} onclick="changeSettings('box_column')"> Show box number </p>
+
+<p><b>Items per page</b></p>
+<p>
+	<select id="items_per_page" onchange="changeItemsPerPage(this.value)">
+		{% for choice in allowed_items_per_page %}
+		<option value="{{ choice }}" {% if items_per_page == choice %}selected{% endif %}>{{ choice }}</option>
+		{% endfor %}
+	</select>
+	items per page in inventory, category, and search-result lists.
+</p>
+
+
+<script>
+//////////////////////////////
+// Function to get cookie value
+function getCookieByName(name) {
+const cookieString = document.cookie;
+const cookies = cookieString.split(';');
+
+for (let i = 0; i < cookies.length; i++) {
+let cookie = cookies[i].trim(); // Remove leading/trailing whitespace
+
+// Check if this cookie starts with the desired name followed by an equals sign
+if (cookie.startsWith(name + '=')) {
+// Extract and return the value after the name and equals sign
+return decodeURIComponent(cookie.substring(name.length + 1));
+}
+}
+return null; // Return null if the cookie is not found
+}
+
+
+//////////////////////////////
+/// Function to change settings for column display
+function changeSettings(setting) {
+
+const setting_h = setting +"_h";
+
+// Set cookie expiatrion date
+const d = new Date();
+d.setTime(d.getTime() + (300*24*60*60*1000));
+let expires = "expires="+ d.toUTCString();
+	
+// Get cookie, update cookie and display accordingly
+	var cookie = getCookieByName(setting);
+	if (cookie !== 'False') {
+document.cookie = setting + '=False;'+ expires;
+	document.getElementById(setting).style.display="none";
+document.getElementById(setting_h).style.display="none";
+	}
+
+	else {
+	document.cookie = setting + '=True;' + expires;
+	document.getElementById(setting_h).style.display="";
+document.getElementById(setting).style.display="";
+	}
+
+	// Update preiview
+}
+
+
+//////////////////////////////
+/// Function to change the items-per-page setting
+function changeItemsPerPage(value) {
+
+// Set cookie expiration date (same 300-day horizon as the column
+// settings above)
+const d = new Date();
+d.setTime(d.getTime() + (300*24*60*60*1000));
+let expires = "expires="+ d.toUTCString();
+
+// value comes straight from the <select>, which only ever offers
+// the server-provided allowed choices -- still just a plain integer
+// string either way, so no extra encoding needed.
+document.cookie = "items_per_page=" + value + ";" + expires + ";path=/";
+}
+</script>
+{% endblock %}

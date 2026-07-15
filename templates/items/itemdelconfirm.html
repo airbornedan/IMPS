@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">{{item_name}} deleted.</p>
+<p>This item has been succesfully deleted</p>
+{% if not had_photo %}
+<p><em>(No photo was associated with this item.)</em></p>
+{% endif %}
+<a href="/"><button class="imps icon-left home">Home</button></a>
+{% if back_url %}
+<a href="{{ back_url }}"><button class="imps icon-left home">Back</button></a>
+{% endif %}
+<br>
+{% endblock %}

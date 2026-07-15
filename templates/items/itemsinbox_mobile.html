@@ -1,0 +1,42 @@
+{% include 'includes/header.html' %}
+<div class="container-flex">
+        <div class="switch">
+		<div class="row mt-auto" >
+			<div class="view_switch">
+				<button type="submit" class="mobile_set_view view">
+				</button>
+			        <a href="/boxviewswitch/{{box_num}}">
+					<button class="desktop view">
+					</button>
+				</a>
+			</div>
+		</div>
+	</div>
+</div>
+<div>
+        <div>
+		<div>
+			<div class="page_title">
+                		Box {{box_num}} contents
+			</div>
+			<div>
+                                {% if box_name != "" %}
+                                        {{box_name}}&nbsp;
+                                {% endif %}
+			</div>
+		</div><br>
+	</div>
+        <div>
+                <a href="/static/images/qrcodes/qr_code_for_box_{{box_num}}.png"
+                onclick="window.open('/boxlabel/{{box_num}}',
+                'newwindow', 'width=750, height=550'); return false;">
+                <button class="ico_imps qr" style="margin-left:0px;"></button>
+                </a>
+        </div>
+</div>
+{% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+{% include 'includes/includeitemlist_mobile.html' %}
+{% endwith %}
+
+{% include 'includes/footer.html' %}
+

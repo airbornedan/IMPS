@@ -1,0 +1,66 @@
+<link rel="stylesheet" href="/static/imps.css">
+<style>
+    @media print {
+        .no-print {
+            display: none !important; /* !important ensures override */
+        }
+
+	@page {
+                size: 5.0in 8.0in;
+                margin: 0.25in; 
+            }
+            body {
+                size: 5.0in 8.0in;
+                margin: 0;
+                padding: 0;
+            }
+            .page {
+                width: 8.0in;
+                height: 5.0in;
+                box-sizing: border-box; 
+                page-break-after: always;
+            }
+      }
+
+    }
+</style>
+{% set box_num = box_num|int %}
+<div class="no-print">
+<button onclick=" window.print()" class="imps print icon-left">Print</button>
+<a href="javascript:window.open('','_self').close();"><button class="imps cancel icon-left">Close</button></a>
+</div>
+<div class="page">
+<table style="border: 6px solid black;" width="800pt">
+<tbody>
+<tr style="border: 5px solid black;">
+<td colspan="2" style="text-align: center"><hr>I.M.P.S. Box Label<hr></td>
+</tr>
+<tr style="border: 2px solid black;">
+<td rowspan="2"width="3.5in">
+<img src="{{box_num_save_loc [1]}}" width="410pt">
+</td>
+<td style="text-align: center; padding-top: 30pt; font-size:18;">
+<b>Box Number</b></td>
+</tr>
+<tr>
+<td colspan="2" style="text-align: center; vertical-align:top;">
+<span style="font-family: sans-serif;
+{% if box_num < 10 %}
+ font-size: 330px; font-weight: 600;">
+{% elif box_num > 99 %}
+ font-size: 230px;">
+{% else %}
+ font-size: 160px; font-weight: 600;">
+{% endif %}
+{{box_num}}
+</span>
+</td>
+</tr>
+<tr>
+<td colspan="2" style="text-align: center">
+<span style="font-family: sans-serif; font-size: 28pt;">
+{{box_name}}
+</span></td>
+</tr>
+</table>
+</div>

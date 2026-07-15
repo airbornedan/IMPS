@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<script>
+// function to show items by category
+function catSwitch(){
+//get the category
+category = document.getElementById("sel_category").value;
+//load the page
+window.open("/itemsbycategory/"+category, "_self")
+}
+</script>
+
+<!-- Page content -->
+
+<p class="page_title">Select category to show items</p>
+<div>
+	<select id="sel_category" name="category">
+		{% for cat_name in available_cats %}
+			<option value="{{cat_name}}">{{cat_name}}</option>
+		{% endfor %}
+	</select>
+</div>
+<div>
+	<button class="imps icon-left list" onclick="catSwitch()">
+		Items
+	</button>
+</div>
+{% endblock %}

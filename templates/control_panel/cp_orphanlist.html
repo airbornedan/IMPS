@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+{% set switch_url = "/orphan_view_switch" %}
+<div style="position:absolute; top:0; left:500px; z-index:1000; width: 150px;">
+{% include "includes/view_switch.html" %}
+</div>
+<div>
+	<div>
+		<p class="page_title">Orphaned items</p>
+	</div>
+</div>
+{% if item_list is defined and item_list[0] != Null %}
+   {% if current_view == "mobile" %}
+      {% include "includes/includeitemlist_mobile.html" %}
+   {% else %}
+      {% include "includes/includeitemlist.html" %}
+   {% endif %}
+   {% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+   {% include 'includes/sort.html' %}
+   {% endwith %}
+{% else %}
+   <p>No orphaned items exist at this time.</p>
+{% endif %}
+{% endblock %}

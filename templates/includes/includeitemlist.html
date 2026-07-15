@@ -1,0 +1,117 @@
+<div class="container-flex">
+<div class="item_display_table" id="itemdisplaytable">
+   <span class="table_head" style="background: ">
+        <span class="table_label">Item</span>
+	{% if info_column != 'False' %}
+	<span class="table_label">
+                        <div class="tooltip">
+				<img src="/static/images/infodot.png">
+                                       	<span class="tooltiptext" style="font-weight:normal;">
+					Mouse over or tap for full name 
+					(if truncated) and description</span>
+
+			</div>
+	</span>
+        {% endif %}
+	{% if photo_column != 'False' %}
+        <span class="table_label">&nbsp;Photo</span>
+	{% endif %}
+        {% if date_column != 'False' %}
+        <span class="table_label">Date</span>
+        {% endif %}
+        {% if cat_column != 'False' %}
+        <span class="table_label table_label-cat">Category</span>
+        {% endif %}
+        {% if box_column != 'False' %}
+        <span class="table_label">Box</span>
+        {% endif %}
+        <span class="table_label">Edit</span>
+        <span class="table_label">Delete</span>
+    </span>
+    <span class="table_body">
+    {%- for item_num, item_name, box_num, item_pic, item_date, item_cat, item_desc in item_list %}
+    	<div class= "table_row">
+        	<div class= "table_cell">
+			<a href="/itemdetails/{{item_num}}" style="font-weight:normal;" onmouseover="this.style.color='black';" onmouseout="this.style.color='';">
+
+                               {{item_name | truncate(25)}}
+			</a>
+         	</div>
+	        {% if info_column != 'False' %}
+               <div class="table_cell">
+			{% if item_desc|length>0 %}
+                        <div class="tooltip">
+                                <img src="/static/images/infodot.png">
+                                        <span class="tooltiptext">
+					{% if item_name|length > 25 %}
+					<b>{{item_name}}</b><br><br>
+					{% endif %}
+					 {{item_desc}}
+					</span>
+                        </div>
+			{% else %}
+                                <img src="/static/images/infodot_disabled.png">
+			{% endif %}
+
+
+                </div>
+		{% endif %}
+		{% if photo_column != 'False' %}
+         	<div class="table_cell">&nbsp;
+ 			{% if item_pic != 'none.jpg' %}
+           		<img src="{{ITEM_IMAGE_DIR}}{{item_pic}}" class="thumbnail" alt="item image" 
+				style="display:inline-block;  max-width:230px;  max-height:50px;  
+                                       width: auto;  height: auto;">
+			{% else %}
+                        <img src="{{ITEM_IMAGE_DIR}}{{item_pic}}" alt="item image"
+                                style="display:inline-block;  max-width:230px;  max-height:50px;
+                                       width: auto;  height: auto;">
+	     		{% endif %}
+		</div>
+		{% endif %}
+                {% if date_column != 'False' %}
+         	<div class="table_cell"> 
+           		{{  item_date|string }}
+         	</div>
+                {% endif %}
+                {% if cat_column != 'False' %}
+         	<div class="table_cell table_cell-cat" style="background-color:#eee">
+         		{% if item_cat|length > 20 %}
+         		<div class="tooltip">
+         			{{ item_cat | truncate(20) }}
+         			<span class="tooltiptext">{{ item_cat }}</span>
+         		</div>
+         		{% else %}
+         		{{ item_cat }}
+         		{% endif %}
+         	</div>
+                {% endif %}
+                {% if box_column != 'False' %}
+         	<div class="table_cell">  
+            		{{ box_num }}
+         	</div>
+                {% endif %}
+
+         	<div class="table_cell">
+          		<div>
+			<form action="/itemedit/{{item_num}}">
+                  		<button type="submit" id="edit_submit_button_{{loop.index}}" 
+					class="imps icon-only edit" >
+		    		</button>
+            		</form>
+			</div>
+         	</div>
+         	<div class="table_cell"> 
+            		<div>
+			<form action="/itemdel/{{item_num}}">
+                  		<button type="submit" id="del_submit_button_{{loop.index}}" 
+					class="imps icon-only trash">
+                     		</button>
+            		</form>
+			</div>
+         	</div>
+        </div>
+ 	{%- endfor %}
+	</span>
+</div>
+</div>

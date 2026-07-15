@@ -1,0 +1,53 @@
+{# Expects `current_view` ("mobile" or anything else = desktop).
+   Pass `switch_url` for pages that toggle view via a server route
+   (redirect-based switch); omit it for pages that toggle via the
+   `view` cookie + a page reload (JS-based switch). #}
+{% if switch_url %}
+<div class="switch">
+	<div class="container-flex">
+		<div class="row mt-auto">
+			<div class="view_switch">
+				{% if current_view == "mobile" %}
+					<button type="submit" class="mobile_set_view view" disabled>
+					</button>
+					<a href="{{switch_url}}">
+						<button class="desktop view">
+						</button>
+					</a>
+				{% else %}
+					<a href="{{switch_url}}">
+						<button type="submit" class="mobile view">
+						</button>
+					</a>
+					<button type="submit" class="desktop_set_view view" disabled>
+					</button>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+</div>
+{% else %}
+<script>
+function viewSwitch(){
+  document.cookie="view={{ 'desk' if current_view == 'mobile' else 'mobile' }};path=/";
+  window.location.reload();
+}
+</script>
+<div class="switch">
+	<div class="container-flex">
+		<div class="view_switch">
+			{% if current_view == "mobile" %}
+				<button class="mobile_set_view view" disabled>
+				</button>
+				<button class="desktop view" onclick="viewSwitch()">
+				</button>
+			{% else %}
+				<button class="mobile view" onclick="viewSwitch()">
+				</button>
+				<button class="desktop_set_view view" disabled>
+				</button>
+			{% endif %}
+		</div>
+	</div>
+</div>
+{% endif %}

@@ -1,0 +1,59 @@
+<link rel="stylesheet" href="help.css">
+<h1>Notes on setting up the database</h1>
+<hr>
+<h2>Prerequisites</h2>
+<p>You must have MySQl or Mariadb installed and running to use IMPS.
+IMPS cannot install a database server for you -- once that part is
+done, everything else described below (creating the database, the
+database user, and IMPS's tables) can be done for you automatically
+by the in-app setup wizard.</p>
+<h2>Using the setup wizard (recommended)</h2>
+<p>The first time you open IMPS in a browser, it will take you to
+the <i>Welcome to IMPS</i> setup wizard instead of the normal home
+page. This wizard walks you through everything needed to get a new
+install running:</p>
+<ol>
+<li>If you haven't installed MariaDB yet, the wizard's <i>Install
+    MariaDB (Ubuntu)</i> page has copy-pasteable install commands.</li>
+<li>The <i>Database connection</i> page lets you enter your database
+    host, name, username, and password directly in the browser. IMPS
+    tests the connection live and shows you the result before you
+    move on.</li>
+<li>If the database is empty, IMPS creates all of the necessary
+    tables for you automatically. If the database already has
+    IMPS-looking tables in it (for example, if you're re-running
+    setup against a database you've used before), the wizard asks
+    whether to keep the existing tables or start fresh, rather than
+    guessing.</li>
+<li>You can optionally have the wizard install a small set of sample
+    boxes, categories, and items, so a new install isn't completely
+    empty while you get familiar with IMPS.</li>
+<li>Finally, the wizard lets you set the IMPS password (see
+    <a href="troubleshooting.html">Troubleshooting</a> if you need to
+    change this later).</li>
+</ol>
+<p>None of this requires editing <i>imps_config.toml</i> by hand or
+restarting the server -- the wizard writes your settings to that file
+for you and reloads them immediately.</p>
+<h2>Setting up the database manually (alternative)</h2>
+<p>If you'd rather not use the wizard, you can set up the database
+yourself using the SQL files included with IMPS.</p>
+<p>The <i>static/backup/setup.sql</i> file creates the database and a
+database user with the permissions IMPS needs. While the file has a
+default username and password provided, you should edit the file to
+change these to something unique to your IMPS install for security
+purposes.</p>
+<p>The line to edit is:</p>
+<p><code>CREATE USER IF NOT EXISTS 'box_user'@'localhost' 
+IDENTIFIED BY 'box_pass';</code></p>
+<p>Change <code>box_user</code> and <code>box_pass</code>, then use
+those same values later, either when the setup wizard's <i>Database
+connection</i> page asks for your credentials, or directly in
+<i>imps_config.toml</i> if you're skipping the wizard entirely.</p>
+<p><b>Setup database on MySQL / Mariadb</b></p>
+<ol>
+<li><code>sudo mysql -u root &lt; static/backup/setup.sql</code></li>
+<li><code>mysql -u box_user -p box_db &lt; static/backup/schema.sql</code></li>
+</ol>
+<p class="note">Most people are better served by the setup wizard above --
+it does the same thing without needing you to run SQL by hand.</p>

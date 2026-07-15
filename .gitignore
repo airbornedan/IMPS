@@ -1,0 +1,42 @@
+# IMPS — secrets & real credentials. 
+imps_config.toml
+deploy/reset_credentials.toml
+deploy/mail_credentials.toml
+
+# Session-signing secret (regenerated automatically on first run)
+.secret_key
+
+# Install-state markers (generated per-install, not source)
+not_first.run
+
+# Deploy files/locks
+deploy/.db_monitor_state.toml
+deploy/.imps_reset.lock          # imps_reset.py's lockfile, if present
+deploy/maintenance.flag          # imps_reset.py's maintenance-mode flag, if used
+deploy/MAINTENANCE  
+
+# Runtime data that differs per deployment (home/demo/local)
+static/images/items/*
+!static/images/items/none.jpg
+
+# Generated and saved QR codes
+static/images/qrcodes/*
+
+# Backup files except for .sql
+static/backup/*
+!static/backup/setup.sql
+!static/backup/schema.sql
+
+
+/tmp/imps_reset.lock
+!first.run
+not_first.run
+
+# ===================================================================
+# Python
+# ===================================================================
+__pycache__/
+
+# Virtual environments
+.venv/
+

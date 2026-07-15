@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+{% set switch_url = "/boxviewswitch/" ~ box_num %}
+{% include "includes/view_switch.html" %}
+<div>
+	<div class="inline_div">
+			<div class="page_title">
+				Box {{box_num}} contents
+			</div>
+			<div>
+				{% if current_view == "mobile" %}
+					{% if box_name != "" %}
+						{{box_name}}&nbsp;
+					{% endif %}
+				{% else %}
+					{% if box_name != "" %}
+						<b>Name:</b> {{box_name | truncate(25)}}
+					{% endif %}
+				{% endif %}
+			</div>
+	</div>
+	<div class="inline_div" style="padding-left:100px;">
+	{% if current_view == "mobile" %}
+		<a href="/static/images/qrcodes/qr_code_for_box_{{box_num}}.png"
+		onclick="window.open('/boxlabel/{{box_num}}',
+		'newwindow', 'width=750, height=550'); return false;">
+			<button class="imps icon-only qr" style="margin-left:0px;"></button>
+		</a>
+	{% else %}
+		<a href="#"
+			onclick="window.open('/boxlabel/{{box_num}}',
+			'newwindow', 'width=750, height=550'); return false;">
+				<button class="imps icon-only qr"></button>
+			</a>
+	{% endif %}
+	</div>
+</div>
+{% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+{% if not item_list %}
+<div style="padding-top:20px;">
+	<p>Box {{box_num}} contains no items.</p>
+	<form action="/itemadd" method="post">
+		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+		<input type="hidden" name="prov_box_num" id="prov_box_num" value="{{box_num}}">
+		<button class="imps icon-left add" type="submit">Add item</button>
+	</form>
+</div>
+{% elif current_view == "mobile" %}
+{% include 'includes/includeitemlist_mobile.html' %}
+{% else %}
+{% include "includes/includeitemlist.html" %}
+{% include 'includes/sort.html' %}
+{% endif %}
+{% endwith %}
+{% endblock %}

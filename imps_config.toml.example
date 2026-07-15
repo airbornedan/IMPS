@@ -1,0 +1,47 @@
+# imps_config.toml
+#
+# Copy this file to imps_config.toml and fill in real values before
+# running IMPS.
+
+[database]
+# Settings for the IMPS DB
+
+# IP address of database host in the form "nnn.nnn.nnn.nnn"
+# If IMPS and the DB are hosted on the same server, use "127.0.0.1"
+host = "127.0.0.1"
+
+# Database name
+name = "box_db"
+
+# DB user with permissions on named DB
+user = "box_user"
+
+# Password for DB user
+password = "box_pass"
+
+[directories]
+# Settings for the IMPS app
+
+# IP address of the server running IMPS in the form "nnn.nnn.nnn.nnn"
+imps_ip = "127.0.0.1"
+
+# Absolute path to the directory IMPS is installed in (the same
+# directory this file is in).
+imps_dir = "/var/www/"
+
+# Path (relative to imps_dir) where IMPS stores item images.
+item_image_dir = "static/images/items/"
+
+# Path (relative to imps_dir) where IMPS stores database and photo
+# backups.
+backup_dir = "static/backup"
+
+[password]
+# Settings for the IMPS app
+password = "imps"
+
+# [rate_limit]
+# Optional. Controls where login-attempt counts (see app/blueprints/auth.py)
+# are tracked. Uncomment and set this if IMPS is served by more than one
+# worker process.
+# storage_uri = "redis://127.0.0.1:6379"

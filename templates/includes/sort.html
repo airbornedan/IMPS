@@ -1,0 +1,30 @@
+<script>
+var table = document.getElementById('itemdisplaytable')
+    ,tableHead = table.querySelector('span.table_head')
+    ,tableHeaders = tableHead.querySelectorAll('span.table_label')
+    ,tableBody = table.querySelector('span.table_body')
+;
+tableHead.addEventListener('click',function(e){
+    var tableHeader = e.target
+        ,textContent = tableHeader.textContent
+        ,tableHeaderIndex,isAscending,order
+    ;
+    if (textContent!=='add row') {
+        // Note: the value in the tableHeader.nodeName check must be UPPERCASE
+        while (tableHeader.nodeName!=='SPAN') {
+            tableHeader = tableHeader.parentNode;
+        }
+        tableHeaderIndex = Array.prototype.indexOf.call(tableHeaders,tableHeader);
+        isAscending = tableHeader.getAttribute('data-order')==='asc';
+        order = isAscending?'desc':'asc';
+        tableHeader.setAttribute('data-order',order);
+        tinysort(
+            tableBody.querySelectorAll('div.table_row')
+            ,{
+                selector:'div.table_cell:nth-child('+(tableHeaderIndex+1)+')'
+                ,order: order
+            }
+        );
+    }
+});
+</script>

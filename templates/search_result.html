@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-flex">
+{% include "includes/view_switch.html" %}
+</div>
+
+{% if item_list %}
+{% if current_view == "mobile" %}
+<p class="page_title">Search results     
+{% if (search_term != "") %}
+ for: {{search_term}}
+{% endif %}
+</p><br>
+{% with ITEM_IMAGE_DIR = ITEM_IMAGE_DIR %}
+{% include 'includes/includeitemlist_mobile.html' %}
+{% endwith %}
+{% else %}
+<p class="page_title">Search results {% if (search_term != "") %} for: {{search_term}}</p>
+
+{% if pagination.has_prev or pagination.has_next %}
+	<div class="paginate">
+		{% if pagination.has_prev %}
+		<div class="paginate-item">
+			{% set link = search_term+'?page=' + (page-1)| string %}
+	                <button type="button" class="imps icon-left back" onclick="location.href='{{link}}'">Previous</button>
+        	</div>
+		{% endif %}
+	        <div class="paginate-item">{% if pagination.has_next %}
+        		{% set link = search_term+'?page=' + (page+1) | string %}
+	                <button type="button" class="imps icon-right forward" onclick="location.href='{{link}}'">Next</button>
+        	{% endif %}
+	        </div>
+	</div>
+{% endif %}
+
+{% else %}
+</p>
+{% endif %}
+
+{% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+{% include "includes/includeitemlist.html" %}
+{% endwith %}
+{% endif %}
+
+{% else %}
+{% if current_view == "mobile" %}
+<div class="pb-3 mt-5"><p class="page_title">Sorry!</p>
+<p>No items matched <b> {{search_term}}</b>
+</p>
+</div>
+<div class="mb-3 mt-2">
+<img src="/static/images/sad_imps.png">
+</div>
+{% else %}
+<p class="page_title">Sorry!</p>
+<p>No items matched <b> {{search_term}}</b>
+</p>
+<img src="/static/images/sad_imps.png">
+{% endif %}
+{% endif %}
+<br>
+{% if current_view == "mobile" %}
+<div class="mb-3 mt-2">
+<a href="/search">
+<button type="button" class="imps icon-left back">
+BACK</button>
+</a> or 
+<a href="/"><button type="button" class="imps icon-left home">
+Home 
+</button></a>
+</div>
+{% else %}
+<div class="btn-pair">
+	<a href="/search">
+		<button type="button" class="imps icon-left back">
+			BACK
+		</button>
+	</a>
+	or 
+	<a href="/">
+		<button type="button" class="imps icon-left home">
+			Home 
+		</button>
+	</a>
+</div>
+{% include 'includes/sort.html' %}
+{% endif %}
+{% endblock %}

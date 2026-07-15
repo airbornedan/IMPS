@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Backup ready</p>
+<div class="btn-pair">
+<a href="{{backup_file}}">
+<button class="imps icon-left download">Download backup</button></a>
+<a href="/control_panel">
+<button class="imps icon-left back">Back</button></a>
+</div>
+{% endblock %}

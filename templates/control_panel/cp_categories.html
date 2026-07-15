@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'includes/warning.html' %}
+
+<!-- Page content -->
+
+<p class="page_title">Manage Categories </p>
+	<div class="grid-cat-container">
+		<div class="grid-item-left">
+			<b>Cat name</b>
+		</div>
+		 <div class="grid-item">
+			<b>Toal items</b>
+		</div>
+		<div class="grid-item">
+			<b>Edit cat</b>
+		</div>
+		<div class="grid-item">
+			<b>List items</b>
+		</div>
+		<div class="grid-item">
+			<b>Delete</b>
+		</div>
+
+		{% for category in items_per_category %}
+
+		<div class="grid-item-left">
+			{{category[0]}}
+		</div>
+		<div class="grid-item">
+			{{category[1]}}
+		</div>
+		<div class="grid-item">
+			{% if category[0] == "Uncategorized" %}
+				<button class="imps icon-only edit" disabled></button>	
+			{% else %}
+			<a href="/cp_editcat/{{category[2]}}">
+				<button class="imps icon-only edit"></button>
+			</a>
+			{% endif %}
+		</div>
+		<div class="grid-item">
+			{% if category[1] == 0 %}
+				<button class="imps icon-only list" disabled></button>
+			{% else %}
+			<a href="/itemsbycategory/{{category[0]}}">
+				<button type="submit" class="imps icon-only list"></button>
+			</a>
+			{% endif %}
+		</div>
+		<div class="grid-item">
+			{% if category[0] == "Uncategorized" %}
+				<button class="imps icon-only trash" disabled></button>
+			{% else %}
+			<a href="/cp_delcat/{{category[2]}}">
+				<button class="imps icon-only trash"></button>
+			</a>
+			{% endif %}
+		</div>
+
+		{% endfor %}
+	</div>
+	<div>
+		<form action="/cp_addcat" name="add_cat" id="add_cat" method="POST" onsubmit="return validateForm(event);" >
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+			<input type="text" name="new_cat" id="new_cat" width="14"></input>
+			<button type="submit" class="imps icon-left add">
+				Add category
+			</button>
+		</form>
+	</div>
+<script>
+function validateForm() {
+let new_cat = document.forms["add_cat"]["new_cat"].value;
+
+if (new_cat == ""){
+showValidationError("A category name is required.");
+return false;
+}
+
+const existing_categories = {{ available_categories | tojson }};
+const new_cat_normalized = new_cat.trim().toLowerCase();
+const is_duplicate = existing_categories.some(
+    function(cat) { return cat.toLowerCase() === new_cat_normalized; }
+);
+if (is_duplicate) {
+showValidationError("A category named <br>\"" + new_cat + "\" already exists.<br>Please choose a different name.");
+return false;
+}
+}
+
+</script>
+{% endblock %}

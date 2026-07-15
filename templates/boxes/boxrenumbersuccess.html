@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Box renumbered</p>
+<p>Box <b>{{old_box_num}}</b> is now box <b>{{new_box_num}}</b>.
+{% if item_count > 0 %}
+{{item_count}} item{% if item_count != 1 %}s{% endif %} moved with it.
+{% endif %}
+</p>
+
+<div style="display: flex;">
+	<div style="display:inline-block;padding-top:5px;padding-right:15px;">
+		<a href="#" onclick="window.open('/boxlabel/{{new_box_num}}',
+			'newwindow', 'width=750, height=550'); return false;">
+			<img src="/static/images/icons/qr_icon.png" height="42" width="42">
+		</a>
+	</div>
+	<div style="display: inline-block;">
+		<p>Print a new label for box {{new_box_num}}</p>
+	</div>
+</div>
+
+<div>
+	<a href="/boxlist">
+		<button class="imps icon-left box_closed">Box list</button>
+	</a>
+</div>
+{% endblock %}

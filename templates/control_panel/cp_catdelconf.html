@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- Page content -->
+
+<p class="page_title">Delete category <i>{{cat_name}}</i></p>
+
+<form action="/cp_catdelsuccess/{{cat_num}}" method="POST" name="edit_cat" onsubmit="return validateForm(event);">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<div class="container-fluid">
+		<div>
+			<input type="hidden" id="can_name" name="cat_name" value="{{cat_name}}">
+			<p>You are about to delete the category "<i>{{cat_name}}</i>". This cannot be undone. </p>
+			<p>Set all items from this category to <i>uncategorized</i>.</p>
+		</div>
+    		<div class="row">
+			<button type="submit" class="imps icon-left trash">
+				Delete
+			</button>
+		</div>
+	</div>
+</form>
+{% endblock %}

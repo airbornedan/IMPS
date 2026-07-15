@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'includes/warning.html' %}
+
+<!-- Page content -->
+
+	<div>
+		<p class="page_title">Edit: <i>{{item_name}}</i></p>
+	</div>
+	<form action="/updateitem/{{item_num}}"  
+               name="update_item" id="update_item" method="POST" enctype="multipart/form-data"
+               onsubmit="return validateForm(event);">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<div>
+		<div> 
+			<div>
+				Name: 
+			</div>
+                        <div>
+				<input type="text" value="{{item_name}}" name="item_name" id="item_name" size="15" autofocus>
+			</div>
+			<div>
+				Box # :
+				<input type="text" value="{{box_num}}" size="3" name="box_num" id="box_num">
+			</div>
+                        <div>
+                                Date:
+                        </div>
+                        <div>
+                                <input type="date"
+                                        id="item_date"
+                                        name="item_date" 
+                                        value="{{item_date}}">
+                        </div>
+                        <div>
+                                Category:
+                        </div>
+                        <div>
+				<input type="hidden" name="passed_in_cat" value="{{item_cat}}">
+	                                <input list="item_cat" name="item_cat" placeholder="{{item_cat}}" autocomplete="off"/></label>
+        	                                <datalist id="item_cat">
+                	                        {% for cat_num , cat_name in categories%}
+                        	                <option value="{{cat_name}}">{{cat_name}}</option>
+                                	        {%endfor%}
+                                        	</datalist>
+                        </div>
+                        <div>
+				Description:
+                        </div>
+                        <div>
+                                <textarea rows="3" cols="30" name="item_desc" id="item_desc">{{ item_desc }}</textarea>
+                        </div>
+			<div style="border: 2px solid black; width: 400px;">
+	        	                <img src="{{ITEM_IMAGE_DIR}}{{ item_pic }}" height="300px;">
+			</div>
+                        	<!-- This hidden field passes the item_num back so we can 
+	                         query and load the updated item page -->
+        	                <input type="hidden" name="item_num" id="item_num" value="{{item_num}}">
+                               <!-- This hidden field passes the item_pic back so we can 
+                                 query and load the updated item page -->
+                                <input type="hidden" name="item_pic" id="item_pic" value="{{item_pic}}">  
+                        <div style="border: 2px solid black; width: 380px; margin-top:10px; padding:10px;">
+				<div>
+					<input class="imps icon-left photo" type="button" id="click-input" value="Change" onclick="document.getElementById('file').click();" />
+					<label for="click-input" id="file-name" style="display: inline-block; width: 200px;padding-bottom:2px; padding-top:4px; border:2px solid black;background-color: #eee; overflow: hidden;">...</label>
+					<input type="file" style="display:none;" id="file" name="file">
+						<script>
+						    inputElement = document.getElementById('file')
+						    labelElement = document.getElementById('file-name')
+						    inputElement.onchange = function(event) {
+						        var path = inputElement.value;
+						        if (path) {
+						            labelElement.innerHTML = path.split(/(\\|\/)/g).pop()
+						        } else {
+					        	    labelElement.innerHTML = ' '
+						        } 
+						    }
+						</script>
+				</div>
+				<div style="padding-top:8px;">
+					<input style="accent-color: #a40000;" type="checkbox" id="no_photo" name="no_photo" value="yes">Remove photo</input>
+				</div>
+			</div>
+		</div>
+	
+	<div class="btn-pair">
+	<div style="padding-top:10px;">
+			<button type="submit" name="update_button" id="update_button" value="update" class="imps icon-left update">
+			UPDATE</button></form>
+		</div>
+                   <a href="/itemdetails/{{item_num}}">
+                        <button type="button" class="imps icon-left cancel" method="GET">
+                        CANCEL</button></a>
+
+	</div>
+<!-- Modal dialog and form validation JS -->
+<script>
+// Shared with validateForm()'s submit-time check below.
+const valid_numbers = {{available_boxes}};
+const boxNumInput = document.getElementById("box_num");
+
+// LIVE FEEDBACK: red border as soon as the typed number isn't a real,
+// in-use box -- same behavior as bybox.html/boxadd.html. Purely
+// visual; validateForm() below still does the actual submit-time
+// enforcement.
+boxNumInput.addEventListener("input", function() {
+	const typed = boxNumInput.value;
+	if (typed === "") {
+		boxNumInput.classList.remove("input-invalid");
+		return;
+	}
+	const typed_num = Number(typed);
+	const is_valid = !isNaN(typed) && valid_numbers.includes(typed_num);
+	boxNumInput.classList.toggle("input-invalid", !is_valid);
+});
+
+// Validate form fields
+function validateForm() {
+    let box_num = document.forms["update_item"]["box_num"].value;
+    let item_name = document.forms["update_item"]["item_name"].value;
+
+
+     // Check that the box number is a number not string
+
+     if (isNaN(box_num)){
+        showValidationError("Box numbers must <br>be numerals.");
+        return false;
+     }
+
+     // Check that the box number is not empty
+
+     if (box_num == ""){
+        showValidationError("A box number <br>is required.");
+        return false;
+     }
+
+     // Check that the box number already exists
+
+     var num_to_check = Number(box_num) ;
+     if (valid_numbers.includes(num_to_check)!=1) {
+        showValidationError("Box "+num_to_check+" is not in use. <br>Please select a <br>different box number.");
+        return false;
+     }
+
+    // Check that the item name is not empty
+
+    if (item_name == ""){
+        showValidationError("Item name is required.");
+        return false;
+     }
+
+
+
+}
+</script>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'includes/warning.html' %}
+<!-- Page content -->
+<p class="page_title">Enter box number to show contents </p>
+<form action="/boxshowcontent/" method = "POST" name="select_box" id="select_box" onsubmit="return validateForm(event);">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<div>
+		<input type="text" id="box-num" name="box-num" size="5" autofocus
+			list="box-num-suggestions" autocomplete="off"
+			placeholder="Box #">
+		<!--
+			datalist gives native, filter-as-you-type autocomplete
+			against real box numbers -- a middle ground between a bare
+			text box (no feedback until submit) and a <select> with
+			100+ options (unusable at that size, and pre-renders every
+			option even though the user only ever picks one). The
+			browser handles the filtering; nothing here needs to know
+			how many boxes exist.
+
+			This does NOT enforce that the typed value is one of the
+			suggestions -- a datalist is advisory, so the existing
+			validateForm() check against valid_numbers below is still
+			the actual enforcement and stays in place unchanged.
+		-->
+		<datalist id="box-num-suggestions">
+			{% for box_num in available_boxes %}
+			<option value="{{ box_num }}"></option>
+			{% endfor %}
+		</datalist>
+	</div>
+	<div>
+		<button type="submit" class="imps icon-left box_full">Box</button>
+	</div>
+</form>
+
+<script>
+// Hoisted out of validateForm() so both the live-typing check below and
+// the on-submit check can both use it without duplicating the data.
+const valid_numbers = {{available_boxes}};
+const boxNumInput = document.getElementById("box-num");
+
+// LIVE FEEDBACK: as the user types, flag the input red as soon as the
+// value doesn't match a real box number. Purely visual -- this does not
+// replace validateForm()'s check on submit, which is still what actually
+// blocks a bad value from being submitted.
+boxNumInput.addEventListener("input", function() {
+	const typed = boxNumInput.value;
+	if (typed === "") {
+		// Don't flag an empty field red while the user is still typing --
+		// "required" is enforced separately at submit time.
+		boxNumInput.classList.remove("input-invalid");
+		return;
+	}
+	const typed_num = Number(typed);
+	const is_valid = !isNaN(typed) && valid_numbers.includes(typed_num);
+	boxNumInput.classList.toggle("input-invalid", !is_valid);
+});
+
+function validateForm() {
+const numForm = document.forms.select_box;
+let num_input = document.forms["select_box"]["box-num"].value;
+var num_to_check = Number(num_input) ;
+
+if (num_input == ""){
+//alert("Box number is required");
+showValidationError("You must enter a box number.");
+return false;
+}
+
+// Check the the number is a number not string
+
+if (isNaN(num_input)){
+showValidationError("Box numbers must be numerals.");
+return false;
+}
+
+
+// Check the the number is a box that is currently in use
+
+if (valid_numbers.includes(num_to_check)!=1) {
+showValidationError("Box "+num_to_check+" is not in use. <br>Please select a different<br> box number.");
+return false;
+}
+
+route_var="/boxshowcontent/"+num_to_check;
+numForm.action=route_var;
+document.getElementById("select_box").submit();
+}
+</script>
+{% endblock %}

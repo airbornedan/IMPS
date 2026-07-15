@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'includes/warning.html' %}
+
+<!-- Page content -->
+
+<p class="page_title">Manage Locations</p>
+<div class="grid-cat-container">
+	<div class="grid-item-left">
+		<b>Location</b>
+	</div>
+        <div class="grid-item">
+                <b>Boxes</b>
+        </div>
+        <div class="grid-item">
+                <b>Edit loc</b>
+        </div>
+
+        <div class="grid-item">
+                <b>List boxes</b>
+	</div>
+        <div class="grid-item">
+		<b>Delete</b>
+        </div>
+        {% set ns = namespace(counter=-1) %}
+	{% for loc_name in locations %}
+        {% set ns.counter = ns.counter+1 %}
+	<div class="grid-item-left">
+		{{loc_name}}
+	</div>
+        <div class="grid-item">{{loc_count[ns.counter]}}</div>
+        <div class="grid-item">
+                {% if loc_name=="Unspecified" %}
+                        <button type="submit" class="imps icon-only edit" disabled></button>
+                {% else %}
+                        <a href="/cp_editloc/{{loc_name}}">
+				<button type="submit" class="imps icon-only edit"></button>
+			</a>
+                {% endif%}
+        </div>
+        <div class="grid-item">
+		{% if loc_count[ns.counter] != 0 %}
+			<a href="/boxlistbyloc/{{loc_name}}"><button class="imps icon-only box_closed"></button></a>
+		{% else %}
+			<button class="imps icon-only box_closed" disabled></button>
+		{% endif %}
+	</div>
+        <div class="grid-item">
+	        {% if loc_name=="Unspecified" %}
+                	<button type="submit" class="imps icon-only trash" disabled></button>
+        	{% else %}
+			<a href="/cp_delloc/{{loc_name}}"><button type="submit" class="imps icon-only trash"></button></a>
+	        {% endif%}       
+	</div>
+	{% endfor %}
+</div>
+<div>
+	<div>
+                <form action="/cp_addloc" name="add_loc" id="add_loc" method="POST" onsubmit="return validateForm(event);" >
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+				<input type="text" name="new_loc" id="new_loc" width="14"></input>
+				<button type="submit" class="imps icon-left add">
+					Add location
+				</button>
+		</form>
+	</div>
+</div>
+<script>
+function validateForm() {
+  let new_cat = document.forms["add_loc"]["new_loc"].value;
+
+  if (new_cat == ""){
+    showValidationError("A location name <br>is required.");
+    return false;
+  }
+}
+
+</script>
+{% endblock %}

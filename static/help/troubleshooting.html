@@ -1,0 +1,45 @@
+<link rel="stylesheet" href="help.css">
+<h1>Troubleshooting IMPS</h1>
+<hr>
+<h2>Installation issues</h2>
+<p><b>Pip issues</b><p>
+<p>If you attempt to install IMPS using the
+directions provided and you encounter dependency
+errors running <code>pip install -r requirements.txt</code>
+you can attempt to resolve these by installing the 
+libraries individually. For example, if the above
+command fails with a version error for the bcrypt
+library, you can try <code>pip install bcrypt</code>
+to install it.</p>
+<p><b>Database issues</b></p>
+<p>The first time IMPS is opened in a browser, it will take you to
+the <i>/setup</i> wizard, which tests your database connection live
+and shows you the result on the spot -- see
+<a href="database.html">Notes on setting up the database</a> for the
+full walkthrough. Once setup is complete, IMPS instead opens a
+welcome page that shows you the status of various settings. If the
+database setting section has red indicators, or pages consistently
+return database errors, it's likely your database connection is
+misconfigured. To manually check your database, start your db
+server's interactive environment (<code>mysql -u root</code>) and
+verify that your server is running and reachable. Then, attempt to
+login using the credentials you set in <i>imps_config.toml</i> 
+(<code> mysql -u &lt;user&gt; -p &lt;password&gt;)</p>
+<p>Included with IMPS in the <i>static/backup</i>
+directory are a <i>setup.sql</i> file (creates the database and
+database user) and a <i>schema.sql</i> file (creates IMPS's tables).
+Check that this structure exists.</p>
+<p><b>Directory issues</b></p>
+<p>If you encounter problems with IMPS related to reading
+or writing files, check that the correct directories
+are set in <i>imps_config.toml</i> and that they are
+read/writable by whichever user account is running IMPS.</p>
+<p><b>Password problems</b></p>
+<p>If you cannot access IMPS because of problems with your
+password, view what it is set to in <i>imps_config.toml</i>
+and verify that you are using the same password to log in. There is
+no way to change the password from within the running app -- either
+edit the <i>password</i> value in <i>imps_config.toml</i> directly
+and restart IMPS, or re-run the setup wizard's password step by
+creating an empty file named <i>first.run</i> in your IMPS directory
+and visiting <i>/setup</i> again.</p>

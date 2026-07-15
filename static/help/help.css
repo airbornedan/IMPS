@@ -1,0 +1,31 @@
+body{
+  font-size: 12;
+  font-family: arial;
+}
+p{
+  font-size: 12;
+  font-family: arial;
+  line-height: 14pt;
+
+}
+
+h1 {
+  font-size: 18;
+  font-weight: bold;
+}
+h2 {
+  font-size: 16;
+  font-weight: bold;
+} 
+
+p.note{
+   background-image: url('icons/note.png');
+   background-size: 20px 20px;
+   background-repeat: no-repeat;
+   padding-left: 30px;  /* width of the image plus a little extra padding */
+   display: block;  /* may not need this, but I've found I do */
+}
+.help-heading {
+  font-size: 24;
+  font-weight: bold;
+}

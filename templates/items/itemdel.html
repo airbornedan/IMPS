@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Delete <span class="item_in_title">{{item_name}}</span> from IMPS?</p>
+<form action="/itemdeleted/{{item_num}}" id="submit" method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="back_url" value="{{ back_url or '' }}">
+<button type="submit" name="del_button" id="del_button" value="Delete" class="imps icon-left trash">
+DELETE</button>
+</form>
+
+	<div>
+        	Box # :
+	</div>
+	<div>
+        	<input type="text" value="{{box_num}}" size="3" name="box_num" id="box_num" readonly>
+	</div>
+	<div>
+        	Date:
+	</div>
+	<div>
+		<input type="date"
+			id="item_date"
+		        name="item_date"
+		        value="{{item_date}}"
+		        readonly>
+	</div>
+	<div>
+	        Category:
+	</div>
+	<div>
+        	<input type="text" value="{{item_cat}}" readonly>
+	</div>
+	<div>
+	        Description:
+	</div>
+	<div>
+        	<textarea rows="3" cols="21" name="item_desc" id="item_desc" readonly>
+				{{ item_desc }}
+		</textarea>
+	</div>
+	<div style="border: 2px solid black; width: 300px;">
+		<img src="/static/images/items/{{ item_pic }}" style="height:300px; overflow: hidden;">
+	</div>
+
+<form action="/itemdeleted/{{item_num}}" id="submit" method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="back_url" value="{{ back_url or '' }}">
+<button type="submit" name="del_button" id="del_button" value="Delete" class="imps icon-left trash">
+DELETE</button>
+</form>
+{% endblock %}

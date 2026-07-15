@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Added box number: {{box_num}}</p>
+<div>
+	<p><b>Box location:</b>
+                {% if box_loc =="Unspecified" %}
+                        <span style="color: gray">Unspecified</span>
+                {% else %}
+                        {{box_loc}}
+                {% endif %}
+	</p>
+	<p><b>Box name:</b> 
+		{% if box_name =="" %}
+			<span style="color: gray">Unnamed</span>
+		{% else %}
+			{{box_name}}
+		{% endif %}
+	</p>
+</div>
+
+
+<div style="display: flex;">
+        <div style="display:inline-block;padding-top:5px;padding-right:15px;">
+	        <a href="#" onclick="window.open('/boxlabel/{{box_num}}',
+        	        'newwindow', 'width=750, height=550'); return false;">
+                	<img src="/static/images/icons/qr_icon.png" height="42" width="42">
+	       </a>
+        </div>
+        <div style="display: inline-block;">
+                <p>Print box label</p>
+        </div>
+</div>
+<br>This box is now ready to use in IMPS.
+<div class="btn-pair">
+  <a href="/itemadd">
+    <button class="imps icon-left add">Add items</button>
+  </a>
+  <a href="/boxlist">
+    <button class="imps icon-left box_closed">Box list</button>
+  </a>
+</div>
+{% endblock %}

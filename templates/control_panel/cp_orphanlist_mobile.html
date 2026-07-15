@@ -1,0 +1,28 @@
+{% include 'includes/header.html' %}
+<div style="position:absolute; top:0; left:500px; z-index:1000; width: 150px; ">
+        <div class="container-flex">
+                <div class="row mt-auto" >
+                        <div class="view_switch">
+                                <button class="mobile_set_view view" disabled>
+                                </button>
+                                <a href="/orphan_view_switch">
+                                <button class="desktop view">
+                                </button></a>
+                        </div>
+                </div>
+        </div>
+</div>
+<div>
+	<p class="page_title">Orphaned items</p>
+</div>
+</div>
+{% if item_list is defined and item_list[0] != Null %}
+   {% include "includes/includeitemlist_mobile.html" %}
+   {% with ITEM_IMAGE_DIR=ITEM_IMAGE_DIR %}
+   {% include 'includes/sort.html' %}
+   {% endwith %}
+{% else %}
+   <p>No orphaned items exist at this time.</p>
+{% endif %}
+
+{% include 'includes/footer.html' %}

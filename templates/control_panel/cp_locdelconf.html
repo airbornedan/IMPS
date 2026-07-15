@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Delete location <i>{{loc_name}}</i></p>
+<form action="/cp_locdelsuccess/{{loc_name}}" method = "POST" name="edit_cat">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="container-fluid">
+  <div>
+     <p>You are about to delete the location "<i>{{loc_name}}</i>". This cannot be undone. </p>
+     <p>All boxes with this location will be set to <i>Unspecified</i>.</p>
+    </div>
+    <div class="row">
+      <button type="submit" class="imps icon-left trash">
+       Delete
+      </button>
+    </div>
+  </div>
+</div>
+</form>
+{% endblock %}

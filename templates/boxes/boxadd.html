@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'includes/warning.html' %}
+<script type="text/javascript">
+// Disable text boxes based on radio button selection
+
+function initTextDisable() {
+    document.getElementById("box_num").readonly = true;
+    document.getElementById("box_num").style.color="gray";
+    document.getElementById("next_available_box_num").readonly = false;
+    document.getElementById("next_available_box_num").style.color="black";
+}
+window.onload = initTextDisable;
+
+function textDisablerBN(){
+   document.getElementById("box_num").readonly = true;
+   document.getElementById("box_num").style.color="gray";
+   document.getElementById("box_num").classList.remove("input-invalid");
+   document.getElementById("next_available_box_num").readonly = false;
+   document.getElementById("next_available_box_num").style.color="black";
+
+}
+
+function textDisablerNA(){
+   document.getElementById("next_available_box_num").readonly = true;
+   document.getElementById("next_available_box_num").style.color = "gray";
+   document.getElementById("box_num").readonly = false;
+   document.getElementById("box_num").style.color = "black";
+
+}
+
+function radioButtonSwitchNA(){
+   radiobtn = document.getElementById("choose_box_num");
+   radiobtn.checked = true;
+}
+
+function radioButtonSwitchBN(){
+   radiobtn = document.getElementById("next_available_box");
+   radiobtn.checked = true;
+}
+
+function chooseNumberCaller(){
+   radioButtonSwitchNA();
+   textDisablerNA();
+}
+
+function faNumberCaller(){
+   radioButtonSwitchBN();
+   textDisablerBN();
+}
+
+</script>
+
+<!-- Page content -->
+<p class="page_title">Add box</p>
+<form name="add_box_form" action="/boxadded"  method = "POST" onsubmit="return validateForm();">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<div class="input_div" style="background: #eee; width:350px; padding-bottom:5px; padding-top:5px; border:1px solid #ccc;">
+		<b>Box number</b>
+		<div>
+			<div>
+				<input type="radio" id="next_available_box" 
+                        	       name="box_type" value="next_available" checked onchange="textDisablerBN()">
+				First available unused number: 
+			</div>
+			<div class="input_div">
+				<input type="hidden" name="next_num" id="next_num" value="{{first_available_box}}">
+				<input type="text" name="next_available_box_num" 
+        	                       id="next_available_box_num" readonly size="5" value="{{first_available_box}}" onfocus="faNumberCaller()">
+			</div>
+		</div>
+		<div>
+			<div>
+				<input type="radio" id="choose_box_num" 
+        	                       name="box_type" value="choose_number" onchange="textDisablerNA()" >
+			Choose number:
+			</div>
+			<div class="input_div">
+				<input id="box_num" name="box_num" type="text"  size="5" onfocus="chooseNumberCaller()">
+			</div>
+		</div>
+	</div>
+
+
+        <div>
+                <div>
+                        <div style="margin-top: 10px;">
+                               <b>Location</b>
+                        </div>
+                        <div>
+                                 <input list="box_loc" name="box_loc" placeholder="Unspecified" autocomplete="off"/></label>
+                                        <datalist id="box_loc" name="box_loc_selector">
+                                        {% for loc_name , loc_num in locations%}
+                                        <option value="{{loc_name}}">{{loc_name}}</option>
+                                        {%endfor%}
+                                </datalist>
+                        </div>
+                </div>
+
+        </div>
+	<div>
+		<div>
+			<b>Box name</b>
+		</div>
+		<div>
+			<input id="box_name" type="text" placeholder="(optional)" name="box_name">
+		</div>
+	</div>
+	<div>
+		<div>
+		        <button type="submit" id="submit_button" class="imps icon-left box_closed">Add Box</button>
+		</div>
+	</div>
+</form>
+
+<!-- Modal dialog and form validation JS --> 
+<script>
+// Modal dialog setup
+var modal = document.getElementById("myModal");
+var btn = document.getElementById("myBtn");
+var span = document.getElementsByClassName("close")[0];
+span.onclick = function() {
+  modal.style.display = "none";
+}
+
+// Shared with validateForm()'s submit-time check below.
+const boxes_in_use = {{box_nums|safe}}
+const boxNumInput = document.getElementById("box_num");
+
+// LIVE FEEDBACK: as the user types a box number to reuse, flag the
+// input red as soon as it matches a number already in use. Inverse of
+// the bybox.html live check (there, red means "not a real box"; here,
+// red means "that box already exists"). Purely visual -- validateForm()
+// below still does the actual submit-time enforcement.
+boxNumInput.addEventListener("input", function() {
+	const typed = boxNumInput.value;
+	if (typed === "" || boxNumInput.readOnly) {
+		// Nothing typed yet, or this field isn't the active choice
+		// (the "first available" radio is selected instead) -- don't
+		// flag it red in either case.
+		boxNumInput.classList.remove("input-invalid");
+		return;
+	}
+	const typed_num = Number(typed);
+	const already_in_use = !isNaN(typed) && boxes_in_use.includes(typed_num);
+	boxNumInput.classList.toggle("input-invalid", already_in_use);
+});
+
+// Also re-check whenever the field switches from readonly to active
+// (i.e. the user clicks into it), in case it already has a leftover
+// value from before the radio selection changed.
+boxNumInput.addEventListener("focus", function() {
+	boxNumInput.dispatchEvent(new Event("input"));
+});
+
+// Validate form fields
+function validateForm() {
+    let box_num = document.forms["add_box_form"]["box_num"].value;
+    let box_type = document.forms["add_box_form"]["box_type"].value;
+
+
+    if (box_num == "" && box_type != "next_available"){
+        //alert ("A box number is required.");
+        modal.style.display = "block";
+       document.getElementById('err_message').innerHTML="You must enter a <br>box number.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+    }
+
+     // Check the the number is a number not string
+
+     if ((isNaN(box_num)) && (box_type=="choose_number")){
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="Box numbers must<br> be numerals.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+     }
+
+     // Check the number is an int
+
+    intcheck = Math.round(box_num);
+
+    if ((intcheck != box_num) && (box_type == "choose_number")){
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="Box numbers must <br>be integers.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+    }
+
+    // Check that the number is positive
+
+    if (box_num < 0){
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="Box numbers must <br>be positve.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+    }
+
+
+
+    // Check the box number is not in use
+
+    if (box_type=="choose_number"){
+        let i=0;
+        const boxes_in_use = {{box_nums|safe}}
+        while (i < boxes_in_use.length){
+             if (boxes_in_use[i] == box_num){
+                 //alert ("Box number currently in use.");
+                 modal.style.display = "block";
+                 document.getElementById('err_message').innerHTML="Box "+box_num+" is already in use.<br> Please choose a different<br> box number.";
+                 span.onclick = function() {
+                     modal.style.display = "none";
+                 }
+                 return false;
+                 break;
+             }
+             i++;
+        }
+    }
+    let selected_loc = document.forms["add_box_form"]["box_loc"].value;
+    if (selected_loc.length==0){
+         document.forms["add_box_form"]["box_loc"].value = "Unspecified";
+    }
+}
+</script>
+{% endblock %}

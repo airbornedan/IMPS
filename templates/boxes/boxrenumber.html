@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'includes/warning.html' %}
+{% with confirm_yes_label="Yes", confirm_no_label="No" %}
+{% include 'includes/confirm_modal.html' %}
+{% endwith %}
+
+<p class="page_title">Change box number</p>
+<p>Currently box <b>{{box_num}}</b>.
+{% if item_count > 0 %}
+This box has <b>{{item_count}}</b> item{% if item_count != 1 %}s{% endif %}
+in it -- they'll be moved to the new number along with the box.
+{% else %}
+This box has no items in it.
+{% endif %}
+</p>
+<p style="color:#a00;">This will <b>not</b> update anything printed on
+the box. If you've already printed a label for box {{box_num}}, you'll
+need to print a new one for the new number after this change.</p>
+
+<form name="renumber_box_form" action="/boxrenumbersuccess" method="POST">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="old_box_num" value="{{box_num}}">
+	<div>
+		<label>New box number<br>
+		<input id="new_box_num" name="new_box_num" type="text" size="5" autofocus></label>
+	</div>
+	<div style="margin-top:10px;">
+		<button type="button" id="renumber_btn" class="imps">Change number</button>
+	</div>
+</form>
+
+
+<a href="/boxlist">
+	<button type="button" class="imps icon-left back">Back</button>
+</a>
+
+<script>
+const boxes_in_use = {{box_nums|safe}};
+const oldBoxNum = {{box_num}};
+const newBoxNumInput = document.getElementById("new_box_num");
+
+// LIVE FEEDBACK: red border as soon as the typed number is invalid or
+// already in use -- same pattern as boxadd.html. Purely visual;
+// validateNewBoxNum() below still does the actual submit-time check.
+newBoxNumInput.addEventListener("input", function() {
+	const typed = newBoxNumInput.value;
+	if (typed === "") {
+		newBoxNumInput.classList.remove("input-invalid");
+		return;
+	}
+	const typed_num = Number(typed);
+	const already_in_use = !isNaN(typed) && boxes_in_use.includes(typed_num);
+	const is_same = !isNaN(typed) && typed_num === oldBoxNum;
+	newBoxNumInput.classList.toggle("input-invalid", already_in_use || is_same);
+});
+
+function validateNewBoxNum() {
+	const typed = newBoxNumInput.value;
+
+	if (typed === "") {
+		showValidationError("You must enter a <br>new box number.");
+		return false;
+	}
+	if (isNaN(typed)) {
+		showValidationError("Box numbers must <br>be numerals.");
+		return false;
+	}
+	const typed_num = Number(typed);
+	if (Math.round(typed_num) !== typed_num) {
+		showValidationError("Box numbers must <br>be integers.");
+		return false;
+	}
+	if (typed_num < 0) {
+		showValidationError("Box numbers must <br>be positive.");
+		return false;
+	}
+	if (typed_num === oldBoxNum) {
+		showValidationError("That's already this <br>box's number. Choose a <br>different one.");
+		return false;
+	}
+	if (boxes_in_use.includes(typed_num)) {
+		showValidationError("Box " + typed_num + " already exists.<br>Choose a different <br>box number.");
+		return false;
+	}
+	return true;
+}
+
+// Confirm modal (Yes/Cancel) -- only shown once the typed number
+// passes validation, since there's no point confirming a change
+// that's about to be rejected anyway. Cancel/close is wired up
+// generically in modal.js; only what triggers this modal (validation
+// passing) and what Yes actually does (submit this specific form) are
+// page-specific.
+var confirmYesBtn = document.getElementById("confirm_yes_btn");
+
+document.getElementById("renumber_btn").addEventListener("click", function() {
+	if (!validateNewBoxNum()) {
+		return;
+	}
+	showConfirmModal("Renumber this box");
+});
+confirmYesBtn.addEventListener("click", function() {
+	document.forms["renumber_box_form"].submit();
+});
+</script>
+{% endblock %}

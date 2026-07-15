@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.a{
+  border:0px;
+}
+</style>
+<p class="page_title">Delete Box {{ box_to_del }}? </p>
+<br>
+<div style="display: flex;">
+	<div style="display:inline-block;padding-top:5px;padding-right:15px;">
+		<img src="static/images/icons/warning_icon.png" width="42px;">
+	</div>
+	<div style="display: inline-block;">
+		<p> You are about to <b>permanently</b> delete box {{box_to_del}}.</p>
+	</div>
+</div>
+<div>
+<p> This box is 
+    {% if box_state=="not_empty" %}
+	<span class="warn_text">NOT EMPTY</span>. 
+    If you continue, all items in this box will have their 
+    assigned box set to <span class="warn_text">None</span>. This 
+    means that they will not have a box number.</p>
+    <p class="note">Note: You can find these items using IMPS and assign them to a new
+       box after you have deleted the box they are assigned to.
+    </p>
+
+    {% else %}
+        empty. </p>
+    {% endif %}
+<span class="warn_text">Deleting a box cannot be undone!</span>
+</div>
+<br>
+<div>
+        <div>
+                <form action="/boxorphanitemssuccess" method="POST">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+		<input type="hidden" name="box_to_del" id="box_to_del" value="{{box_to_del}}">
+                <button type="submit" id="submit_button" class="imps icon-left trash">
+                DELETE</button>
+                </form>
+        </div>
+</div>
+{% endblock %}

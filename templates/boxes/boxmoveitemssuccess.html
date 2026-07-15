@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">You have deleted Box {{deleted_box}}</p>
+<div class="container-flex">
+<div class="row ps-2">
+<p>All items that were in box {{deleted_box}} have been moved to box {{new_box_num}}.</p>
+</div>
+	<div class="row btn-pair">
+		<div class="col col-auto">
+			<a href="/">
+				<button class="imps icon-left home">Home</button>
+			</a>
+		</div>
+		<div class="col">
+			<a href="/boxshowcontent/{{new_box_num}}">
+				<button class="imps icon-left list">Box {{new_box_num}}</button>
+			</a>
+		</div>
+	</div>
+</div>
+{% endblock %}

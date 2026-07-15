@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-flex">
+<div>
+<p class="page_title">Box {{box_num}} updated</p>
+</div>
+	<div>
+                <div>
+			<div>
+				Location:
+			</div>
+			<div>
+	                        <input list="item_loc" name="item_loc" placeholder="{{box_loc}}" readonly></label>
+        	         </div>
+		</div>
+                <div>
+			<div>
+				Box name
+			</div>
+			<div>
+				<input type="text" id="box_name" name="box_name" size="25" value="{{- box_name -}}" readonly>
+			</div>
+                </div>
+
+	</div>
+	<div class="btn-pair">
+		<div style="display:inline-block;">
+                        <a href="boxlist"><button class="imps icon-left list">Box list</button></a>
+		</div>
+               <div style="display:inline-block;">
+                        <a href="/"><button class="imps icon-left home">Home</button></a>
+                </div>
+
+	</div>
+</div>
+{% endblock %}

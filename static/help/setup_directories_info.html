@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Directory settings</p>
+<p>Unlike the database connection and IMPS password, these settings
+aren't configurable from this wizard -- getting <code>imps_dir</code>
+wrong is exactly what stops IMPS from starting at all (see
+<code>app/extensions.py</code>), so they need to be set directly in
+<code>imps_config.toml</code> before IMPS is even running, rather than
+through a page IMPS itself serves.</p>
+
+<p>The file is in the same directory where you installed IMPS, most
+likely <code>/var/www/</code> if you're using Apache on Ubuntu. Open
+it in a text editor and check the <code>[directories]</code>
+section:</p>
+
+<ul>
+<li><i>imps_ip</i> -- the IP address of the server running IMPS.</li>
+<li><i>imps_dir</i> -- the absolute path to the directory IMPS is
+    installed in (e.g. <code>/var/www/</code>). If this is wrong,
+    IMPS won't start at all -- you'll see this in a terminal, not in
+    the browser.</li>
+<li><i>item_image_dir</i> -- path (relative to <code>imps_dir</code>)
+    where IMPS stores item images. The default is
+    <code>static/images/items/</code>. You may use any directory
+    IMPS has read/write access to; to use one outside IMPS's own
+    folder, create a symlink rather than changing this to an
+    unrelated absolute path.</li>
+<li><i>backup_dir</i> -- path (relative to <code>imps_dir</code>)
+    where IMPS stores database and photo backups made from the
+    control panel. The default is <code>static/backup</code>.</li>
+</ul>
+
+<p>After editing <code>imps_config.toml</code>, restart IMPS (a plain
+config file edit isn't picked up live the way database settings and
+the IMPS password are through this wizard) and come back here to
+confirm the lights above are green.</p>
+
+<a href="{{ url_for('setup.setup_landing') }}">
+	<button type="button" class="imps icon-left back">Back</button>
+</a>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Sample data</p>
+<p>Your database is ready. Would you like IMPS to install a few
+sample boxes, items, categories, and locations so you can see how it
+looks before adding your own inventory? You can delete these at any
+time from the normal box/item edit pages.</p>
+
+<form action="{{ url_for('setup.setup_samples') }}" method="POST">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<p>
+		<label>
+			<input type="checkbox" name="install_samples" checked>
+			Install sample items
+		</label>
+	</p>
+	<button type="submit" class="imps">Continue</button>
+</form>
+{% endblock %}

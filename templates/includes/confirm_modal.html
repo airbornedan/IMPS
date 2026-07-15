@@ -1,0 +1,22 @@
+<!-- confirm modal (same shell as includes/warning.html, but with a
+     real Yes/Cancel choice instead of a single dismiss button --
+     used for destructive confirmations like "delete existing data") -->
+<div id="confirmModal" class="modal">
+	<div class="modal-content">
+		<div class="warn_cont">
+			<div class="warn_left"><br>
+				<div class="warning"></div>
+			</div>
+			<div class="warn_right">
+				<div class="warn_right_top"><br>
+					<span id="confirm_message"></span>
+				</div>
+				<div class="warn_right_bottom btn-pair" style="margin-top:10px;">
+					<button type="button" id="confirm_yes_btn" class="imps" style="background-color: #a00;">{{ confirm_yes_label | default("Yes, delete") }}</button>
+					<button type="button" id="confirm_no_btn" class="imps">{{ confirm_no_label | default("Cancel") }}</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<!-- end confirm modal -->

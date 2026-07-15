@@ -1,0 +1,55 @@
+{% include 'includes/header.html' %}
+<script>
+// function to switch view
+function viewSwitch(){
+  //set cookie
+  document.cookie="view=desk;path=/";
+  //reload the page
+  window.location.reload();
+}
+</script>
+<div class="switch">
+	<div class="container-flex">
+		<div class="row mt-auto" >
+		         <input type="hidden" name="search-term" id="search-term" value="{{search_term}}">
+                         <div class="view_switch">
+			         <button type="submit" class="mobile_set_view view" disabled>
+				         </button>
+			         <button type="submit" class="desktop view" onclick="viewSwitch()">
+				         </button>
+			</div>
+	        </div>
+      </div>
+</div>
+{% if item_list %}
+
+<p class="page_title">Search results     
+{% if (search_term != "") %}
+ for: {{search_term}}
+{% endif %}
+</p><br>
+{% with ITEM_IMAGE_DIR = ITEM_IMAGE_DIR %}
+{% include 'includes/includeitemlist_mobile.html' %}
+{% endwith %}
+
+{% else %}
+
+<div class="pb-3 mt-5"><p class="page_title">Sorry!</p>
+<p>No items matched <b> {{search_term}}</b>
+</p>
+</div>
+<div class="mb-3 mt-2">
+<img src="/static/images/sad_imps.png">
+</div>
+{% endif %}
+<div class="mb-3 mt-2">
+<a href="/search">
+<button type="button" class="btn btn-rounded imps back">
+BACK</button>
+</a> or 
+<a href="/"><button type="button" class="btn brn-rounded imps home">
+Home 
+</button></a>
+</div>
+{% include 'includes/footer.html' %}
+

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'includes/warning.html' %}
+
+<!-- Page content -->
+
+<p class="page_title">Edit category</p>
+
+<form action="/cp_cateditsuccess/{{cat_num}}" method = "POST" name="edit_cat" onsubmit="return validateForm(event);">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<div>
+		<input type="hidden" id="can_num" name="cat_num" value="{{cat_num}}">
+		<input id="cat_name" type="text" name="cat_name" size="12" value="{{cat_name}}">
+	</div>
+	<div>
+		<button type="submit" class="imps icon-left update">
+			 Change
+		</button>
+	</div>
+</form>
+
+<script>
+function validateForm() {
+let new_cat_name = document.forms["edit_cat"]["cat_name"].value;
+
+if (new_cat_name.trim() == ""){
+showValidationError("A category name is required.");
+return false;
+}
+
+const other_categories = {{ other_categories | tojson }};
+const new_cat_normalized = new_cat_name.trim().toLowerCase();
+const is_duplicate = other_categories.some(
+    function(cat) { return cat.toLowerCase() === new_cat_normalized; }
+);
+if (is_duplicate) {
+showValidationError("A category named <br>\"" + new_cat_name + "\" already exists.<br>Please choose a different name.");
+return false;
+}
+}
+</script>
+{% endblock %}

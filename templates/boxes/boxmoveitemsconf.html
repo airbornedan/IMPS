@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'includes/warning.html' %}
+
+<!-- Page content -->
+<p class="page_title">You are about to delete Box  {{old_box_num}}</p>
+
+<div class="container-flex">
+<div>
+	<p>You have chosen to move all items from this box to another box.</p>
+</div>
+<div>
+	<div>
+		Select the new box for these items 
+	</div>
+	<div>
+	        <form action="/boxmoveitemssuccess" method = "POST" name="select_box" id="select_box" onsubmit="return validateForm(event);">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+			<input type="hidden" name="box_to_del" id="box_to_del" value="{{old_box_num}}">
+			 <div>
+				<div>
+					<input id="new_box_num" type="text" name="new_box_num" size="3">
+				</div>
+				<div>
+				      <button type="submit" id="submit_button" class="imps icon-left box_closed">
+					       Move
+				      </button>
+				</div>
+			</div>
+		</form>
+	</div>
+</div>
+</div>
+
+<script>
+// Shared with validateForm()'s submit-time check below.
+const valid_numbers = {{available_boxes}};
+const oldBoxNum = {{old_box_num}};
+const newBoxNumInput = document.getElementById("new_box_num");
+
+// LIVE FEEDBACK: red border if the typed number isn't numeric, is the
+// same box being deleted, or isn't an in-use box -- mirrors all three
+// checks validateForm() does at submit time below. Purely visual.
+newBoxNumInput.addEventListener("input", function() {
+	const typed = newBoxNumInput.value;
+	if (typed === "") {
+		newBoxNumInput.classList.remove("input-invalid");
+		return;
+	}
+	const typed_num = Number(typed);
+	const is_valid = !isNaN(typed) && typed_num !== oldBoxNum && valid_numbers.includes(typed_num);
+	newBoxNumInput.classList.toggle("input-invalid", !is_valid);
+});
+
+
+function validateForm() {
+  let num_input = document.forms["select_box"]["new_box_num"].value;
+
+  // Check that the box isn't empty
+
+  if (num_input == ""){
+    showValidationError("You must enter a box number.");
+    return false;
+  }
+
+  // Check the the number is a number not string
+
+  if (isNaN(num_input)){
+    showValidationError("Box numbers must be <br>numerals. Please enter a <br>number.");
+    return false;
+  }
+
+  // Check that the box isn't the box being deleted
+
+  if (num_input == {{old_box_num}}){
+    showValidationError("You cannot move items into the<br>box you are deleting.");
+    return false;
+  }
+
+
+
+  // Check the the number is a box that is currently in use
+
+  var num_to_check = Number(num_input) 
+  if (valid_numbers.includes(num_to_check)!=1) {
+    showValidationError("Box " + num_input  + " is not in use. <br>Please select a different box number.");
+    return false;
+  }
+
+}
+
+</script>
+{% endblock %}

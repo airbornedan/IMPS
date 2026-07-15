@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.dot {
+  height: 13px;
+  width: 13px;
+  border-radius: 50%;
+  margin-left: 20px;
+  display: inline-block;
+  border: 2px solid black;
+}
+.row {
+  line-height: 24pt;
+  padding: 2px;
+  border: 1px solid #ddd;
+}
+</style>
+
+<p class="page_title">Welcome to IMPS</p>
+<p>If this is the first time you have started IMPS, this page will
+help guide you through setup. Once every indicator below is green,
+you're ready to finish and start using IMPS.</p>
+
+<p class="page_subtitle">Database</p>
+<div style="width:400px; border:4px solid #444;">
+	<div class="row">
+		<div class="inline_div" style="width: 300px;">
+			<b>Database connection:</b>
+		</div>
+		<div class="inline_div">
+			<span class="dot" {% if db_conn %}style="background-color: green;"
+			{% else %}style="background-color: red;"{% endif %}></span>
+		</div>
+	</div>
+	<div class="row">
+		<div class="inline_div" style="width: 300px;">
+			<b>Database structure:</b>
+		</div>
+		<div class="inline_div">
+			<span class="dot" {% if db_tables %}style="background-color: green;"
+			{% else %}style="background-color: red;"{% endif %}></span>
+		</div>
+	</div>
+</div>
+<p>
+	<a href="{{ url_for('setup.setup_database') }}">
+		<button class="imps">Configure database</button>
+	</a>
+</p>
+
+<p class="page_subtitle">Directories</p>
+<div style="width:400px; border:4px solid #444;">
+	<div class="row">
+		<div class="inline_div" style="width: 300px;">
+			<b>Item image directory:</b>
+		</div>
+		<div class="inline_div">
+			<span class="dot" {% if item_image_config %}style="background-color: green;"
+			{% else %}style="background-color: red;"{% endif %}></span>
+		</div>
+	</div>
+	<div class="row">
+		<div class="inline_div" style="width: 300px;">
+			<b>Backup directory:</b>
+		</div>
+		<div class="inline_div">
+			<span class="dot" {% if backup_config %}style="background-color: green;"
+			{% else %}style="background-color: red;"{% endif %}></span>
+		</div>
+	</div>
+</div>
+<p>
+	<a href="{{ url_for('setup.setup_directories_info') }}">
+		<button class="imps">Directories info</button>
+	</a>
+</p>
+
+{% if all_green %}
+<p>IMPS appears correctly configured.</p>
+<a href="{{ url_for('setup.setup_samples') }}">
+	<button class="imps">Continue</button>
+</a>
+{% endif %}
+{% endblock %}

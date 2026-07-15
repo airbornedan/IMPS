@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Login</p>
+<p>Welcome to IMPS</p>
+<form action= "/attemptlogin" method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<div >Password</div>
+        <div>
+                <input id="password" type="password" name="password" autofocus >
+        </div>
+<button type="submit" class="imps icon-left login">Log in</button>
+</form>
+{% endblock %}

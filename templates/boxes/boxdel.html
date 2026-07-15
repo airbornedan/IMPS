@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'includes/warning.html' %}
+<!-- Page content -->
+<div class="row pb-3">
+<p class="page_title">Delete a box</p>
+<br>
+</div>
+<form name="del_box_form" id="del_box_form" action="/delboxconf" method = "POST" onsubmit="return validateForm();">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="box_del_from" value="/boxdel">
+<div class="container-flex">
+        <div class="row mt-auto">
+                <div class="col">Enter box number to delete: 
+			<input autofocus type="text" size="5" id="box_to_del" name="box_to_del" value="{{box_to_del}}">
+                </div>
+        </div>
+<div id="item_handling_section">
+	<div style="padding-top: 10px;">
+		<b>Choose what to do with items assigned ot this box:</b>
+	</div>
+		<p>
+			<input type="radio" id="orphan" name="item_handling" value="orphan" checked> Delete box only, leave items.
+		</p>
+		<p>
+                        <input type="radio" id="move" name="item_handling" value="move"> Delete box, move all items to a different box.
+		</p>
+		<p>
+                	<input type="radio" id="delete" name="item_handling" value="delete"> Delete box and all items in it.
+		</p>
+</div>
+	<div class="row mt-4">
+		<div class="col align-auto-self-start"> 
+                        <button type="submit" id="submit_button" class="imps icon-left trash">
+                        	&nbsp;Next
+			</button>
+		</div>
+        </div>   
+</div>
+</form>
+
+<!-- Modal dialog and form validation HTML -->
+<script>
+// Shared with validateForm()'s submit-time check below.
+const boxes_in_use = {{box_nums|tojson}};
+const boxes_in_use_str = boxes_in_use.map(function(e){return e.toString()});
+const boxToDelInput = document.getElementById("box_to_del");
+
+// Which in-use boxes actually have items in them -- anything NOT in
+// this list is empty. Used to skip the (meaningless, for an empty
+// box) "what should happen to the items" choice entirely: with zero
+// items, orphaning/moving/deleting them are all the same no-op, so
+// there's nothing real to choose between.
+const not_empty_boxes = {{not_empty_box_num_list|tojson}};
+const notEmptyBoxesStr = not_empty_boxes.map(function(e){return e.toString()});
+const itemHandlingSection = document.getElementById("item_handling_section");
+const submitButton = document.getElementById("submit_button");
+
+function isKnownEmptyBox(typed) {
+	return boxes_in_use_str.includes(typed) && !notEmptyBoxesStr.includes(typed);
+}
+
+// LIVE FEEDBACK: red border as soon as the typed number isn't a real,
+// in-use box -- same behavior as bybox.html/boxadd.html. Purely
+// visual; validateForm() below still does the actual submit-time
+// enforcement. Also toggles the item-handling section: hidden (with
+// the button relabeled) as soon as the typed box is confirmed empty,
+// shown again otherwise.
+boxToDelInput.addEventListener("input", function() {
+	const typed = boxToDelInput.value;
+	if (typed === "") {
+		boxToDelInput.classList.remove("input-invalid");
+		itemHandlingSection.style.display = "";
+		submitButton.innerHTML = "&nbsp;Next";
+		return;
+	}
+	const is_valid = boxes_in_use_str.includes(typed);
+	boxToDelInput.classList.toggle("input-invalid", !is_valid);
+
+	if (isKnownEmptyBox(typed)) {
+		itemHandlingSection.style.display = "none";
+		submitButton.innerHTML = "&nbsp;Delete box";
+	} else {
+		itemHandlingSection.style.display = "";
+		submitButton.innerHTML = "&nbsp;Next";
+	}
+});
+
+document.getElementById("submit_button").addEventListener("click", function(event){
+  event.preventDefault()
+  validateForm();
+});
+
+// box_to_del often arrives pre-filled rather than typed -- boxlist.html's
+// per-row delete button POSTs straight here with the box number already
+// set. Re-run the same check that normally fires on typing, so the
+// item-handling section is already hidden/shown correctly on load
+// instead of only updating once the user edits the field.
+if (boxToDelInput.value !== "") {
+	boxToDelInput.dispatchEvent(new Event("input"));
+}
+
+function validateForm() {
+    var no_box_selected_flag;
+    var no_such_box_flag;
+    var not_empty_flag;
+
+    no_box_selected_flag="false";
+    let box_num = document.forms["del_box_form"]["box_to_del"].value;
+    if (box_num == ""){
+        showValidationError("You must enter a box number.");
+        no_box_selected_flag = "true";
+        return false;
+    }
+
+  // Check the the number is a numeral
+
+    if (isNaN(box_num)){
+      showValidationError("Box numbers must <br>be numerals.");
+      return false;
+    }
+
+  //Check if box is in use
+
+    no_such_box_flag = "true";
+    for (let i=0; i < boxes_in_use.length; i++){
+        if (boxes_in_use_str[i] == box_num){
+           no_such_box_flag = "false";
+        }
+    }
+    if (no_such_box_flag == "true"){
+        showValidationError("Box "+box_num+" is not in use. <br>Please select a <br>different box number.");
+       return false;
+    }
+
+    // An empty box has nothing to orphan/move/delete -- skip reading
+    // the (hidden) radio choice entirely and go straight to the
+    // delete-confirmation page, which already shows a clean "this box
+    // is empty" message and a single DELETE button with no item-
+    // handling choice of its own.
+    if (isKnownEmptyBox(box_num)) {
+        document.forms["del_box_form"]["item_handling"].value = "delete";
+        document.getElementById('del_box_form').action = "/delboxconf";
+        document.getElementById('del_box_form').submit();
+        return;
+    }
+
+    var ele = document.getElementsByName('item_handling');
+        for (i = 0; i < ele.length; i++) {
+            if (ele[i].checked)
+                item_handling = (ele[i].value);
+        }
+
+    if (item_handling == "move"){
+        document.getElementById('del_box_form').action = "/boxmoveitemsconf";
+        document.getElementById('del_box_form').submit();
+    }
+    else if (item_handling == "orphan"){
+        document.getElementById('del_box_form').action = "/boxorphanitemsconf";
+        document.getElementById('del_box_form').submit();
+    }
+    else if (item_handling == "delete"){
+        document.getElementById('del_box_form').action = "/delboxconf";
+        document.getElementById('del_box_form').submit();
+    }
+    
+}
+
+</script>
+{% endblock %}

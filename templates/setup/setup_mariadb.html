@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Install MariaDB (Ubuntu)</p>
+<p>These steps assume Ubuntu, since that's the only OS IMPS officially
+supports. Run each block below in a terminal on the server IMPS is
+installed on.</p>
+
+<p class="page_subtitle">1. Install the MariaDB server</p>
+<pre style="background:#f4f4f4; padding:10px; border:1px solid #ccc;">sudo apt update
+sudo apt install mariadb-server</pre>
+
+<p class="page_subtitle">2. (Recommended) Run the included security script</p>
+<p>Sets a root password, removes anonymous users, and disables remote
+root login. Answer "Y" to each prompt unless you have a specific
+reason not to.</p>
+<pre style="background:#f4f4f4; padding:10px; border:1px solid #ccc;">sudo mysql_secure_installation</pre>
+
+<p class="page_subtitle">3. Create the IMPS database and user</p>
+<p>This creates a dedicated <code>box_db</code> database and
+<code>box_user</code> account scoped to it -- IMPS never needs (and
+shouldn't have) a root database connection. Feel free to change the
+username/password below, as long as you use the same values on the
+next page.</p>
+<pre style="background:#f4f4f4; padding:10px; border:1px solid #ccc;">sudo mysql -u root &lt; static/backup/setup.sql</pre>
+<p>(Run that from the directory IMPS is installed in, or adjust the
+path to <code>setup.sql</code> accordingly.)</p>
+
+<p>That's it for the command line. Once this is done, come back here
+and enter the database name/user/password you just created.</p>
+
+<div class="btn-pair">
+<a href="{{ url_for('setup.setup_database') }}">
+	<button class="imps">I've done this -- continue</button>
+</a>
+<a href="{{ url_for('setup.setup_landing') }}">
+	<button type="button" class="imps icon-left back">Back</button>
+</a>
+</div>
+{% endblock %}

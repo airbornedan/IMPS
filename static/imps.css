@@ -1,0 +1,1224 @@
+/* ================================================================
+   IMPS — CONSOLIDATED STYLESHEET
+   ================================================================
+   One stylesheet, loaded once, covering base layout/typography,
+   forms/inputs, buttons, tooltips, toggles, and warning/alert styles.
+
+   Rule order matters in places -- e.g. input.input-invalid in the
+   FORMS / INPUTS section depends on coming after another rule within
+   the same cascade position; see the comment there for why.
+   ================================================================ */
+
+
+/* ================================================================
+   1. BASE / LAYOUT / TYPOGRAPHY
+   ================================================================ */
+
+/*********************************************
+/* standard styles */
+/********************************************* */
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 18px;
+}
+
+a {
+  color: #000000;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #a40000;
+}
+
+a.no-hover:hover {
+  color: initial; /* Or the desired default color */
+}
+
+ul {
+  margin-left: 15px;
+}
+
+.page_title {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 26px;
+  font-weight: bold;
+  margin: 0px;
+  margin-bottom: 12px;
+}
+
+.inline_div {
+  display: inline-block;
+}
+
+.paginated_title {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 26px;
+  /* python pagination library stylesheet */
+  font-weight: bold;
+  line-height: 1;
+  margin: 0px;
+}
+
+.page_subtitle {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 20px;
+  font-weight: bold;
+  padding-top: 5px;
+}
+
+.header_sub {
+  font-size: 22px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: bold;
+}
+
+.no_item_photo_txt {
+  display: inline-block;
+  padding: 5px;
+  max-width: 160px;
+  font-size: 24px;
+  height: 160px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ******************************************** */
+/* Responsive header sizing, as flat, top-level  */
+/* media queries.                                */
+/* ******************************************** */
+
+@media (max-width: 800px) {
+  .header_sub {
+    font-size: 18px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: bold;
+  }
+}
+
+@media (max-width: 480px) {
+  .header_sub {
+    font-size: 12px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: bold;
+  }
+}
+
+h1 {
+  margin: 0px;
+  padding: 0px;
+  -webkit-text-stroke: 1px #a40000;
+}
+
+p.note {
+  background-image: url('images/note.png');
+  background-size: 20px 20px;
+  background-repeat: no-repeat;
+  padding-left: 30px;
+  display: block;
+}
+
+/* ******************************************** */
+/* JAVASCRIPT INPUT CHECKING WARNING             */
+/* ******************************************** */
+
+.warning {
+  background-image: url("images/icons/warning_icon.png");
+  border: 0px;
+  padding: 8px 8px 8px 30px;
+  border-radius: 7px;
+  width: 40px;
+  height: 40px;
+  line-height: 0px;
+  background-size: 34px 34px;
+  background-repeat: no-repeat;
+  margin: 5px;
+  vertical-align: middle;
+}
+
+/* input-invalid state lives in the FORMS / INPUTS section below
+   (input.input-invalid), next to the rule it needs to override,
+   rather than an ID-scoped selector here. */
+
+/* ******************************************** */
+/* other tables */
+/* ******************************************** */
+
+.inv_td {
+  width: 100px;
+  text-align: center;
+}
+
+.divider {
+  height: 1px;
+  border-top: 2px solid gray;
+}
+
+/* page content */
+.page_content {
+  padding-top: 5px;
+}
+
+/* ******************************************** */
+/* Index page styles */
+/* ******************************************** */
+
+/* index page div layouts */
+.grid {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
+  width: fit-content;
+}
+
+/* index page link style */
+.main_page_link_text {
+  font-size: 14px;
+  font-family: sans-serif;
+}
+
+.main_page_link_text:hover {
+  color: black;
+}
+
+/* imps img */
+.imps_img {
+  display: block;
+}
+
+/* ******************************************** */
+/* item detail page */
+/* ******************************************** */
+
+.item_img {
+  display: block;
+  margin: 10px;
+}
+
+.item_in_title {
+  color: #777777;
+}
+
+.item_desc {
+  width: 100px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: inline-block;
+  font-size: 12px;
+  background-color: #dddddd;
+}
+
+/* ***************************************** */
+/* footer styles */
+/* ***************************************** */
+
+.div-left {
+  float: left;
+  padding-left: 10px;
+}
+
+.div-right {
+  float: right;
+  padding-right: 10px;
+}
+
+.footer-container {
+  height: 40px;
+  max-width: 980px;
+  padding-top: 25px;
+}
+
+.footer {
+  width: 100%;
+  border-top: 2px solid gray;
+}
+
+.credit_td {
+  padding-top: 8px;
+}
+
+/* image hover */
+
+.thumbnail {
+  /* Deliberately NOT position/z-index'd in the base (non-hover) state.
+     This markup uses display:table-row/table-cell, and a persistently-
+     positioned child gets trapped inside its own row's isolated paint
+     layer in table layouts, so a zoomed thumbnail couldn't cover rows
+     BELOW it, only content within its own row.
+
+     Instead this relies on a browser behavior: `transform` alone --
+     with no position/z-index set at all -- still creates a new
+     stacking context on hover, as if position were relative. That's
+     what lets the zoomed thumbnail cover other rows correctly. See
+     .thumbnail:hover below for how this is preserved while the icon
+     issue is fixed explicitly. */
+  top: 0;
+  left: 0;
+  width: 50px;
+  display: block;
+  cursor: pointer;
+  -webkit-transition-property: all;
+  -webkit-transition-duration: 0.3s;
+  -webkit-transition-timing-function: ease;
+}
+
+/* change the number below to scale to the appropriate size */
+/* Scoped to (hover: hover) -- i.e. pointers that can genuinely hover,
+   like a mouse or trackpad. Touch has no such thing; browsers only
+   simulate a "sticky hover" on tap, which clears on tapping elsewhere
+   but can't be toggled off by tapping the same element again. Keeping
+   this rule mouse/trackpad-only avoids fighting with that simulated
+   state, and touch gets its own explicit, independent .zoomed class
+   below (toggled by static/thumbnail_zoom.js) instead. */
+@media (hover: hover) {
+  .thumbnail:hover {
+    transform: scale(5);
+    position: relative;
+    z-index: 999;
+  }
+}
+
+/* Tap-to-zoom / tap-again-to-shrink for touch (and click, for anyone
+   using a mouse without hovering first) -- mirrors .thumbnail:hover
+   above exactly, just driven by a toggled class instead of :hover so
+   it works the same regardless of whether the device can hover. See
+   static/thumbnail_zoom.js. */
+.thumbnail.zoomed {
+  transform: scale(5);
+  position: relative;
+  z-index: 999;
+}
+
+/* Unlinked Photo Cleanup: the checkbox column sits directly to the
+   left of the thumbnail (unlike includeitemlist.html, where the
+   thumbnail column has empty space on both sides). scale()'s default
+   transform-origin is the image's own center, so the zoom would grow
+   evenly in all four directions -- including left, straight over the
+   checkbox. Anchoring the origin to the image's left edge keeps the
+   same zoomed-detail/cross-row-cover behavior while growing right/down
+   instead, so it doesn't sweep over the checkbox to its left. Covers
+   both the hover (mouse) and zoomed (tap-toggle) cases. */
+.thumbnail.cp-orphan-thumbnail:hover,
+.thumbnail.cp-orphan-thumbnail.zoomed {
+  transform-origin: left center;
+}
+
+/* ******************************************** */
+/* Styles to sort tables by */
+/* ******************************************** */
+
+.item_display_table {
+  display: table;
+  border: 1px solid #ccc;
+  font-family: arial, helvetica, sans-serif;
+  border-collapse: collapse;
+}
+
+.table_head {
+  display: table-header-group;
+  background-color: #ddd;
+}
+
+.table_label {
+  display: table-cell;
+  font-weight: bold;
+  border-bottom: 2px solid #ccc;
+  padding: 3px;
+}
+
+.table_body {
+  display: table-row-group;
+  background-color: #fff;
+}
+
+.table_row {
+  display: table-row;
+  line-height: 20px;
+  /* border-bottom: 3px solid black; */
+}
+
+.table_cell {
+  display: table-cell;
+  padding: 6px;
+  border-bottom: 1px solid black;
+  vertical-align: middle;
+  text-align: left;
+}
+
+/* item_display_table has no table-layout set (defaults to `auto`)
+   and no column has an explicit width, so the browser recomputes
+   every column's width fresh from whatever's actually rendered --
+   and since pagination only renders each page's own handful of rows,
+   the Item column's width shifted from page to page depending on
+   how long that page's (already-truncated, up to 25 char) item names
+   happened to be, even though the max length never actually changed.
+   Item is always the table's first column regardless of which
+   optional columns (Photo/Date/Category/Box) are enabled for a given
+   page, so :first-child reliably targets it everywhere this table is
+   used (inventory, category view, search results, box view) without
+   needing template changes. Width is sized to comfortably fit the
+   25-char truncation cap. */
+.table_label:first-child,
+.table_cell:first-child {
+  width: 220px;
+}
+
+/* Category has the same per-page width-shift problem the Item column
+   had, but worse: item_cat is stored as varchar(64) and rendered
+   completely untruncated ({{ item_cat }}, no truncate filter, and no
+   maxlength on the add/edit form), so a single long category name
+   can push the column far wider than typical short ones like
+   "Kitchen" or "Decorating". Unlike Item, Category isn't always in
+   the same column position -- it comes after whichever of
+   Info/Photo/Date are enabled for a given page -- so :nth-child can't
+   reliably target it the way :first-child does for Item. Added an
+   explicit table_label-cat/table_cell-cat class in
+   includeitemlist.html instead (only place item_cat is shown as a
+   table column -- the mobile grid view doesn't display category at
+   all). Width is sized to comfortably fit the 20-char truncation cap
+   applied in the template. */
+.table_label-cat,
+.table_cell-cat {
+  width: 140px;
+}
+
+/* Only category cells that actually got truncated get wrapped in
+   .tooltip in the template (see includeitemlist.html) -- this just
+   gives that wrapped, hoverable case a pointer cursor so it reads as
+   interactive; short category names that render in full stay plain
+   text with the default cursor. */
+.table_cell-cat .tooltip {
+  cursor: pointer;
+}
+
+.table_cellblock {
+  padding: 2px 3px;
+}
+
+/* ******************************************** */
+/* Pagination display */
+/* ******************************************** */
+
+.paginate {
+  display: inline-grid;
+  align-items: start;
+  margin-bottom: 12px;
+  margin-top: 4px;
+}
+
+.paginate-item {
+  background-color: #fff;
+  text-align: center;
+  align-self: start;
+}
+
+/* .imps only sets min-width: 90px -- a floor, not a fixed size.
+   Previous/Next carry .icon-left/.icon-right, which reserve 56px of
+   icon padding; combined with each label's own text width, that
+   exceeds the 90px floor for both, so each button sizes to its own
+   content-driven width -- "Previous" (8 characters) renders wider
+   than "Next" (4 characters).
+
+   Left at natural, content-driven sizing -- same as any other
+   .icon-left/.icon-right button elsewhere in the app -- rather than
+   forced to a shared fixed width, since matching an 8-letter and a
+   4-letter label to the same box reads as slightly off either way. */
+
+/* ******************************************** */
+/* Grid stuff */
+/* ******************************************** */
+
+.grid-cat-container {
+  display: inline-grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: start;
+}
+
+.grid-index-container {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: start;
+}
+
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  align-items: start;
+  width: 100%;
+}
+
+.grid-page-container {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  max-height: 20px;
+  display: inline-grid;
+  grid-template-columns: repeat(2, 1fr);
+  align-items: start;
+}
+
+.grid-item {
+  background-color: #fff;
+  text-align: center;
+  align-self: center;
+  padding: 2px;
+}
+
+.grid-item-center {
+  background-color: #fff;
+  padding: 2px;
+}
+
+.grid-item-left {
+  background-color: #fff;
+  justify-self: start;
+  align-self: center;
+  padding: 2px;
+}
+
+.grid-page-item {
+  background-color: #fff;
+  justify-self: start;
+  align-self: center;
+  padding: 0px;
+}
+
+#flex-container {
+  display: flex;
+  flex-direction: row;
+  border-bottom: 2px black solid;
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  textarea {
+    width: 90%;
+  }
+
+  .form-control {
+    width: 50%;
+  }
+}
+
+
+/* ================================================================
+   2. MODAL / WARNING DIALOG
+   ================================================================ */
+
+/* ******************************************** */
+/* modal dialog box styles */
+/* ******************************************** */
+
+/* The Modal (background) */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  padding-top: 100px; /* Location of the box */
+  padding-left: 50px;
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}  
+
+/* Modal Content */
+.modal-content {
+  background-color: #fefefe;
+  margin: auto;
+  border: 1px solid #888;
+  padding-right: 20px;
+  width: auto;
+  height: auto;
+  display: inline-block;
+
+}
+ 
+/* The Close Button */
+.close {
+  color: #aaaaaa;
+  float: right;
+  font-size: 32px;
+  font-weight: bold;
+}
+ 
+.close:hover,
+.close:focus {
+  color: #000;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.warn_cont {
+      display: flex;
+      /* Optional: Add space between left and right panels */
+      gap: 5px;
+    }
+
+    .warn_left {
+      width: 30px;
+      /* flex: 1; /* Allows the left panel to take up available space */
+      /* Add other styling like background-color, padding, etc. */
+    }
+
+    .warn_right {
+      display: flex;
+      flex-direction: column; /* Stacks the right panels vertically */
+      flex: 1; /* Allows the right panels container to take up available space */
+      /* Optional: Add space between the two right panels */
+      gap: 5px;
+      padding-left: 30px;
+    }
+
+
+/* ================================================================
+   3. BUTTONS / ICONS
+   ================================================================ */
+
+.add {
+	background-image: url("images/icons/add_icon.png");
+}
+
+.back {
+	background-image: url("images/icons/back_icon.png");
+}
+
+/* "Next" pagination icon. Uses a distinct mirrored image asset rather
+   than reusing back_icon.png with a CSS flip, so no transform is
+   applied to the button itself: .icon-right's right-anchored icon and
+   left-anchored text apply exactly as they do for every other
+   icon+text button. */
+.forward {
+	background-image: url("images/icons/forward_icon.png");
+}
+
+.backup {
+	background-image: url("images/icons/backup_icon.png");
+}
+
+.bar {
+	background-image: url("images/icons/bar_icon.png");
+}
+
+.box {
+	background-image: url("images/icons/box_icon.png");
+}
+
+.box_closed {
+	background-image: url("images/icons/box_closed_icon.png");
+}
+
+.box_closed_dis {
+        background-image: url("images/icons/box_closed_icon.png");
+        opacity: 0.3;
+}
+
+.box_full {
+	background-image: url("images/icons/box_full_icon.png");
+	width: 90px;
+}
+
+/* Lays out exactly two buttons side by side (e.g. Yes/Cancel,
+   Save/Cancel, Back/Next, Download/Back), each sized to its own
+   content rather than stretched to fill the page or forced to match
+   its sibling's width. Wrap the pair's two buttons/links in a
+   container with this class.
+
+   flex: 0 0 auto sizes each button to its own content, so a shorter
+   button doesn't get stretched past a longer sibling or vice versa. */
+.btn-pair {
+	display: flex;
+	gap: 10px;
+	width: fit-content;
+}
+.btn-pair > * {
+	flex: 0 0 auto;
+}
+.cancel {
+        background-image: url("images/icons/cancel.png");
+}
+
+.columns {
+        background-image: url("images/icons/columns_icon.png");
+}
+
+
+
+.list {
+        background-image: url("images/icons/list_icon.png");
+}
+
+.orphans {
+	background-image: url("images/icons/orphans_icon.png");
+}
+
+.download {
+	background-image: url("images/icons/download_icon.png");
+}
+
+.edit {
+	background-image: url("images/icons/edit_icon.png");
+}
+
+.home {
+	background-image: url("images/icons/home_icon.png");
+}
+
+
+.loc {
+	background-image: url("images/icons/loc_icon.png");
+}
+
+.login {
+        background-image: url("images/icons/login_icon.png");
+}
+
+
+.print {
+        background-image: url("images/icons/print_icon.png");
+}
+ 
+.qr {
+	background-image: url("images/icons/qr_icon.png");
+}
+
+.show_hide {
+	background-image: url("images/icons/show_hide_icon.png");
+}
+
+/* Single base button class for every rectangular action button in the
+   app -- icon+text (Search, Cancel, Categories...), icon-only
+   (edit/trash/download/qr...), and plain text (Change, Continue,
+   Finish setup...).
+
+   Default state here (no modifier) is a plain text button, no icon:
+   centered text, no left padding reserved for an icon image. "No
+   icon" is the default you get by just using .imps alone, not a
+   special case bolted on top of an icon-first default. */
+.imps {
+	background-color: #a40000;
+	background-position: 8px center;
+	background-repeat: no-repeat;
+	background-size: 40px 40px;
+	border-radius: 7px;
+	border: 0px;
+	color: white;
+	cursor: pointer;
+	display: inline-block;
+	font-size: 14px;
+	font-weight: bold;
+	height: 42px;
+	line-height: 0px;
+	margin-bottom: 5px;
+	margin-top: 5px;
+	min-width: 90px;
+	padding: 8px 8px;
+	text-align: center;
+	text-decoration: none;
+	vertical-align: middle;
+}
+
+.imps:disabled {
+	opacity: 0.3;
+}
+
+/* Icon+text buttons -- reserves room on the left for the icon image
+   (set via one of the .search/.cancel/.edit/etc classes below) and
+   right-aligns the text next to it. */
+.imps.icon-left {
+	padding-left: 56px;
+	text-align: right;
+}
+
+/* Mirror of .icon-left -- reserves room on the RIGHT for the icon
+   image instead (e.g. .forward below, for "Next" pagination buttons)
+   and left-aligns the text next to it. Overrides .imps's base
+   background-position (which anchors to the left by default) to
+   anchor right instead. */
+.imps.icon-right {
+	padding-right: 56px;
+	background-position: right 8px center;
+	text-align: left;
+}
+
+/* Icon-only buttons -- fixed square, centered icon, no reserved text
+   space. Deliberately does NOT redeclare border-radius -- it inherits
+   the same 7px every other button uses. */
+.imps.icon-only {
+	background-position: center;
+	height: 46px;
+	width: 46px;
+	min-width: 0;
+	padding: 8px;
+}
+
+.imps_tab_off {
+	background-color: #444;
+	border-radius: 7px 7px 0px 0px;
+	border: 0px;
+	color: white;
+	font-size: 14px;
+	font-weight: bold;
+	height: 42px;
+	margin-bottom: 0px;
+	margin-left: 0px;
+	margin-top: 5px;
+	padding: 8px 8px 8px 8px;
+	text-align: left;
+	vertical-align: bottom;
+}
+
+.imps_tab_on {
+	background-color: #a40000;
+	border-radius: 7px 7px 0px 0px;
+	border: 0px;
+	color: white;
+	font-size: 14px;
+	font-weight: bold;
+	height: 42px;
+	margin-bottom: 0px;
+	margin-left: 0px;
+	margin-top: 25px;
+	padding: 8px 8px 8px 8px;
+	text-align: left;
+	vertical-align: bottom;
+}
+
+
+.photo {
+	background-image: url("images/icons/photo_icon.png");
+}
+
+.save {
+	background-image: url("images/icons/save_icon.png");
+}
+
+.search {
+	background-image: url("images/icons/search_icon.png");
+}
+
+.trash {
+	background-image: url("images/icons/trash_icon.png");
+}
+
+.update {
+	background-image: url("images/icons/update_icon.png");
+}
+
+.warn_text{
+        color: #a40000;
+        font-size: 18px;
+        font-weight: bold;
+
+}
+
+
+/* ================================================================
+   4. TOOLTIPS
+   ================================================================ */
+
+.tooltip {
+  position: relative;
+  display: inline-block;
+  /* Explicit and deliberately low, so the info icon always stacks
+     BELOW the hover-zoomed thumbnail's z-index:999 (see .thumbnail
+     above) with no ambiguity -- relying on the default (z-index:auto)
+     here is what let table-cell stacking quirks put this icon on top
+     of the zoomed image instead. */
+  z-index: 1;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 240px;
+  background-color: #555;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -50px;
+  opacity: 0;
+}
+.tooltip .tooltiptext::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #555;
+}
+ 
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  opacity: 1;
+}
+
+
+/* ================================================================
+   5. MOBILE/DESKTOP VIEW SWITCH
+   ================================================================ */
+
+/* ********************************************
+/* VIEW SWITCH 
+/* *********************************************/
+
+/* LOCATION OF VIEW SWITCH IN HEADER */
+.switch{
+  position:absolute; 
+  top:20px; 
+  left:70%;
+  z-index:1000; 
+  width: 150px; 
+}
+
+/* VIEW SWITCH BUTTON CONTAINER */
+.view_switch{
+    padding: 5px;
+    border-radius: 25px; 
+    background-color: #ddd;
+    height: 42px;
+    width: 90px;
+}
+ 
+/* COMMON VIEW SWITCH BUTTON PROPERTIES */
+button.view{
+    height: 42px;
+    width: 42px;
+    border-radius: 21px;
+    background-size: 38px 38px;
+    background-repeat: no-repeat;
+    border: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+
+/* MOBILE VIEW ACTIVE BUTTON */
+button.mobile{
+    background-image: url("images/icons/mobile_icon.png");
+}
+
+/* MOBILE VIEW INACTIVE BUTTON */
+button.mobile_set_view{
+    background-image: url("images/icons/mobile_set_icon.png");
+}
+
+/* DESKTOP VIEW ACTIVE BUTTON */
+button.desktop{
+    background-image: url("images/icons/desktop_icon.png");
+}
+
+/* DESKTOP VIEW INACTIVE BUTTON */
+button.desktop_set_view{
+    background-image: url("images/icons/desktop_set_icon.png");
+}
+
+
+/* ================================================================
+   6. FORMS / INPUTS
+
+   NOTE: input.input-invalid below deliberately sits right after
+   input[type="text"] within this same section. They have IDENTICAL
+   CSS specificity (0,1,1) -- an attribute selector like [type="text"]
+   carries the same weight as a class -- so input.input-invalid only
+   wins because it comes LATER in source order. If you ever reorganize
+   this section, keep that relationship intact or the red
+   invalid-input border (used on the box-number fields) will silently
+   stop working again, the way it did twice during development.
+   ================================================================ */
+
+/* ******************************************** */
+/* Input styles                                  */
+/* ******************************************** */
+
+button:focus{
+  outline: 1px solid black;
+}
+
+input {
+  font-size:18px;
+  border:2px solid #000;
+  background-color : #eee; 
+}
+
+input:focus {
+  outline: 1px solid black;
+}
+
+datalist{
+  font-size: 18px;
+  border:2px solid #000;
+  background-color : #eee; 
+  margin-bottom: 10px;
+  font-family:Arial, Helvetica, sans-serif;
+}
+
+input[type="text"], input[type="password"], textarea {
+  font-size:18px;
+  border:2px solid #000;
+  background-color : #eee; 
+  font-family:Arial, Helvetica, sans-serif;
+  margin-bottom: 10px;
+}
+
+/* Fixed width instead of the size="N" attribute, whose rendered width
+   is computed per-character and differs between type="password"
+   (bullet glyphs) and type="text" (real glyphs) -- so a field that
+   toggles between the two via JS (see cp_password.html) would
+   visibly resize on every toggle if left to size="N" alone. */
+/* Fixed width for the password show/hide toggle -- "Show" and "Hide"
+   are both 4 letters, but their natural content-driven widths differ
+   slightly (narrow glyphs like "i" vs wider ones like "o"), which
+   otherwise made the button visibly resize on every toggle. Same
+   fix pattern as the paginate Previous/Next button spacing above. */
+#toggle_password {
+  width: 110px;
+}
+
+/* Generic invalid-input state -- red border matching the site's
+   existing red (#a40000, used for link-hover and the h1 text-stroke).
+   Toggle by adding/removing this class via JS on any text input.
+
+   Deliberately placed here, in imps_input.css, right after the rule it
+   needs to override (input[type="text"]) rather than in a different
+   stylesheet with an ID-scoped selector. input.input-invalid and
+   input[type="text"] have IDENTICAL specificity (0,1,1) -- an
+   attribute selector like [type="text"] carries the same weight as a
+   class, so this rule only wins because it comes LATER in the same
+   file, not because it "out-specifies" the other rule. Keeping it
+   physically after its rival here (rather than relying on which
+   stylesheet loads second, or reaching for a higher-specificity
+   ID selector per-field) makes that relationship visible and
+   reusable across any text input on the site. */
+input.input-invalid {
+  border: 2px solid #a40000;
+}
+
+textarea:focus {
+  outline: 1px solid black;
+}
+
+input[type="date"] {
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:18px;
+  border:2px solid #000;
+  background-color : #eee; 
+}
+input[type="date"]:focus {
+  outline: 1px solid black;
+}
+
+input[role="textbox"] {
+  font-size:18px;
+  border:2px solid #000;
+  background-color: #eee;
+  margin-bottom: 5px;
+}
+select {
+  font-size:18px;
+  margin-bottom: 10px;
+  border:2px solid #000;
+  background-color : #eee; 
+}
+input[type="radio"] {
+  border:2px solid black;
+  background-color : #ddd;
+  accent-color: #a40000; 
+  margin-top: 5px;
+  margin-left: 10px;
+}
+
+input[name="item_cat"] {
+  font-family:Arial, Helvetica, sans-serif;
+  font-size: 18px;
+  margin-bottom: 10px;
+  border:2px solid #000;
+  background-color : #eee; 
+}
+input[name="file"] {
+  font-size: 18px;
+  border:2px solid #000;
+  background-color : #eee; 
+  width: 280px;
+}
+
+.input_div{
+  padding-left:8px;
+}
+
+/* Control Panel > Backups tab: each backup list (photos, database)
+   has at most BACKUP_HISTORY_KEEP (4) entries -- exactly a clean 2x2
+   grid at 2 columns. Defaults to 2 columns for wider screens; drops
+   to a single column under 480px (this codebase's established
+   phone-portrait breakpoint -- see the other @media (max-width: 480px)
+   rules) so a phone in portrait gets a plain stacked list instead of
+   two cramped columns. */
+.backup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+}
+
+@media (max-width: 480px) {
+  .backup-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-control{
+   margin-top: 10px;
+}
+
+/* ================================================================
+   BOOTSTRAP-LITE UTILITY CLASSES
+   ================================================================
+   Bootstrap itself isn't linked anywhere in this app (dropped
+   deliberately -- not worth the transfer size for the small handful
+   of utility classes actually used). These are real, working rules
+   for just those specific classes, written to match how each is
+   actually used across the templates -- not a full reimplementation
+   of Bootstrap's grid/spacing system. Bootstrap's own naming and
+   standard spacing scale are kept (0.25rem/0.5rem/1rem/1.5rem/3rem
+   for 1/2/3/4/5) so the class names still mean what they look like
+   they mean, for anyone used to Bootstrap.
+   ================================================================ */
+
+/* Layout containers -- simple flex wrappers, not Bootstrap's full
+   container/grid/gutter system (nothing here uses paired gutter
+   padding on .row/.col, so that complexity isn't needed). */
+.container-flex {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.container-fluid {
+	width: 100%;
+	padding-left: 15px;
+	padding-right: 15px;
+	box-sizing: border-box;
+}
+
+.row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.col {
+	flex: 1 0 0%;
+	min-width: 0;
+}
+
+.col-2 {
+	flex: 0 0 auto;
+	width: 16.6667%; /* 2 of 12 grid columns, matching Bootstrap's col-2 */
+}
+
+.col-auto {
+	flex: 0 0 auto;
+	width: auto;
+}
+
+.align-auto-self-start {
+	/* Not actually a Bootstrap class name (Bootstrap's equivalent is
+	   align-self-start) -- written to match the literal class name
+	   used in boxdel.html rather than silently renaming it. */
+	align-self: flex-start;
+}
+
+.border {
+	border: 1px solid #dee2e6;
+}
+
+/* Spacing utilities -- Bootstrap's naming (t/b/s = top/bottom/start)
+   and standard scale. */
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 1rem; }
+.mt-4 { margin-top: 1.5rem; }
+.mt-5 { margin-top: 3rem; }
+.mt-auto { margin-top: auto; }
+.mb-3 { margin-bottom: 1rem; }
+.pt-3 { padding-top: 1rem; }
+.pb-3 { padding-bottom: 1rem; }
+.p-2 { padding: 0.5rem; }
+.ps-2 { padding-left: 0.5rem; }
+
+/* ******************************************** */
+/* Control Panel > Unlinked Photo Cleanup        */
+/* ******************************************** */
+/* The default browser checkbox (~13px) was easy to miss/mistap next
+   to a photo thumbnail and filename, especially on a phone. Sized up
+   and given the site's accent color so it's obviously present and
+   obviously "on" once checked, rather than a small, easy-to-miss
+   gray square. */
+.cp-orphan-checkbox {
+	width: 26px;
+	height: 26px;
+	accent-color: #a40000;
+	cursor: pointer;
+}
+
+/* Wrap the checkbox in a padded, clickable label -- this both gives
+   it visual room to breathe next to the thumbnail/filename, and
+   (more importantly on a touchscreen) makes the actual tap target
+   noticeably bigger than just the 26px checkbox graphic itself,
+   without needing extra JS to forward taps to the input. */
+.cp-checkbox-wrap {
+	display: inline-flex;
+	align-items: center;
+	padding: 10px;
+	cursor: pointer;
+}
+
+/* ******************************************** */
+/* Control Panel > Server tab -- config display  */
+/* ******************************************** */
+/* dbhost/dbname/dbuser/dbpass are short, read-only display values
+   (typically "localhost", a short db name, etc) but were left at the
+   browser's default input width (~20 characters) -- far wider than
+   needed. Combined with .row's fixed-width .col-2 label, that default
+   width was enough to push the input past the available row width on
+   a phone in portrait mode, wrapping it onto its own line below the
+   label instead of sitting next to it. Narrowing these four to a
+   size that comfortably fits their typical values keeps label+value
+   on one line at normal phone widths.
+
+   Not applied to #imagedir/#bud (Image/Backup directory) -- those
+   hold real filesystem paths that can run 40+ characters, so a fixed
+   narrow width would just force horizontal scrolling inside the box
+   instead of helping; the stacking fallback below covers those two
+   rows instead. */
+#dbhost, #dbname, #dbuser, #dbpass {
+	width: 12ch;
+}
+
+/* Fallback for any row that still doesn't fit on one line at narrow
+   widths -- either the two long-path fields above, or a short field
+   holding an unusually long value (e.g. a full managed-DB hostname).
+   Rather than let flex-wrap silently drop the input onto its own
+   line as an overflow artifact, stack label above value on purpose
+   so it always reads as a clean two-line field instead of a
+   half-wrapped row. */
+@media (max-width: 480px) {
+	#Server .row {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	#Server .col-2 {
+		width: auto;
+	}
+}

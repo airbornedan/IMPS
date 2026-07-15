@@ -1,0 +1,22 @@
+<br>
+<hr/>
+<div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr;">
+   <div class="grid-item-left">
+      <a href="#" onclick="window.open('/static/help/index.html', 'newwindow'); return false;">
+         <img src="/static/images/icons/help_icon.png" height="30px;"></a>
+   </div>
+   <div class="grid-item-left">
+           <p>Created by Dan and Evelyn Hall</p>
+   </div>
+   <div>&nbsp;</div>
+   <div class="grid-item">
+      {% if logged_in != False %}
+      <a href="/logout">  
+         <img src="/static/images/icons/logout_icon.png" height="30px;">
+      </a>
+      {% endif %}
+   </div>
+
+</body>
+</html>
+

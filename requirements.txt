@@ -1,0 +1,26 @@
+# Core web framework
+Flask>=2.2.2
+Werkzeug>=2.2.2
+
+# Security / auth
+Flask-WTF>=1.2.1      # CSRF protection
+Flask-Limiter>=3.8.0  # login rate limiting
+bcrypt>=4.3.0          # password hashing
+
+# Database
+mysql-connector-python>=8.4.0
+
+# Pagination for inventory/search/box views
+flask-paginate>=2024.4.12
+
+# Config file parsing (imps_config.toml, reset_credentials.toml, mail_credentials.toml)
+toml>=0.10.2
+
+# Image upload handling (resize, re-encode, EXIF transpose)
+Pillow>=9.4.0
+
+# QR code generation for box labels
+qrcode>=7.4.2
+
+# Production WSGI server (per README's recommended run command)
+gunicorn>=20.1.0

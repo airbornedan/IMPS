@@ -1,7 +1,10 @@
-# IMPS — secrets & real credentials. 
+# IMPS — secrets & real credentials.
 imps_config.toml
 deploy/reset_credentials.toml
 deploy/mail_credentials.toml
+
+# Docker secrets (real values; .env.example is the tracked template)
+.env
 
 # Session-signing secret (regenerated automatically on first run)
 .secret_key
@@ -9,11 +12,21 @@ deploy/mail_credentials.toml
 # Install-state markers (generated per-install, not source)
 not_first.run
 
-# Deploy files/locks
+# Demo-hosting-only tooling (airbornedan's public demo instance —
+# auto-reset + monitoring — not needed for a private install)
+deploy/imps_reset.py
+deploy/db_monitor.py
+deploy/mail_credentials_example.toml
+deploy/reset_credentials_example.toml
 deploy/.db_monitor_state.toml
-deploy/.imps_reset.lock          # imps_reset.py's lockfile, if present
-deploy/maintenance.flag          # imps_reset.py's maintenance-mode flag, if used
-deploy/MAINTENANCE  
+deploy/.imps_reset.lock
+deploy/maintenance.flag
+deploy/MAINTENANCE
+deploy/tools/imps-reset.service
+deploy/tools/imps-reset.timer
+deploy/tools/imps-db-monitor.service
+deploy/tools/imps-db-monitor.timer
+deploy/tools/mysql-restart-override.conf
 
 # Runtime data that differs per deployment (home/demo/local)
 static/images/items/*
@@ -22,15 +35,10 @@ static/images/items/*
 # Generated and saved QR codes
 static/images/qrcodes/*
 
-# Backup files except for .sql
+# Generated DB/photo backups -- schema.sql and setup.sql now live in
+# deploy/ as source, so everything left in here is purely runtime output
 static/backup/*
-!static/backup/setup.sql
-!static/backup/schema.sql
-
-
-/tmp/imps_reset.lock
-!first.run
-not_first.run
+!static/backup/.gitkeep
 
 # ===================================================================
 # Python
@@ -39,4 +47,3 @@ __pycache__/
 
 # Virtual environments
 .venv/
-

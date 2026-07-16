@@ -1,0 +1,40 @@
+services:
+  mariadb:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: box_db
+      MARIADB_USER: box_user
+      MARIADB_PASSWORD: box_pass
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  imps:
+    build: .
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    environment:
+      IMPS_HTTPS: "0"
+    volumes:
+      - ./imps_config.toml:/app/imps_config.toml:ro
+      - imps_secret:/app/.secretkey_dir      # see note below
+      - imps_images:/app/static/images/items
+      - imps_qrcodes:/app/static/images/qrcodes
+      - imps_backups:/app/static/backup
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  imps_secret:
+  imps_images:
+  imps_qrcodes:
+  imps_backups:

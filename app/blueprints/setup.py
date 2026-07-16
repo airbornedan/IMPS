@@ -29,7 +29,7 @@ from app.extensions import (
 
 bp = Blueprint("setup", __name__)
 
-SCHEMA_SQL_PATH = os.path.join("static", "backup", "schema.sql")
+SCHEMA_SQL_PATH = os.path.join("deploy", "schema.sql")
 
 
 def _first_run_active():

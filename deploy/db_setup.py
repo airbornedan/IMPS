@@ -5,13 +5,18 @@
 # One-time, root-privileged provisioning: creates the MySQL/MariaDB
 # database and user account IMPS will run as, and grants that user
 # just enough privilege to manage its own tables. Run this ONCE,
-# after imps_config.toml exists (README step 9) and BEFORE visiting
-# /setup in a browser (README step 11-ish).
+# after imps_config.toml exists and BEFORE visiting /setup in a
+# browser.
 #
 # WHAT THIS DOES NOT DO: create IMPS's tables. That happens in the
-# /setup web wizard (app/blueprints/setup.py), the first time you log
-# in -- it already knows how to run schema.sql against the box_user
-# account this script creates. Nothing here touches schema.sql.
+# /setup web wizard (app/blueprints/setup.py) the first time you log
+# in. It's handled there rather than here because box_user (the
+# account this script creates) is already granted CREATE/DROP/ALTER
+# on its own database -- table creation genuinely doesn't need root,
+# so it belongs in the app, where it can also detect and prompt
+# before overwriting a database that already has real data in it
+# (something this script has no way to know about). Nothing here
+# touches schema.sql.
 #
 # WHY THIS ISN'T PART OF THE APP ITSELF: the account IMPS runs as
 # (box_user, by default) is deliberately scoped to box_db.* only --
@@ -27,20 +32,24 @@
 #
 # CREDENTIALS: reads the target database name/user/password straight
 # out of imps_config.toml's [database] section -- whatever's already
-# there from README step 9 -- so there's exactly one place those
-# values live, instead of a second copy to keep in sync. The DB
-# root password is prompted for interactively (never stored, never
-# passed as a command-line argument, never logged) and used only for
-# the duration of this script.
+# there -- so there's exactly one place those values live, instead of
+# a second copy to keep in sync. Root access to the DB server itself
+# is obtained via passwordless sudo/unix_socket auth (the default for
+# a fresh Debian/Ubuntu MariaDB install) with no prompt needed in the
+# common case; if that doesn't work, this falls back to prompting for
+# root DB credentials interactively (never stored, never passed as a
+# command-line argument, never logged).
 #
-# USAGE:
-#   source .venv/bin/activate
-#   python3 deploy/db_setup.py
+# USAGE (from the IMPS install root, i.e. the same directory
+# imps_config.toml lives in):
+#   cd deploy
+#   sudo python3 db_setup.py
 #
 # Safe to re-run: every statement below is idempotent (CREATE USER/
 # DATABASE IF NOT EXISTS, GRANT is naturally idempotent), so running
 # this again after a partial failure -- or just to double check
-# everything's in place -- won't error out or duplicate anything.
+# everything's in place -- won't error out, duplicate anything, or
+# touch any existing tables/data.
 ########################################################################
 
 import getpass
@@ -60,23 +69,33 @@ except ImportError:
         "missing after activating, re-run: pip install -r requirements.txt)"
     )
 
-CONFIG_PATH = "imps_config.toml"
+### RESOLVED RELATIVE TO THIS SCRIPT'S OWN LOCATION, NOT THE CURRENT
+### WORKING DIRECTORY -- this script now lives in deploy/, alongside
+### schema.sql/setup.sql, and is meant to be run as `cd deploy &&
+### sudo python3 db_setup.py`, so a bare relative "imps_config.toml"
+### would look in deploy/ and never find it.
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+IMPS_ROOT = os.path.dirname(SCRIPT_DIR)
+CONFIG_PATH = os.path.join(IMPS_ROOT, "imps_config.toml")
+
+### The default Unix socket path for MariaDB on Debian/Ubuntu -- see
+### _connect_as_root() below for why this matters.
+DEFAULT_SOCKET = "/run/mysqld/mysqld.sock"
 
 # Privileges box_user needs on its own database: enough to manage its
 # own tables (including the /setup wizard's later CREATE TABLE calls),
 # nothing that reaches outside box_db.* and nothing that can create
-# other users or databases. Mirrors static/backup/setup.sql exactly.
+# other users or databases. Mirrors deploy/setup.sql exactly.
 GRANT_PRIVILEGES = "SELECT, INSERT, UPDATE, DELETE, LOCK TABLES, CREATE, DROP, ALTER, INDEX"
 
 
 def _load_target_config():
     if not os.path.isfile(CONFIG_PATH):
         sys.exit(
-            f"Couldn't find {CONFIG_PATH} in the current directory.\n"
-            "Run this from the IMPS install directory (the same place "
-            "run.py lives), and make sure you've already copied "
-            "imps_config.toml.example to imps_config.toml and filled "
-            "in the [database] section (README step 9)."
+            f"Couldn't find imps_config.toml at {CONFIG_PATH}.\n"
+            "Make sure you've already copied imps_config.toml.example to "
+            "imps_config.toml (in the IMPS install root, one level up "
+            "from deploy/) and filled in the [database] section."
         )
 
     with open(CONFIG_PATH, "r") as f:
@@ -112,7 +131,37 @@ def _prompt_for_root_credentials(db_host):
     return root_user, root_password
 
 
-def _connect_as_root(db_host, root_user, root_password):
+def _connect_as_root(db_host):
+    ### ON A FRESH DEBIAN/UBUNTU MARIADB INSTALL, root@localhost uses
+    ### the unix_socket auth plugin by default -- it checks that the
+    ### connecting OS user is literally "root", not a password. Since
+    ### this script is meant to be run as `sudo python3 db_setup.py`,
+    ### that's exactly the identity making the connection, so this
+    ### should just work with no prompt at all in the common case.
+    ###
+    ### This only applies when db_host is local -- unix_socket auth is
+    ### inherently a same-machine mechanism, so a remote db_host skips
+    ### straight to the password prompt below.
+    if os.geteuid() != 0:
+        sys.exit(
+            "This script needs root privileges to create the database "
+            "and user account.\nRe-run as: sudo python3 db_setup.py"
+        )
+
+    if db_host in ("localhost", "127.0.0.1") and os.path.exists(DEFAULT_SOCKET):
+        try:
+            conn = mysql.connector.connect(unix_socket=DEFAULT_SOCKET, user="root")
+            print("Connected as root via passwordless socket auth (sudo).\n")
+            return conn
+        except mysql.connector.Error:
+            print(
+                "Passwordless root access via socket auth didn't work "
+                "(root's auth may have been changed by mysql_secure_installation, "
+                "or this isn't a Debian/Ubuntu-style install) -- falling back "
+                "to a password prompt.\n"
+            )
+
+    root_user, root_password = _prompt_for_root_credentials(db_host)
     try:
         return mysql.connector.connect(
             host=db_host, user=root_user, password=root_password
@@ -126,7 +175,7 @@ def _connect_as_root(db_host, root_user, root_password):
             )
         sys.exit(
             f"Couldn't connect to the DB server at '{db_host}': {e}\n"
-            "Is MariaDB/MySQL installed and running? (README steps 2, 6)"
+            "Is MariaDB/MySQL installed and running?"
         )
 
 
@@ -191,8 +240,7 @@ def main():
     print("(These come from imps_config.toml -- edit that file, not this "
           "script, if any of them are wrong.)\n")
 
-    root_user, root_password = _prompt_for_root_credentials(db_host)
-    root_conn = _connect_as_root(db_host, root_user, root_password)
+    root_conn = _connect_as_root(db_host)
 
     try:
         _provision(root_conn, db_host, db_name, db_user, db_password)
@@ -203,8 +251,8 @@ def main():
 
     print(
         "\nDone. The database and user account are ready.\n"
-        "Next: start IMPS (README step 11) and finish setup in the "
-        "browser at /setup -- that step creates IMPS's actual tables."
+        "Next: start IMPS and finish setup in the browser at /setup -- "
+        "that step creates IMPS's actual tables."
     )
 
 

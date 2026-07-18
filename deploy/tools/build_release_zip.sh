@@ -11,9 +11,7 @@
 # Usage:
 #   ./deploy/tools/build_release_zip.sh [version]
 #
-# If no version is given, uses today's date (e.g. imps_2026-07-03.zip),
-# matching the naming pattern of the existing
-# static/downloads/imps_8.18.25.tar file.
+# If no version is given, uses today's date (e.g. imps_2026-07-03.zip).
 ########################################################################
 
 set -euo pipefail
@@ -49,16 +47,33 @@ cd "${STAGE_DIR}/${RELEASE_NAME}"
 touch first.run
 echo "  Created first.run"
 
-### 3. STRIP DEPLOY-ONLY / DEMO-ONLY / CREDENTIAL-ADJACENT CONTENT
-### None of this belongs in a public download: reset tooling and its
-### seed data only make sense against demo.getimps.com's own
-### infrastructure, and the .toml files (even though only the
-### .example versions should ever be tracked -- see .gitignore) are
-### exactly the kind of thing that must never ship by accident.
-rm -rf deploy/
+### 3. STRIP CERTIFICATE PRIVATE MATERIAL, THE TOOLS DIRECTORY, AND
+### SEED DATA
+### deploy/'s demo-only scripts -- imps_reset.py, db_monitor.py, the
+### systemd units, mysql-restart-override.conf, the credential example
+### files -- are already excluded automatically via .gitignore, so
+### `git archive` never includes them in the first place.
+###
+### deploy/tools/ itself still needs stripping explicitly, though:
+### this very script (build_release_zip.sh) lives there and IS
+### tracked (it's a maintainer tool, not gitignored), so without this
+### step every release would ship a copy of the packaging script
+### alongside everything else in that directory.
+###
+### seed_db.sql / seed_images.zip are also tracked (kept in the repo
+### for the reset/monitor tooling's own use), but don't belong in a
+### public release -- stripped here at packaging time rather than via
+### .gitignore, since they're still legitimate to keep in git itself.
+###
+### deploy/db_setup.py, deploy/schema.sql, deploy/setup.sql,
+### deploy/imps-apache.conf, and deploy/docker/ all SHIP as-is --
+### install-facing files the README/DOCKER.md instructions depend on.
 rm -f certificates/*.key certificates/*.crt
-echo "  Removed deploy/ (reset tools, seed data, demo-only scripts)"
+rm -rf deploy/tools/
+rm -f deploy/seed_db.sql deploy/seed_images.zip
 echo "  Removed certificate private material"
+echo "  Removed deploy/tools/ (packaging script, systemd units)"
+echo "  Removed deploy/ seed data"
 
 ### 4. SANITY CHECKS -- fail loudly rather than silently shipping a
 ### broken zip
@@ -73,11 +88,25 @@ if find . -iname "*credentials*.toml" ! -iname "*.example" | grep -q .; then
     echo ".gitignore or a credentials file got committed by mistake.)" >&2
     exit 1
 fi
+if find . -iname ".env" ! -iname "*.example" | grep -q .; then
+    echo "ERROR: a real .env file made it into the release -- aborting." >&2
+    echo "(Same reasoning as the credentials check above -- .env holds" >&2
+    echo "real Docker secrets and should never be tracked; see .gitignore.)" >&2
+    exit 1
+fi
 echo "  Sanity checks passed"
 
 ### 5. ZIP IT UP
-cd "${STAGE_DIR}"
-zip -rq "${OUTPUT_ZIP}" "${RELEASE_NAME}"
+### Zipping from *inside* the staged directory (rather than zipping
+### the STAGE_DIR/${RELEASE_NAME} directory itself) means the archive
+### has no top-level wrapper folder -- `cd /var/www && unzip imps.zip`
+### puts run.py, app/, deploy/, etc. directly at that level, instead
+### of one level down inside an imps_${VERSION}/ subfolder. The output
+### FILENAME still carries the version/date (imps_${VERSION}.zip) so
+### it's still easy to tell releases apart on disk -- only the
+### archive's internal layout changes.
+cd "${STAGE_DIR}/${RELEASE_NAME}"
+zip -rq "${OUTPUT_ZIP}" .
 
 ### 6. CLEAN UP STAGING
 rm -rf "${STAGE_DIR}"
@@ -89,5 +118,5 @@ unzip -l "${OUTPUT_ZIP}" | head -20
 echo "  ..."
 echo
 echo "Double check before uploading to getimps.com:"
-echo "  unzip -l ${OUTPUT_ZIP} | grep -iE 'credentials|\.key$|\.git'"
+echo "  unzip -l ${OUTPUT_ZIP} | grep -iE 'credentials|\.key$|\.env$|\.git'"
 echo "(should print nothing)"

@@ -340,7 +340,6 @@ def setup_password():
 
     if request.method == "POST":
         new_password = request.form.get("password", "")
-        confirm_password = request.form.get("confirm_password", "")
 
         if not new_password:
             ### LEFT BLANK == "KEEP WHATEVER'S ALREADY SAVED", same as
@@ -352,12 +351,14 @@ def setup_password():
 
         if not new_password:
             error = "Password cannot be blank."
-        elif new_password != confirm_password and request.form.get("password", ""):
-            ### ONLY ENFORCE THE MATCH CHECK IF THEY ACTUALLY TYPED A
-            ### NEW PASSWORD -- if they left both fields blank to keep
-            ### the current one, there's nothing to confirm.
-            error = "Passwords do not match."
         else:
+            ### NO CONFIRM-FIELD MATCH CHECK: setup_password.html only
+            ### ever collects the password once (the "Show" toggle
+            ### covers the usual reason a confirm field exists), and
+            ### there's no confirm_password field in that form to
+            ### compare against -- matches control_panel.py's
+            ### cp_passwordedited(), which handles the same "set/change
+            ### the IMPS password" task the same single-field way.
             extensions.write_config_values("password", {"password": new_password})
             extensions.reload_config()
 

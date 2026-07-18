@@ -14,20 +14,13 @@ not_first.run
 
 # Demo-hosting-only tooling (airbornedan's public demo instance —
 # auto-reset + monitoring — not needed for a private install)
-deploy/imps_reset.py
-deploy/db_monitor.py
-deploy/mail_credentials_example.toml
-deploy/reset_credentials_example.toml
-deploy/.db_monitor_state.toml
-deploy/.imps_reset.lock
-deploy/maintenance.flag
-deploy/MAINTENANCE
-deploy/tools/imps-reset.service
-deploy/tools/imps-reset.timer
-deploy/tools/imps-db-monitor.service
-deploy/tools/imps-db-monitor.timer
-deploy/tools/mysql-restart-override.conf
-
+deploy/
+deploy/tools
+!deploy/db_setup.py
+!deploy/setup.sql
+!deploy/adapter.wsgi
+!deploy/HOSTREADME.txt
+!deploy/imps-apache.conf
 # Runtime data that differs per deployment (home/demo/local)
 static/images/items/*
 !static/images/items/none.jpg

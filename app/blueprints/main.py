@@ -70,7 +70,6 @@ def del_firstrun():
 ### HOME PAGE
 ########################################################################
 @bp.route("/")
-@login_required
 def home():
     ####################################################################
     ### IF THIS IS THE INITAL RUN OF IMPS, TEST SETTINGS
@@ -80,8 +79,18 @@ def home():
     ### working directory happens to equal IMPS_DIR (true under
     ### adapter.wsgi, which os.chdir()s there explicitly, but not
     ### guaranteed under every possible way of starting the app).
+    ### THIS MUST RUN BEFORE THE LOGIN CHECK BELOW -- a fresh install
+    ### has no session yet, so gating this behind @login_required (as
+    ### before) sent every first-time visitor to the login page
+    ### instead of the setup wizard, since decorators run before any
+    ### code in the function body.
     if os.path.isfile(os.path.join(IMPS_DIR, "first.run")):
         return redirect(url_for("setup.setup_landing"))
+
+    ####################################################################
+    ### NOT FIRST RUN -- NORMAL LOGIN GATE
+    if not session.get("loggedin"):
+        return redirect(url_for("auth.login"))
 
     ####################################################################
     ### OTHERWISE SHOW THE HOME PAGE

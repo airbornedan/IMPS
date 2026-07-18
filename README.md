@@ -34,7 +34,7 @@ If you are installing IMPS on your own Linux server, the steps are:
         `pip install -r requirements.txt`
 9. Edit imps_config.toml to match your environment.
 10. Run the sql setup
-        `mysql -u root -p < /var/www/static/backup/schema.sql`
+        `mysql -u root -p < deploy/schema.sql`
 11. Test IMPS
       Stop Apache (it is currently running on Port 80)
         `service apache2 stop`
@@ -42,4 +42,5 @@ If you are installing IMPS on your own Linux server, the steps are:
         `python3 run.py`
 12. Follow the on-scree directions to finish setting up IMPS.
 13. Once you have IMPS configured and running, use your friendly search engine to set up the app to run under wsgi.
+       Some instructions (for the Apache specific case) are included in `deploy/apache/APACHE.md`
 14. Start using the Inventory Management Photo System.

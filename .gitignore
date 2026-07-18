@@ -1,3 +1,6 @@
+# Don't include any zip files
+*.zip
+
 # IMPS — secrets & real credentials.
 imps_config.toml
 deploy/reset_credentials.toml
@@ -12,15 +15,19 @@ deploy/mail_credentials.toml
 # Install-state markers (generated per-install, not source)
 not_first.run
 
-# Demo-hosting-only tooling (airbornedan's public demo instance —
-# auto-reset + monitoring — not needed for a private install)
-deploy/
-deploy/tools
+# deploy/ — track only what an actual private install needs
+# (db_setup.py, schema.sql, setup.sql, apache/, docker/). Everything
+# else in here is specific to running the public demo site
+# (demo.getimps.com) — reset/monitoring scripts, their credential
+# templates, seed data, and the tools/ packaging directory — and has
+# no reason to live in this repo at all.
+deploy/*
 !deploy/db_setup.py
+!deploy/schema.sql
 !deploy/setup.sql
-!deploy/adapter.wsgi
-!deploy/HOSTREADME.txt
-!deploy/imps-apache.conf
+!deploy/apache/
+!deploy/docker/
+
 # Runtime data that differs per deployment (home/demo/local)
 static/images/items/*
 !static/images/items/none.jpg
@@ -28,7 +35,7 @@ static/images/items/*
 # Generated and saved QR codes
 static/images/qrcodes/*
 
-# Generated DB/photo backups -- schema.sql and setup.sql now live in
+# Generated DB/photo backups -- schema.sql and setup.sql live in
 # deploy/ as source, so everything left in here is purely runtime output
 static/backup/*
 !static/backup/.gitkeep

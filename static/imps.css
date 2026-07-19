@@ -1222,3 +1222,119 @@ input[name="file"] {
 		width: auto;
 	}
 }
+
+/* ******************************************** */
+/* Context-sensitive help: button + slide-in panel */
+/* ******************************************** */
+/* Markup/JS: templates/includes/header.html + static/help_panel.js.
+   Fixed to the viewport (not the #container flex layout) so it sits
+   top-right consistently regardless of how tall/short a given page's
+   content is. */
+.help-button {
+	position: fixed;
+	top: 12px;
+	right: 12px;
+	z-index: 3;
+	background: #fff;
+	border: 1px solid #888;
+	border-radius: 6px;
+	padding: 4px 6px;
+	cursor: pointer;
+	line-height: 0;
+}
+
+.help-button:hover {
+	background: #f0f0f0;
+}
+
+/* Dims the page behind the panel and, when clicked, closes it -- same
+   "click outside to dismiss" pattern as the existing .modal overlay,
+   just anchored to the right edge instead of centered. */
+.help-overlay {
+	display: none;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.3);
+	z-index: 4;
+}
+
+.help-overlay.open {
+	display: block;
+}
+
+.help-panel {
+	position: fixed;
+	top: 0;
+	right: 0;
+	width: 420px;
+	max-width: 90vw;
+	height: 100%;
+	background: #fff;
+	border-left: 1px solid #888;
+	box-shadow: -2px 0 8px rgba(0, 0, 0, 0.2);
+	z-index: 5;
+	display: flex;
+	flex-direction: column;
+	/* Slid fully off-screen by default; .open slides it in. Transition
+	   lives here (not on .open) so it animates both directions. */
+	transform: translateX(100%);
+	transition: transform 0.2s ease-out;
+}
+
+.help-panel.open {
+	transform: translateX(0);
+}
+
+.help-panel-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 14px;
+	border-bottom: 1px solid #ccc;
+	flex: 0 0 auto;
+}
+
+.help-panel-title {
+	font-size: 18px;
+	font-weight: bold;
+}
+
+.help-panel-close {
+	cursor: pointer;
+	font-size: 26px;
+	line-height: 1;
+	color: #888;
+}
+
+.help-panel-close:hover {
+	color: #333;
+}
+
+.help-panel-search {
+	padding: 10px 14px;
+	border-bottom: 1px solid #ccc;
+	flex: 0 0 auto;
+}
+
+.help-search-box {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 6px 8px;
+	font-size: 14px;
+}
+
+.help-panel-frame {
+	flex: 1 1 auto;
+	width: 100%;
+	border: none;
+}
+
+@media (max-width: 480px) {
+	.help-panel {
+		width: 100%;
+		max-width: 100%;
+	}
+}

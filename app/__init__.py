@@ -2,6 +2,7 @@
 ### APPLICATION FACTORY
 ########################################################################
 import os
+import re
 
 from flask import Flask, request, session
 
@@ -64,6 +65,25 @@ def create_app():
 
     # Importing extensions here (above) also triggers config/db_pool setup
     # via app/extensions.py the first time it's imported.
+
+    ####################################################################
+    ### CONTEXT-SENSITIVE HELP
+    ####################################################################
+    # Derives a stable "topic" name from the current route so templates
+    # can point the help panel's iframe at
+    # /static/help/imps_<help_topic>_help.html without every route
+    # having to set this itself. URL variables (<box_num>, <item_num>,
+    # etc.) are stripped out first since the *route* is the help topic,
+    # not whichever particular box/item/category happened to be in the
+    # URL -- e.g. /boxshowcontent/4 and /boxshowcontent/17 both resolve
+    # to the same "boxshowcontent" topic.
+    @app.context_processor
+    def inject_help_topic():
+        topic = "home"
+        if request.url_rule:
+            rule = re.sub(r"<[^>]+>", "", request.url_rule.rule)
+            topic = rule.strip("/").replace("/", "_") or "home"
+        return {"help_topic": topic}
 
     ####################################################################
     ### "LAST LIST VIEW" TRACKING (see LIST_VIEW_ENDPOINTS above)

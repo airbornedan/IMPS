@@ -7,6 +7,7 @@
      <link rel="stylesheet" href="/static/imps.css">
      <script src="/static/thumbnail_zoom.js" defer></script>
      <script src="/static/modal.js" defer></script>
+     <script src="/static/help_panel.js" defer></script>
      <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
 <style>
 #container {
@@ -32,7 +33,25 @@
 
 </style>
    </head>
-   <body>
+   <body data-help-topic="{{ help_topic }}">
+
+<!-- context-sensitive help: top-right button + slide-in panel -->
+<button type="button" id="helpButton" class="help-button" aria-label="Help" title="Help">
+   <img src="/static/images/icons/help_icon.png" height="24px;">
+</button>
+<div id="helpOverlay" class="help-overlay"></div>
+<div id="helpPanel" class="help-panel">
+   <div class="help-panel-header">
+      <span class="help-panel-title">IMPS Help</span>
+      <span id="helpPanelClose" class="help-panel-close" title="Close help">&times;</span>
+   </div>
+   <div class="help-panel-search">
+      <input type="text" class="help-search-box" placeholder="Search help (coming soon)" disabled>
+   </div>
+   <iframe id="helpFrame" class="help-panel-frame" title="Help content"></iframe>
+</div>
+<!-- end context-sensitive help -->
+
 <div id="container">
        <div-1><a href="/" style="font-size: 24px; font-weight:bold">IMPS</a></div>
        <div-2><a href="/"><img src="/static/images/imp.png" height="80px;" width="120px;"></a></div> 

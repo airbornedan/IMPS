@@ -18,6 +18,8 @@ from app.extensions import (
     db_errors,
     run_query,
     get_items_per_page,
+    get_offset_for_page,
+    InvalidPageError,
 )
 
 bp = Blueprint("inventory", __name__)
@@ -33,11 +35,14 @@ def inventory():
     #####################################
     ############# PAGINATION
     limit = get_items_per_page()
-    page_req = request.args.get("page")
-    if page_req == None:
-        offset = 0
-    else:
-        offset = limit * (int(page_req) - 1)
+    try:
+        offset = get_offset_for_page(limit)
+    except InvalidPageError:
+        return render_template(
+            "errorpage.html",
+            err_message="That page number doesn't exist.",
+            err_page_from="/",
+        )
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:

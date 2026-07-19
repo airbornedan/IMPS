@@ -4,6 +4,7 @@
 # Run with:  python run.py
 # (For production, run with gunicorn instead, e.g.:
 #    gunicorn -w 4 -b 0.0.0.0:80 'run:app')
+# or via Apache. See deploy/apache/APACHE.md for instructions
 
 from app import create_app
 

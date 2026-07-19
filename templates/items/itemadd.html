@@ -9,7 +9,7 @@
 <div class="container-flex">
 	<div >Name</div>
 	<div>
-		<input id="item_name" type="text" placeholder="Item name" name="item_name" autofocus >
+		<input id="item_name" type="text" placeholder="Item name" name="item_name" maxlength="50" autofocus >
 	</div>
 	<div >Box Number</div>
 	<div >
@@ -105,6 +105,11 @@ function validateForm() {
   if (name_input == ""){
     //alert("Item name is required");
     showValidationError("An item name is <br>required.");
+    return false;
+  }
+
+  if (name_input.length > 50){
+    showValidationError("Item names are limited to 50 characters. <br>Use the description field to store <br>more information about this item.");
     return false;
   }
 

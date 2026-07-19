@@ -33,7 +33,19 @@ def login():
 # attempts that try to stay under the per-minute threshold.
 @limiter.limit("10 per minute; 100 per day")
 def attemptlogin():
-    userPassword = request.form["password"]
+    userPassword = request.form.get("password")
+
+    ### A MALFORMED/INCOMPLETE POST (e.g. a stale cached page, a
+    ### replayed/bookmarked request) can arrive with no "password"
+    ### field at all -- request.form["password"] would raise an
+    ### unhandled KeyError (a generic Flask 400 page) in that case, so
+    ### use .get() and handle it explicitly with IMPS's own error page.
+    if not userPassword:
+        return render_template(
+            "errorpage.html",
+            err_message="No password was submitted.",
+            err_page_from="/login",
+        )
 
     ### MATCH AGAINST PASS SET IN imps_config.toml
     ### (read via the extensions module, not a bare imported name, so

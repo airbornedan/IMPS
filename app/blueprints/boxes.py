@@ -6,7 +6,16 @@ from array import array
 from datetime import date
 from mysql.connector.errors import IntegrityError
 
-from app.extensions import get_db_connection, DBConnectionError, login_required, limiter, logger, db_errors, run_query
+from app.extensions import (
+    get_db_connection,
+    DBConnectionError,
+    login_required,
+    limiter,
+    logger,
+    db_errors,
+    run_query,
+    MAX_BOX_NUM,
+)
 
 bp = Blueprint("boxes", __name__)
 
@@ -78,8 +87,12 @@ def boxadd():
     exec_msg="Database error when retrieving global box configuration structures.",
 )
 def boxmoveitems():
-    ### GET FORM DATA
-    old_box_num = request.form["box_to_del"]
+    ### GET FORM DATA. Use .get() with a "" default (rather than
+    ### request.form["box_to_del"]) so a malformed/incomplete POST --
+    ### a stale cached page, a bookmarked/replayed request -- falls
+    ### through to the int() check below and shows IMPS's own error
+    ### page, instead of an unhandled KeyError (a generic Flask 400).
+    old_box_num = request.form.get("box_to_del", "")
 
     ### VERIFY FORM ENTRY IS AN INT
     try:
@@ -121,8 +134,9 @@ def boxmoveitems():
     exec_msg="Database error when parsing item dependencies.",
 )
 def boxorphanitems():
-    ### GET FORM DATA
-    box_to_del = request.form["box_to_del"]
+    ### GET FORM DATA. Use .get() with a "" default -- see
+    ### boxmoveitems() above for why.
+    box_to_del = request.form.get("box_to_del", "")
 
     ### VERIFY FORM ENTRY IS AN INT
     try:
@@ -159,8 +173,9 @@ def boxorphanitems():
     exec_msg="Database error. Could not process item updates or box removal.",
 )
 def boxorphanitemssuccess():
-    ### GET FORM DATA
-    box_to_del = request.form["box_to_del"]
+    ### GET FORM DATA. Use .get() with a "" default -- see
+    ### boxmoveitems() above for why.
+    box_to_del = request.form.get("box_to_del", "")
 
     ### VERIFY VARIABLE IS AN INT
     try:
@@ -197,9 +212,10 @@ def boxorphanitemssuccess():
     exec_msg="Database error. Could not migrate items or delete box mapping.",
 )
 def boxmoveitemssuccess():
-    ### GET FORM DATA
-    box_to_del = request.form["box_to_del"]
-    new_box_num = request.form["new_box_num"]
+    ### GET FORM DATA. Use .get() with "" defaults -- see
+    ### boxmoveitems() above for why.
+    box_to_del = request.form.get("box_to_del", "")
+    new_box_num = request.form.get("new_box_num", "")
 
     ### VERIFY VARIABLES ARE INTS
     try:
@@ -272,6 +288,36 @@ def boxadded():
     ### IF NEXT AVAILABLE IS SET, USE THAT BOX
     if box_type == "next_available":
         box_num = next_available_box_num
+
+    ### RE-VALIDATE THE FINAL box_num -- next_available_box_num comes
+    ### from a hidden/readonly form field, so it's only "read-only" in
+    ### the UI, not actually enforced server-side; a direct POST could
+    ### substitute anything. Also enforces the MAX_BOX_NUM cap, which
+    ### applies either way. The UI already enforces this cap via
+    ### maxlength="4" + JS (see boxadd.html), but that's client-side
+    ### only.
+    try:
+        final_box_num = int(box_num)
+    except (ValueError, TypeError):
+        return render_template(
+            "errorpage.html",
+            err_message="Invalid entry. Box number must be an int.",
+            err_page_from="/",
+        )
+
+    if final_box_num < 0:
+        return render_template(
+            "errorpage.html",
+            err_message="Box numbers must be positive.",
+            err_page_from="/boxadd",
+        )
+
+    if final_box_num > MAX_BOX_NUM:
+        return render_template(
+            "errorpage.html",
+            err_message="The number entered was greater than the greatest allowable box number.",
+            err_page_from="/boxadd",
+        )
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
@@ -381,41 +427,34 @@ def boxdel():
 @db_errors(exec_msg="Database error. Could not access box list.")
 def delboxconf():
 
-    ### GET FORM DATA
-    box_to_del = request.form["box_to_del"]
+    ### GET FORM DATA. Use .get() with a "" default -- see
+    ### boxmoveitems() above for why.
+    box_to_del = request.form.get("box_to_del", "")
 
     ### VERIFY VARIABLE IS AN INT
     try:
         check_int = int(box_to_del)
-    except:
+    except (ValueError, TypeError):
         return render_template(
             "errorpage.html",
             err_message="Entry is not a number.",
             err_page_from="/",
         )
 
-    ### GET ADDITIONAL FORM DATA
-    item_handling = request.form["item_handling"]
+    ### GET ADDITIONAL FORM DATA. Not currently used below, but same
+    ### .get() treatment for consistency/safety in case that changes.
+    item_handling = request.form.get("item_handling", "")
 
     ### CHECK IF BOX HAS CONTENTS
     box_state_query = """ SELECT * FROM items WHERE box_num = %s """
 
     with get_db_connection() as mydb:
-        box_state_query = """SELECT * FROM items WHERE box_num = %s"""
-
         cursor = mydb.cursor()
         cursor.execute(box_state_query, (box_to_del,))
         result = cursor.fetchall()
         cursor.close()
 
         box_state = "empty" if len(result) == 0 else "not_empty"
-
-    ### DETERMINE IF BOX IS EMPTY OR NOT
-    if cursor.rowcount == 0:
-        box_state = "empty"
-    else:
-        box_state = "not_empty"
-    cursor.close()
 
     ### SHOW THE BOX DELETE CONFIRMATION PAGE
     return render_template(
@@ -433,15 +472,13 @@ def boxedit():
     ### SETUP AVAILABLE BOX NUMERS QUERY
     available_box_nums_query = "SELECT boxes.box_num FROM boxes;"
 
-
     with get_db_connection() as mydb:
-        available_box_nums_query = "SELECT boxes.box_num FROM boxes;"
-
         cursor = mydb.cursor()
         cursor.execute(available_box_nums_query)
         result = cursor.fetchall()
         cursor.close()
 
+        ### CHECK THAT QUERY SUCCEEDED
         if not result:
             return render_template(
                 "errorpage.html",
@@ -449,22 +486,8 @@ def boxedit():
                 err_page_from="/",
             )
 
-    ### CHECK THAT QUERY SUCCEEDED
-    if not result:
-        return render_template(
-            "errorpage.html",
-            err_message="Database error.",
-            err_page_from="/",
-        )
-
-    num_items = len(result)
-    cursor.close()
-
     ### TURN RESULT INTO A LIST
-    available_boxes = []
-    for i in range(num_items):
-        container = list(result[i])
-        available_boxes.insert(1, container.pop())
+    available_boxes = [row[0] for row in result]
 
     ### RETURN BOX SELECTION PAGE
     return render_template("boxes/boxedit.html", available_boxes=available_boxes)
@@ -684,6 +707,16 @@ def boxrenumbersuccess():
         return render_template(
             "errorpage.html",
             err_message="Box numbers must be positive.",
+            err_page_from=f"/boxrenumber/{old_box_num}",
+        )
+
+    ### ENFORCE THE MAX_BOX_NUM CAP. The UI already enforces this via
+    ### maxlength="4" + JS (see boxrenumber.html), but that's
+    ### client-side only -- a direct POST bypasses it entirely.
+    if check_new > MAX_BOX_NUM:
+        return render_template(
+            "errorpage.html",
+            err_message="The number entered was greater than the greatest allowable box number.",
             err_page_from=f"/boxrenumber/{old_box_num}",
         )
 

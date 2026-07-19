@@ -30,6 +30,9 @@ from app.extensions import (
     db_errors,
     run_query,
     get_items_per_page,
+    get_offset_for_page,
+    InvalidPageError,
+    MAX_ITEM_NAME_LENGTH,
 )
 
 bp = Blueprint("items", __name__)
@@ -246,6 +249,22 @@ def updateitem(item_num):
         if not ud_item_cat:
             ud_item_cat = ud_passed_in_cat
 
+        ### VALIDATE ITEM NAME LENGTH -- before any DB write or photo
+        ### processing below, so a too-long name is rejected up front
+        ### rather than after other work's already been done. The UI
+        ### already enforces this via maxlength="50" + JS (see
+        ### itemedit.html), but that's client-side only -- a direct
+        ### POST bypasses it entirely, so it has to be checked here too.
+        if ud_item_name and len(ud_item_name) > MAX_ITEM_NAME_LENGTH:
+            return render_template(
+                "errorpage.html",
+                err_message=(
+                    f"Item names are limited to {MAX_ITEM_NAME_LENGTH} characters. "
+                    "Use the description field to store more information about this item."
+                ),
+                err_page_from=f"/itemedit/{item_num}",
+            )
+
         # Fetch an active, thread-safe connection from the pool
         with get_db_connection() as mydb:
             ### 1. WRITE CORE ITEM VALUES TO DB
@@ -402,6 +421,23 @@ def updateitem(item_num):
 @limiter.limit("30 per minute; 300 per hour")
 @db_errors(exec_msg="Database error. Could not complete data insertion.")
 def iteminsert():
+    ### VALIDATE ITEM NAME LENGTH UP FRONT -- before any photo
+    ### processing below, so a too-long name is rejected immediately
+    ### rather than after an upload's already been saved/resized for
+    ### nothing. The UI already enforces this via maxlength="50" +
+    ### JS (see itemadd.html), but that's client-side only -- a direct
+    ### POST bypasses it entirely, so it has to be checked here too.
+    item_name = request.form.get("item_name") or ""
+    if len(item_name) > MAX_ITEM_NAME_LENGTH:
+        return render_template(
+            "errorpage.html",
+            err_message=(
+                f"Item names are limited to {MAX_ITEM_NAME_LENGTH} characters. "
+                "Use the description field to store more information about this item."
+            ),
+            err_page_from="/itemadd",
+        )
+
     photoincluded = request.form.get("photo_yes_no")
 
     if photoincluded == "yes":
@@ -472,7 +508,8 @@ def iteminsert():
     current_date = str(date.today())
 
     ### GET FORM DATA FOR INSERTION INTO DATABASE
-    item_name = request.form.get("item_name")
+    ### (item_name was already fetched and length-checked at the top
+    ### of this function, before photo processing)
     box_num = request.form.get("box_num")
     item_cat = request.form.get("item_cat")
     item_desc = request.form.get("item_desc")
@@ -597,11 +634,14 @@ def itembycategory(category):
     #####################################
     ############# PAGINATION
     limit = get_items_per_page()
-    page_req = request.args.get("page")
-    if page_req == None:
-        offset = 0
-    else:
-        offset = limit * (int(page_req) - 1)
+    try:
+        offset = get_offset_for_page(limit)
+    except InvalidPageError:
+        return render_template(
+            "errorpage.html",
+            err_message="That page number doesn't exist.",
+            err_page_from="/bycategory",
+        )
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
@@ -810,7 +850,21 @@ def itemdeleted(item_to_del):
     has_real_photo = bool(photo_filename) and photo_filename != "none.jpg"
 
     if has_real_photo:
-        photo_file = os.path.join(photo_dir, photo_filename)
+        ### photo_filename comes out of the database rather than
+        ### straight off the request, but treat it as untrusted anyway
+        ### and run it through safe_image_path() -- same as every
+        ### other photo-delete path in the app (updateitem() above,
+        ### cp_photofilesdel() in control_panel.py). Keeps this route
+        ### safe even if item_pic ever ends up holding something
+        ### unexpected (hand-edited data, a restored backup, a future
+        ### code path that doesn't go through the upload flow).
+        photo_file = safe_image_path(photo_filename, photo_dir)
+        if photo_file is None:
+            logger.error(
+                f"itemdeleted(): refusing to delete unsafe/invalid "
+                f"photo filename from DB: {photo_filename!r}"
+            )
+            photo_file = os.path.join(photo_dir, "__nonexistent__")
         try:
             os.remove(photo_file)
         except FileNotFoundError:

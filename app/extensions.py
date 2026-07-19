@@ -526,6 +526,75 @@ def get_items_per_page():
 
 
 ########################################################################
+### PAGE-PARAMETER HELPER (SHARED BY EVERY PAGINATED LIST ROUTE)
+########################################################################
+# ?page= is client-supplied (typed in the URL, bookmarked, or shared),
+# so it can't be trusted to be a valid positive integer. Centralizes
+# the int(page_req) parsing that used to be duplicated in
+# main.search_result(), inventory.inventory(), and
+# items.itembycategory() -- each of which called bare int() on it and
+# relied on the surrounding @db_errors decorator to catch the
+# resulting ValueError as if it were a database failure. This raises
+# a specific, catchable error instead, so each route can show an
+# accurate "that page doesn't exist" message rather than a misleading
+# "database error".
+
+
+class InvalidPageError(Exception):
+    """Raised when a ?page= value isn't a valid positive integer."""
+
+    pass
+
+
+def get_offset_for_page(limit):
+    """Return the SQL OFFSET for the current request's ?page= value.
+
+    Reads request.args.get("page") directly (same as every call site
+    used to), so no page argument means page 1 / offset 0. Raises
+    InvalidPageError for anything that isn't a positive integer --
+    callers should catch this and show a clear, specific error message
+    rather than letting it bubble up as a generic database error.
+    """
+    page_req = request.args.get("page")
+    if page_req is None:
+        return 0
+
+    try:
+        page_num = int(page_req)
+    except (TypeError, ValueError):
+        raise InvalidPageError(f"{page_req!r} is not a valid page number.")
+
+    if page_num < 1:
+        raise InvalidPageError(f"{page_req!r} is not a valid page number.")
+
+    return limit * (page_num - 1)
+
+
+########################################################################
+### FIELD LIMITS (ENFORCED SERVER-SIDE -- THE UI ALSO ENFORCES THESE,
+### VIA maxlength/JS IN THE TEMPLATES, BUT THAT'S CLIENT-SIDE ONLY AND
+### CAN'T BE TRUSTED ON ITS OWN: A DIRECT POST BYPASSES IT ENTIRELY)
+########################################################################
+# Item names: capped at 50 so the item list/grid views stay readable --
+# there's a separate item_desc field for anything longer. Well under
+# the items.item_name column's actual varchar(256) limit, so a name
+# over 50 is rejected here with a clear message rather than being
+# silently truncated (or erroring at the DB layer) at 256.
+MAX_ITEM_NAME_LENGTH = 50
+
+# Box numbers: capped at a 4-digit ceiling. Plenty for a home inventory
+# (a box number is looked up by its printed label, so it's meant to
+# stay short and readable), and keeps box numbers visually distinct
+# from item numbers, which can run much higher.
+# Category names: same 50-character cap as item names, for the same
+# reason (keeps category chips/lists readable; categories are meant to
+# be short labels, not descriptions).
+MAX_CATEGORY_NAME_LENGTH = 50
+
+MAX_BOX_NUM = 9999
+
+
+########################################################################
 ### UPLOAD SETTINGS
 ########################################################################
 

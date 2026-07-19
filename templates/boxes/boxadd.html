@@ -76,7 +76,7 @@ function faNumberCaller(){
 			Choose number:
 			</div>
 			<div class="input_div">
-				<input id="box_num" name="box_num" type="text"  size="5" onfocus="chooseNumberCaller()">
+				<input id="box_num" name="box_num" type="text"  size="5" maxlength="4" onfocus="chooseNumberCaller()">
 			</div>
 		</div>
 	</div>
@@ -128,10 +128,11 @@ const boxes_in_use = {{box_nums|safe}}
 const boxNumInput = document.getElementById("box_num");
 
 // LIVE FEEDBACK: as the user types a box number to reuse, flag the
-// input red as soon as it matches a number already in use. Inverse of
-// the bybox.html live check (there, red means "not a real box"; here,
-// red means "that box already exists"). Purely visual -- validateForm()
-// below still does the actual submit-time enforcement.
+// input red as soon as it matches a number already in use, or is at/
+// over the 10000 cap. Inverse of the bybox.html live check (there,
+// red means "not a real box"; here, red means "not usable as-is").
+// Purely visual -- validateForm() below still does the actual
+// submit-time enforcement.
 boxNumInput.addEventListener("input", function() {
 	const typed = boxNumInput.value;
 	if (typed === "" || boxNumInput.readOnly) {
@@ -143,7 +144,8 @@ boxNumInput.addEventListener("input", function() {
 	}
 	const typed_num = Number(typed);
 	const already_in_use = !isNaN(typed) && boxes_in_use.includes(typed_num);
-	boxNumInput.classList.toggle("input-invalid", already_in_use);
+	const over_limit = !isNaN(typed) && typed_num >= 10000;
+	boxNumInput.classList.toggle("input-invalid", already_in_use || over_limit);
 });
 
 // Also re-check whenever the field switches from readonly to active
@@ -198,6 +200,17 @@ function validateForm() {
     if (box_num < 0){
         modal.style.display = "block";
         document.getElementById('err_message').innerHTML="Box numbers must <br>be positve.";
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        return false;
+    }
+
+    // Check that the number is under the box-number cap
+
+    if ((box_num >= 10000) && (box_type == "choose_number")){
+        modal.style.display = "block";
+        document.getElementById('err_message').innerHTML="Box numbers must be <br>less than 10000.";
         span.onclick = function() {
             modal.style.display = "none";
         }

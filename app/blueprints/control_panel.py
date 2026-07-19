@@ -25,6 +25,7 @@ from app.extensions import (
     get_items_per_page,
     ALLOWED_ITEMS_PER_PAGE,
     allowed_file,
+    MAX_CATEGORY_NAME_LENGTH,
 )
 
 bp = Blueprint("control_panel", __name__)
@@ -583,7 +584,17 @@ def cp_cateditsuccess(cat_num):
 
     # GET VALUES FROM FORM
     form_cat_num = request.form.get("cat_num")
-    cat_name = request.form.get("cat_name")
+    cat_name = request.form.get("cat_name") or ""
+
+    ### VALIDATE CATEGORY NAME LENGTH -- the edit form already enforces
+    ### this client-side via maxlength="50" + JS (see cp_catedit.html),
+    ### but that's client-side only; a direct POST bypasses it entirely.
+    if len(cat_name) > MAX_CATEGORY_NAME_LENGTH:
+        return render_template(
+            "errorpage.html",
+            err_message=f"Category names are limited to {MAX_CATEGORY_NAME_LENGTH} characters.",
+            err_page_from=f"/cp_editcat/{cat_num}",
+        )
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
@@ -775,7 +786,18 @@ def cp_delallorphans():
 @login_required
 @db_errors(exec_msg="Database error. Could not populate new category record definitions.")
 def cp_addcat():
-    new_cat = request.form.get("new_cat")
+    new_cat = request.form.get("new_cat") or ""
+
+    ### VALIDATE CATEGORY NAME LENGTH -- the "add category" form
+    ### already enforces this client-side via maxlength="50" + JS (see
+    ### cp_categories.html), but that's client-side only; a direct
+    ### POST bypasses it entirely.
+    if len(new_cat) > MAX_CATEGORY_NAME_LENGTH:
+        return render_template(
+            "errorpage.html",
+            err_message=f"Category names are limited to {MAX_CATEGORY_NAME_LENGTH} characters.",
+            err_page_from="/cp_categories",
+        )
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:

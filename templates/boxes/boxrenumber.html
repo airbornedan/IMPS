@@ -23,7 +23,7 @@ need to print a new one for the new number after this change.</p>
 <input type="hidden" name="old_box_num" value="{{box_num}}">
 	<div>
 		<label>New box number<br>
-		<input id="new_box_num" name="new_box_num" type="text" size="5" autofocus></label>
+		<input id="new_box_num" name="new_box_num" type="text" size="5" maxlength="4" autofocus></label>
 	</div>
 	<div style="margin-top:10px;">
 		<button type="button" id="renumber_btn" class="imps">Change number</button>
@@ -52,7 +52,8 @@ newBoxNumInput.addEventListener("input", function() {
 	const typed_num = Number(typed);
 	const already_in_use = !isNaN(typed) && boxes_in_use.includes(typed_num);
 	const is_same = !isNaN(typed) && typed_num === oldBoxNum;
-	newBoxNumInput.classList.toggle("input-invalid", already_in_use || is_same);
+	const over_limit = !isNaN(typed) && typed_num >= 10000;
+	newBoxNumInput.classList.toggle("input-invalid", already_in_use || is_same || over_limit);
 });
 
 function validateNewBoxNum() {
@@ -73,6 +74,10 @@ function validateNewBoxNum() {
 	}
 	if (typed_num < 0) {
 		showValidationError("Box numbers must <br>be positive.");
+		return false;
+	}
+	if (typed_num >= 10000) {
+		showValidationError("Box numbers must be <br>less than 10000.");
 		return false;
 	}
 	if (typed_num === oldBoxNum) {

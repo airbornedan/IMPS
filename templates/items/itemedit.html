@@ -17,7 +17,7 @@
 				Name: 
 			</div>
                         <div>
-				<input type="text" value="{{item_name}}" name="item_name" id="item_name" size="15" autofocus>
+				<input type="text" value="{{item_name}}" name="item_name" id="item_name" size="15" maxlength="50" autofocus>
 			</div>
 			<div>
 				Box # :
@@ -146,6 +146,18 @@ function validateForm() {
 
     if (item_name == ""){
         showValidationError("Item name is required.");
+        return false;
+     }
+
+    // Check that the item name isn't over the 50-character limit
+    // (maxlength="50" on the field already blocks typing/pasting past
+    // that, but this catches a value set some other way -- e.g.
+    // browser autofill, or the field's value getting restored from
+    // history -- and keeps this route's validation consistent with
+    // itemadd.html's.)
+
+    if (item_name.length > 50){
+        showValidationError("Item names are limited to 50 characters. <br>Use the description field to store <br>more information about this item.");
         return false;
      }
 

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Control Panel</p>
+
+{% set active_tab = 'Server' %}
+{% include "includes/cp_tabs.html" %}
+
+<div>
+        <h3>
+		Configuration (Read-only)
+             <div class="tooltip">
+                        <img src="static/images/icons/info.png" width="20px;">
+                                <span class="tooltiptext" style="font-size: 16px; font-weight: normal">These values cannot be edited here. Set them in the imps_config.toml file.</span>
+                </div>
+	</h3>
+</div>
+
+<div>
+<div class="col border">
+	<div class="row p-2">
+		<div class="col col-2">
+			Database server URL
+		</div>
+                <div>
+			<input readonly type="text" placeholder="{{dbhost}}" name="dbhost" id="dbhost">
+		</div>
+		</div>
+	<div class="row p-2">
+		<div class="col col-2">
+			Database name
+		</div>
+	<div>
+		<input readonly type="text" placeholder="{{dbname}}" name="dbname" id="dbname">
+	</div>
+	</div>
+        <div class="row p-2">
+                <div class="col col-2">
+                         Database username
+        </div>
+        <div>
+                <input readonly type="text" placeholder="{{dbuser}}" name="dbuser" id="dbuser">
+        </div>
+	</div>
+                        <div class="row p-2">
+                                <div class="col col-2">
+                                        Database password
+                                </div>
+                                <div>
+                                        <input readonly type="text" placeholder="{{dbpass}}" name="dbpass" id="dbpass">
+                                </div>
+                        </div>
+                        <div class="row p-2">
+                                <div class="col col-2">
+                                        Image directory
+                                </div>
+                                <div>
+                                        <input readonly type="text" placeholder="{{ITEM_IMAGE_DIR}}" name="imagedir" id="imagedir">
+                                </div>
+                        </div>
+                        <div class="row p-2">
+                                <div class="col col-2">
+                                        Backup directory
+                                </div>
+                                <div>
+                                        <input readonly type="text" placeholder="{{BACKUP_DIR}}" name ="bud" id="bud">
+                                </div>
+                        </div>
+
+	</div>
+
+</div>
+{% endblock %}

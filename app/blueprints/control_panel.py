@@ -81,10 +81,25 @@ def _record_backup_and_prune(mydb, backup_type, filename, backup_date):
         cursor.close()
 
 
+########################################################################
+### CONTROL PANEL -- SETTINGS/BOX-ITEM TAB (default landing page)
+# Split from a single tabbed /control_panel route into four separate
+# routes (one per former tab) so each tab is a real, bookmarkable page
+# with its own context-sensitive help topic. The tab bar itself is a
+# shared include (templates/includes/cp_tabs.html) so all four pages
+# keep the same look; see that file for the "active tab" highlighting.
 @bp.route("/control_panel")
 @login_required
-@db_errors(exec_msg="Database error when parsing administrative system controls.")
 def controlpanel():
+    return render_template("control_panel/control_panel.html")
+
+
+########################################################################
+### CONTROL PANEL -- BACKUPS TAB
+@bp.route("/cp_backups")
+@login_required
+@db_errors(exec_msg="Database error when reading backup history.")
+def cp_backups():
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### READ THE MOST RECENT BACKUP_HISTORY_KEEP ROWS FOR EACH
@@ -118,15 +133,35 @@ def controlpanel():
         image_backups = cursor.fetchall()
         cursor.close()
 
+    return render_template(
+        "control_panel/cp_backups.html",
+        db_backups=db_backups,
+        image_backups=image_backups,
+    )
+
+
+########################################################################
+### CONTROL PANEL -- CLEANUP TAB (launcher; the actual cleanup tools
+### live at their own existing routes, /cp_orphaneditemscleanup and
+### /cp_photofilescleanup)
+@bp.route("/cp_cleanup")
+@login_required
+def cp_cleanup():
+    return render_template("control_panel/cp_cleanup.html")
+
+
+########################################################################
+### CONTROL PANEL -- SERVER TAB (read-only config display)
+@bp.route("/cp_server")
+@login_required
+def cp_server():
     ### OBSCURE PASSWORD MAPPING VARIABLES
     ### (read via the extensions module so a credential change made
     ### through the setup wizard is reflected immediately)
     obscure_pass = "*" * len(extensions.dbpass) if extensions.dbpass else ""
 
     return render_template(
-        "control_panel/control_panel.html",
-        db_backups=db_backups,
-        image_backups=image_backups,
+        "control_panel/cp_server.html",
         dbhost=extensions.dbhost,
         dbname=extensions.dbname,
         dbuser=extensions.dbuser,

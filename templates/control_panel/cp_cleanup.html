@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Control Panel</p>
+
+{% set active_tab = 'Cleanup' %}
+{% include "includes/cp_tabs.html" %}
+
+<h3>Clean up items / photos</h3>
+
+        <div>
+                <div><a href="/cp_orphaneditemscleanup">
+                        <button type="submit" class="imps icon-left orphans">
+                        Show orphaned items
+                        </button></a>
+                </div>
+        </div>
+        <div>
+                <div><a href="/cp_photofilescleanup">
+                        <button type="submit" class="imps icon-left photo">
+                        Show unlinked photos
+                        </button></a>
+                </div>
+        </div>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Control Panel</p>
+
+{% set active_tab = 'Backups' %}
+{% include "includes/cp_tabs.html" %}
+
+<div>
+	<h3>Backup photos and/or database</h3>
+</div>
+<div><b>Photos</b>
+	<div>
+		<form action="/cp_photoarchive" method="post">
+		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="imps icon-left backup">
+                Archive Photos
+                </button>
+                </form>
+	</div>
+	{% if image_backups %}
+	<div class="backup-grid">
+	<div class="input_div">
+		<a href="{{ image_backups[0][0] }}">
+              	<button type="submit" class="imps icon-only download"></button>
+			Last backup ({{ image_backups[0][1] }})
+		</a>
+	</div>
+	{% for filename, backup_date in image_backups[1:] %}
+	<div class="input_div">
+		<a href="{{ filename }}">
+			<button type="submit" class="imps icon-only download"></button>
+			{{ backup_date }}
+		</a>
+	</div>
+	{% endfor %}
+	</div>
+	{% endif %}
+</div>
+<div><b>Database</b>
+        <div>
+		<form action="/cp_dbbackup" method="post">
+		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="imps icon-left backup">
+                Backup Now
+                </button>
+		</form>
+	</div>
+	{% if db_backups %}
+        <div class="backup-grid">
+        <div class="input_div">
+		<a href="{{ db_backups[0][0] }}">
+                <button type="submit" class="imps icon-only download"></button>
+		Last backup ({{ db_backups[0][1] }})</a>
+	</div>
+	{% for filename, backup_date in db_backups[1:] %}
+	<div class="input_div">
+		<a href="{{ filename }}">
+			<button type="submit" class="imps icon-only download"></button>
+			{{ backup_date }}
+		</a>
+	</div>
+	{% endfor %}
+	</div>
+	{% endif %}
+</div>
+{% endblock %}

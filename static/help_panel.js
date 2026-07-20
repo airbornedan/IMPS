@@ -28,6 +28,8 @@
 	var frame = document.getElementById("helpFrame");
 	var openBtn = document.getElementById("helpButton");
 	var closeBtn = document.getElementById("helpPanelClose");
+	var searchBox = document.getElementById("helpSearchBox");
+	var searchResults = document.getElementById("helpSearchResults");
 
 	if (!panel || !overlay || !frame || !openBtn) {
 		return;
@@ -57,6 +59,10 @@
 	function closeHelp() {
 		panel.classList.remove("open");
 		overlay.classList.remove("open");
+		if (searchBox) {
+			searchBox.value = "";
+		}
+		clearResults();
 		try {
 			sessionStorage.setItem(STORAGE_KEY, "0");
 		} catch (e) {
@@ -78,5 +84,102 @@
 	}
 	if (wasOpen) {
 		openHelp();
+	}
+
+	////////////////////////////////////////////////////////////////
+	// Search: GET /help/search?q=... (app/blueprints/help.py) scans
+	// the help files fresh on first call and returns JSON hits, so
+	// results always reflect whatever's currently in static/help/ --
+	// no separate index to rebuild after editing a help file.
+	//
+	// Debounced so we're not firing a request on every single
+	// keystroke; 200ms is short enough to still feel instant.
+	var searchTimer = null;
+	var currentRequestId = 0;
+
+	function clearResults() {
+		if (searchResults) {
+			searchResults.innerHTML = "";
+			searchResults.classList.remove("open");
+		}
+	}
+
+	function renderResults(results, query) {
+		if (!searchResults) {
+			return;
+		}
+		if (results.length === 0) {
+			searchResults.innerHTML =
+				'<div class="help-search-empty">No matches for "' +
+				escapeHtml(query) + '"</div>';
+			searchResults.classList.add("open");
+			return;
+		}
+		var html = "";
+		for (var i = 0; i < results.length; i++) {
+			var r = results[i];
+			html +=
+				'<div class="help-search-result" data-topic="' +
+				escapeHtml(r.topic) + '">' +
+				'<div class="help-search-result-title">' + escapeHtml(r.title) + '</div>' +
+				'<div class="help-search-result-snippet">' + escapeHtml(r.snippet) + '</div>' +
+				'</div>';
+		}
+		searchResults.innerHTML = html;
+		searchResults.classList.add("open");
+
+		var items = searchResults.querySelectorAll(".help-search-result");
+		items.forEach(function (item) {
+			item.addEventListener("click", function () {
+				var topic = item.getAttribute("data-topic");
+				frame.setAttribute("src", "/static/help/imps_" + topic + "_help.html");
+				clearResults();
+				searchBox.value = "";
+			});
+		});
+	}
+
+	function escapeHtml(s) {
+		var div = document.createElement("div");
+		div.textContent = s;
+		return div.innerHTML;
+	}
+
+	function runSearch(query) {
+		var requestId = ++currentRequestId;
+		fetch("/help/search?q=" + encodeURIComponent(query))
+			.then(function (resp) {
+				return resp.ok ? resp.json() : [];
+			})
+			.then(function (results) {
+				// Ignore stale responses if a newer search has since
+				// been fired (e.g. slow network + fast typing).
+				if (requestId !== currentRequestId) {
+					return;
+				}
+				renderResults(results, query);
+			})
+			.catch(function () {
+				// Search is a "nice to have" on top of browsing help
+				// topic-by-topic -- a network hiccup here shouldn't
+				// show the person an error, just no results.
+				if (requestId === currentRequestId) {
+					clearResults();
+				}
+			});
+	}
+
+	if (searchBox) {
+		searchBox.addEventListener("input", function () {
+			var query = searchBox.value.trim();
+			clearTimeout(searchTimer);
+			if (query === "") {
+				clearResults();
+				return;
+			}
+			searchTimer = setTimeout(function () {
+				runSearch(query);
+			}, 200);
+		});
 	}
 })();

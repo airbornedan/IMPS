@@ -112,6 +112,7 @@ def create_app():
     from app.blueprints.boxes import bp as boxes_bp
     from app.blueprints.items import bp as items_bp
     from app.blueprints.control_panel import bp as control_panel_bp
+    from app.blueprints.help import bp as help_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -120,5 +121,6 @@ def create_app():
     app.register_blueprint(boxes_bp)
     app.register_blueprint(items_bp)
     app.register_blueprint(control_panel_bp)
+    app.register_blueprint(help_bp)
 
     return app

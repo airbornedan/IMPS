@@ -1,0 +1,14 @@
+<!-- Control Panel tab bar, shared by all four CP pages
+     (control_panel.html / cp_backups.html / cp_cleanup.html /
+     cp_server.html). Each "tab" is now a real page, so this is just
+     navigation links styled to look like tabs -- same imps_tab_on /
+     imps_tab_off classes as before, no JS required. The including
+     template sets active_tab to one of: BoxItem, Backups, Cleanup,
+     Server. -->
+<div>
+  <a href="/control_panel"><button type="button" class="{% if active_tab == 'BoxItem' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Settings</button></a>
+  <a href="/cp_backups"><button type="button" class="{% if active_tab == 'Backups' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Backups</button></a>
+  <a href="/cp_cleanup"><button type="button" class="{% if active_tab == 'Cleanup' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Cleanup</button></a>
+  <a href="/cp_server"><button type="button" class="{% if active_tab == 'Server' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Server</button></a>
+</div>
+<div style="width: 90%; background-color:#a40000; padding:0px;">&nbsp;</div>

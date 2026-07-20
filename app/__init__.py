@@ -41,6 +41,27 @@ def create_app():
     app.config["UPLOAD_FOLDER"] = ITEM_IMAGE_DIR
 
     ####################################################################
+    ### STATIC FILE CACHING
+    ####################################################################
+    # Without this, Flask's static handler only sets an ETag/
+    # Last-Modified, so the browser still issues a conditional GET (and
+    # waits on a 304 response) for every static asset -- including the
+    # header logo -- on every single page navigation, since this app
+    # does a full page reload on every link click. That round trip is
+    # what was showing up as a visible flash/repaint of the logo.
+    #
+    # A max-age here lets the browser skip asking the server entirely
+    # for repeat views within this window, instead of just skipping
+    # the download. Kept fairly short (1 hour) rather than the usual
+    # far-future value, since static/help/*.html is being actively
+    # hand-edited right now -- a long cache would mean edited help
+    # pages don't show up in the browser until it expires or the page
+    # gets a hard refresh. Once help content settles down this can be
+    # raised (a day, a week) for a bit more benefit on the rarely
+    # changing assets (logo, icons, CSS/JS).
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 3600
+
+    ####################################################################
     ### SESSION COOKIE HARDENING
     ####################################################################
     app.config["SESSION_COOKIE_HTTPONLY"] = True       # JS can't read the cookie

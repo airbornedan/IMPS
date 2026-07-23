@@ -3,10 +3,12 @@
 ########################################################################
 import os
 import re
+import ipaddress
 
 from flask import Flask, request, session
 
 from app.extensions import ITEM_IMAGE_DIR, FLASK_SECRET_KEY, csrf, limiter
+from app import extensions
 
 ########################################################################
 ### "LAST LIST VIEW" TRACKING
@@ -39,6 +41,29 @@ def create_app():
     # hard-coded here, so it can't be read out of the repo/source.
     app.config["SECRET_KEY"] = FLASK_SECRET_KEY
     app.config["UPLOAD_FOLDER"] = ITEM_IMAGE_DIR
+
+    ####################################################################
+    ### OPTIONAL LAN-ONLY ACCESS RESTRICTION
+    ####################################################################
+    # Off unless explicitly enabled via [access] restrict_to_lan = true
+    # (with a valid lan_ip) in imps_config.toml -- see extensions.py's
+    # _load_lan_restriction() for the parsing, and
+    # imps_config.toml.example for the config format and the
+    # Docker/reverse-proxy caveat. Deliberately simple: reject anything
+    # outside the derived home-network range, no exceptions list, no
+    # X-Forwarded-For handling -- this only makes sense for IMPS talking
+    # to clients directly (the plain Apache/mod_wsgi deploy).
+    @app.before_request
+    def enforce_lan_restriction():
+        if not extensions.LAN_RESTRICTION_ENABLED:
+            return None
+        try:
+            remote = ipaddress.ip_address(request.remote_addr)
+        except (TypeError, ValueError):
+            return ("Forbidden.", 403)
+        if remote not in extensions.LAN_NETWORK:
+            return ("Forbidden.", 403)
+        return None
 
     ####################################################################
     ### STATIC FILE CACHING

@@ -45,3 +45,30 @@ password = "imps"
 # are tracked. Uncomment and set this if IMPS is served by more than one
 # worker process.
 # storage_uri = "redis://127.0.0.1:6379"
+
+# [access]
+# Optional. Restricts IMPS to your home LAN, rejecting any connection
+# from outside it. Off by default -- leave this whole section out (or
+# leave restrict_to_lan = false) unless you specifically want this.
+#
+# DO NOT ENABLE THIS if you're running IMPS via the Docker Compose
+# setup (deploy/docker) or behind any reverse proxy: in both cases
+# IMPS sees the proxy/container's address instead of the real client
+# address, so this would either lock everyone out or do nothing.
+# It's only meaningful for the plain Apache/mod_wsgi deploy, where
+# IMPS talks to clients directly.
+#
+# restrict_to_lan = false
+#
+# Your own IP address on the LAN (the same address you'd put in
+# [directories] imps_ip above, or whatever your router/OS shows as
+# this machine's local IP). IMPS assumes a standard /24 home network
+# around that address (e.g. "192.168.0.42" allows 192.168.0.1 through
+#192.168.0.254) -- that covers the default setup on virtually every
+# home router.
+#
+# Advanced: if your network isn't a plain /24, add the prefix length
+# yourself, e.g. lan_ip = "192.168.0.42/16".
+#
+# lan_ip = ""
+

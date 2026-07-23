@@ -97,6 +97,62 @@ if not os.path.isdir(IMPS_DIR):
     sys.exit(1)
 
 ########################################################################
+### OPTIONAL LAN-ONLY ACCESS RESTRICTION
+########################################################################
+# Off by default. If enabled ([access] restrict_to_lan = true in
+# imps_config.toml, with lan_ip set), every request is checked against
+# the derived home-network range and rejected if it's from outside it.
+# See app/__init__.py's check_lan_restriction() for the actual
+# enforcement -- this is just the config parsing, kept here alongside
+# every other imps_config.toml-derived setting.
+#
+# NOT meant to handle VPNs, multiple subnets, reverse proxies, or
+# Docker (see the comments in imps_config.toml.example) -- deliberately
+# simple: one IP in, one assumed /24 (or an explicit /prefix) out.
+import ipaddress
+
+
+def _parse_lan_network(lan_ip):
+    """Turn a config lan_ip value into an ipaddress network, or None.
+
+    Plain IP ("192.168.0.42") assumes a standard home-router /24
+    around it. An IP with an explicit prefix ("192.168.0.42/16") uses
+    that instead, for the rare non-default network. Returns None for
+    anything blank or unparseable, which callers treat as "restriction
+    can't be enforced" -- see reload_config()/module init below, which
+    both force restrict_to_lan off in that case rather than silently
+    allowing (or silently blocking) every request.
+    """
+    if not lan_ip:
+        return None
+    try:
+        if "/" not in lan_ip:
+            lan_ip = f"{lan_ip}/24"
+        return ipaddress.ip_interface(lan_ip).network
+    except ValueError:
+        return None
+
+
+def _load_lan_restriction(config):
+    access_cfg = config.get("access", {})
+    restrict_requested = bool(access_cfg.get("restrict_to_lan", False))
+    lan_network = _parse_lan_network(access_cfg.get("lan_ip", ""))
+
+    if restrict_requested and lan_network is None:
+        logger.error(
+            "[access] restrict_to_lan is true but lan_ip is missing/invalid "
+            "in imps_config.toml -- LAN restriction is DISABLED until this "
+            "is fixed, rather than blocking (or failing to block) every "
+            "request based on a value that couldn't be parsed."
+        )
+
+    enabled = restrict_requested and lan_network is not None
+    return enabled, lan_network
+
+
+LAN_RESTRICTION_ENABLED, LAN_NETWORK = _load_lan_restriction(imps_config)
+
+########################################################################
 ### FLASK SECRET KEY (GENERATED ONCE AT FIRST RUN, THEN PERSISTED)
 ########################################################################
 # The key used to sign session cookies is generated once and stored in
@@ -164,6 +220,112 @@ csrf = CSRFProtect()
 # whenever the process restarts.
 RATE_LIMIT_STORAGE_URI = imps_config.get("rate_limit", {}).get("storage_uri", "memory://")
 limiter = Limiter(key_func=get_remote_address, storage_uri=RATE_LIMIT_STORAGE_URI)
+
+########################################################################
+### LOGIN BACKOFF (EXPONENTIAL, PER SOURCE IP)
+########################################################################
+# The flat "10 per minute; 100 per day" limiter above (applied in
+# app/blueprints/auth.py) caps sustained guessing but treats every
+# attempt the same up until the cutoff. This adds a second, cheaper
+# layer on top of it: each consecutive failure from the same IP
+# doubles how long that IP has to wait before its next attempt is even
+# checked against the password, up to a capped ceiling. A single typo
+# costs nothing; a sustained guessing attempt gets slower and slower
+# rather than being allowed to run at a flat rate right up until it
+# hits the per-minute wall.
+#
+# In-memory, keyed by source IP -- same "single process" caveat as the
+# rate limiter's default memory:// storage (see RATE_LIMIT_STORAGE_URI
+# above): correct for IMPS's normal single-process deployment, and
+# resets on restart. A lock guards it since WSGIDaemonProcess runs
+# multiple threads (see the similar _pool_rebuild_lock above).
+LOGIN_BACKOFF_BASE_SECONDS = 1        # delay after the 1st failure
+LOGIN_BACKOFF_MAX_SECONDS = 30        # ceiling, however many failures in a row
+_login_backoff_lock = threading.Lock()
+_login_backoff_state = {}  # ip -> {"fail_count": int, "blocked_until": float}
+
+
+def login_backoff_seconds_remaining(ip):
+    """How many more seconds `ip` must wait before attemptlogin() will
+    check its password again. 0 means it can proceed now."""
+    with _login_backoff_lock:
+        state = _login_backoff_state.get(ip)
+        if not state:
+            return 0
+        remaining = state["blocked_until"] - time.time()
+        return remaining if remaining > 0 else 0
+
+
+def login_backoff_record_failure(ip):
+    """Record a failed login attempt from `ip` and set/extend its
+    backoff window. Doubles with each consecutive failure, capped at
+    LOGIN_BACKOFF_MAX_SECONDS."""
+    with _login_backoff_lock:
+        state = _login_backoff_state.setdefault(ip, {"fail_count": 0, "blocked_until": 0.0})
+        state["fail_count"] += 1
+        delay = min(
+            LOGIN_BACKOFF_BASE_SECONDS * (2 ** (state["fail_count"] - 1)),
+            LOGIN_BACKOFF_MAX_SECONDS,
+        )
+        state["blocked_until"] = time.time() + delay
+
+
+def login_backoff_record_success(ip):
+    """Clear `ip`'s backoff state after a successful login."""
+    with _login_backoff_lock:
+        _login_backoff_state.pop(ip, None)
+
+########################################################################
+### SUSTAINED-FAILURE LOGGING (24-HOUR WINDOW, PER SOURCE IP)
+########################################################################
+# Separate from the backoff state above (which resets on any success,
+# so it can't be used to notice a *sustained* attempt spread out with
+# occasional pauses). This only ever logs -- it doesn't block or slow
+# anything down -- so an admin scanning imps_error.log (or grepping/
+# alerting on it) has something to notice. 20 in 24 hours is well
+# under the flat rate limiter's 100/day hard cap (see `limiter` above/
+# app/blueprints/auth.py), so this fires as an early warning well
+# before an attacker could exhaust that budget, while being well above
+# anything a person mistyping their own password would ever hit.
+#
+# Logs once per IP per rolling 24h window the first time it crosses
+# the threshold, not on every failure after that -- a sustained attempt
+# already shows up clearly as a single WARNING plus however many
+# per-attempt log lines get written elsewhere; repeating this same line
+# hundreds more times wouldn't add information, just noise.
+LOGIN_FAILURE_LOG_THRESHOLD = 20
+LOGIN_FAILURE_LOG_WINDOW_SECONDS = 24 * 60 * 60
+_login_failure_log_lock = threading.Lock()
+_login_failure_log_state = {}  # ip -> {"count": int, "window_start": float, "logged": bool}
+
+
+def login_failure_note_for_logging(ip):
+    """Record a failed login attempt from `ip` for the 24h sustained-
+    failure log, and log a WARNING the first time this IP crosses
+    LOGIN_FAILURE_LOG_THRESHOLD failures within the current window."""
+    now = time.time()
+    should_log = False
+    count = 0
+    with _login_failure_log_lock:
+        state = _login_failure_log_state.get(ip)
+        if state is None or (now - state["window_start"]) >= LOGIN_FAILURE_LOG_WINDOW_SECONDS:
+            # No state yet, or the previous window has fully expired --
+            # start a fresh 24h window for this IP.
+            state = {"count": 0, "window_start": now, "logged": False}
+            _login_failure_log_state[ip] = state
+
+        state["count"] += 1
+        count = state["count"]
+        if count >= LOGIN_FAILURE_LOG_THRESHOLD and not state["logged"]:
+            state["logged"] = True
+            should_log = True
+
+    if should_log:
+        logger.warning(
+            f"Sustained login failures from {ip}: {count} failed attempts "
+            f"in the last 24 hours (threshold {LOGIN_FAILURE_LOG_THRESHOLD})."
+        )
+
 
 ### APP PASSWORD (HASHED)
 pass_to_hash = imps_config["password"]["password"]
@@ -379,6 +541,7 @@ def reload_config():
     rather than raised here.
     """
     global imps_config, dbhost, dbname, dbuser, dbpass, db_pool, HASHED_IMPS_PASS
+    global LAN_RESTRICTION_ENABLED, LAN_NETWORK
 
     with open(CONFIG_PATH, mode="r") as f:
         imps_config = toml.load(f)
@@ -387,6 +550,8 @@ def reload_config():
     dbname = imps_config["database"]["name"]
     dbuser = imps_config["database"]["user"]
     dbpass = imps_config["database"]["password"]
+
+    LAN_RESTRICTION_ENABLED, LAN_NETWORK = _load_lan_restriction(imps_config)
 
     try:
         db_pool = _build_pool()
@@ -491,56 +656,6 @@ def run_query(query, params=None, fetch="all"):
             result = None
         cursor.close()
         return result
-
-
-########################################################################
-### CATEGORY / LOCATION NAME <-> NUMERIC FK RESOLUTION
-########################################################################
-# items.cat_num and boxes.loc_num are real foreign keys against
-# categories.cat_num / locations.loc_num (see deploy/schema.sql) --
-# they used to be plain strings copied directly into items/boxes, but
-# forms (itemadd.html, itemedit.html, boxadd.html, boxedit.html) still
-# submit a category/location *name*, same as before this migration,
-# so every write path needs to resolve that name to its numeric id --
-# creating the row first if it's a brand new name.
-#
-# Relies on the cat_name/loc_name UNIQUE constraint (INSERT, catch
-# IntegrityError) rather than SELECT-then-check-then-INSERT, since the
-# latter is a race condition: two concurrent requests could both see
-# "doesn't exist yet" before either INSERT lands, producing duplicate
-# rows. This is the same pattern items.py/boxes.py already used before
-# this migration for "ensure the category/location exists" -- these
-# two functions just centralize it in one place now that two different
-# call sites (write AND read-back-the-id) both need it.
-def get_or_create_cat_num(cursor, cat_name):
-    if not cat_name:
-        cat_name = "Uncategorized"
-    try:
-        cursor.execute("INSERT INTO categories (cat_name) VALUES (%s)", (cat_name,))
-    except IntegrityError:
-        pass  # category already exists -- nothing to do
-    cursor.execute("SELECT cat_num FROM categories WHERE cat_name = %s", (cat_name,))
-    row = cursor.fetchone()
-    # Falls back to 0 (Uncategorized) only if something has gone
-    # seriously wrong (e.g. the SELECT immediately after a successful
-    # INSERT somehow finds nothing) -- Uncategorized is guaranteed to
-    # exist and never be deleted (see cp_delcat in control_panel.py),
-    # so this is a safe floor, not a silent data-loss path.
-    return row[0] if row else 0
-
-
-def get_or_create_loc_num(cursor, loc_name):
-    if not loc_name:
-        loc_name = "Unspecified"
-    try:
-        cursor.execute("INSERT INTO locations (loc_name) VALUES (%s)", (loc_name,))
-    except IntegrityError:
-        pass  # location already exists -- nothing to do
-    cursor.execute("SELECT loc_num FROM locations WHERE loc_name = %s", (loc_name,))
-    row = cursor.fetchone()
-    # Same reasoning as get_or_create_cat_num() above -- Unspecified
-    # is guaranteed to exist and never be deleted (see cp_delloc).
-    return row[0] if row else 0
 
 
 ########################################################################

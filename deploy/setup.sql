@@ -18,12 +18,16 @@ CREATE USER IF NOT EXISTS 'box_user'@'localhost' IDENTIFIED BY 'box_pass';
 CREATE DATABASE IF NOT EXISTS `box_db` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE `box_db`;
 
--- CREATE/DROP/ALTER/INDEX added (beyond the original SELECT/INSERT/
--- UPDATE/DELETE/LOCK TABLES) so box_user can run schema.sql itself --
--- either via the setup wizard or by hand -- without needing a root
--- connection for that step too. Scoped to box_db.* only, so this
--- doesn't grant anything outside this one database.
-GRANT SELECT, INSERT, UPDATE, DELETE, LOCK TABLES, CREATE, DROP, ALTER, INDEX
+-- CREATE/DROP/ALTER/INDEX/REFERENCES added (beyond the original
+-- SELECT/INSERT/UPDATE/DELETE/LOCK TABLES) so box_user can run
+-- schema.sql itself -- either via the setup wizard or by hand --
+-- without needing a root connection for that step too. REFERENCES is
+-- required specifically because schema.sql's boxes/items tables
+-- declare foreign keys against categories/locations; without it,
+-- table creation fails with "REFERENCES command denied" the moment it
+-- hits the first FOREIGN KEY constraint. Scoped to box_db.* only, so
+-- this doesn't grant anything outside this one database.
+GRANT SELECT, INSERT, UPDATE, DELETE, LOCK TABLES, CREATE, DROP, ALTER, INDEX, REFERENCES
     ON box_db.* TO 'box_user'@'localhost';
 FLUSH PRIVILEGES;
 

@@ -435,16 +435,26 @@ def cp_photofilesdel():
     files_to_del = [f for f in requested_deletions if is_safe_orphan_filename(f)]
 
     ### EXECUTE SYSTEM FILE DELETIONS OUTSIDE DATABASE LIFE CONTEXT
+    ### The user already confirmed this deletion on the previous page,
+    ### so there's no rollback step to worry about here -- if one file
+    ### fails to remove (permissions, already gone, disk hiccup, etc),
+    ### that's no reason to abandon the rest of the batch. Keep going
+    ### through every requested file and only report a problem, once,
+    ### at the end, if anything didn't go through.
+    delete_failures = []
     for filename_to_remove in files_to_del:
         try:
             os.remove(os.path.join(image_dir, filename_to_remove))
         except Exception as file_error:
             logger.error(f"System File deletion error: {file_error}")
-            return render_template(
-                "errorpage.html",
-                err_message="Some structural target files could not be deleted from disk storage.",
-                err_page_from="/cp_photofilescleanup",
-            )
+            delete_failures.append(filename_to_remove)
+
+    if delete_failures:
+        return render_template(
+            "errorpage.html",
+            err_message="Not all files were deleted.",
+            err_page_from="/cp_photofilescleanup",
+        )
 
     # Fetch an active, thread-safe connection from the pool
     photo_files_query = "SELECT item_pic FROM items;"
@@ -518,17 +528,26 @@ def cp_delallorphanphotos():
         orphans.remove("none.jpg")
 
     ### EXECUTE BULK DELETIONS OUTSIDE OF DATABASE CONNECTION BOUNDARIES
-    # If a large directory causes filesystem lag, it won't trigger pool starvation
+    # If a large directory causes filesystem lag, it won't trigger pool starvation.
+    # The user already confirmed this bulk purge on the previous page, so
+    # there's no rollback step to worry about -- one file failing to
+    # remove isn't a reason to leave the rest of the batch in place.
+    # Keep going through every orphan and only report a problem, once,
+    # at the end, if anything didn't go through.
+    delete_failures = []
     for orphan_file in orphans:
         try:
             os.remove(os.path.join(ITEM_IMAGE_FS_DIR, orphan_file))
         except Exception as file_error:
             logger.error(f"System File deletion error during mass purge: {file_error}")
-            return render_template(
-                "errorpage.html",
-                err_message="Some files could not be deleted from physical disk storage.",
-                err_page_from="/cp_photofilescleanup",
-            )
+            delete_failures.append(orphan_file)
+
+    if delete_failures:
+        return render_template(
+            "errorpage.html",
+            err_message="Not all files were deleted.",
+            err_page_from="/cp_photofilescleanup",
+        )
 
     ### SHOW THE REFRESHED CLEANUP PAGE
     return redirect(url_for("control_panel.cp_photofilescleanup"))

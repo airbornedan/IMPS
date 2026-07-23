@@ -494,6 +494,56 @@ def run_query(query, params=None, fetch="all"):
 
 
 ########################################################################
+### CATEGORY / LOCATION NAME <-> NUMERIC FK RESOLUTION
+########################################################################
+# items.cat_num and boxes.loc_num are real foreign keys against
+# categories.cat_num / locations.loc_num (see deploy/schema.sql) --
+# they used to be plain strings copied directly into items/boxes, but
+# forms (itemadd.html, itemedit.html, boxadd.html, boxedit.html) still
+# submit a category/location *name*, same as before this migration,
+# so every write path needs to resolve that name to its numeric id --
+# creating the row first if it's a brand new name.
+#
+# Relies on the cat_name/loc_name UNIQUE constraint (INSERT, catch
+# IntegrityError) rather than SELECT-then-check-then-INSERT, since the
+# latter is a race condition: two concurrent requests could both see
+# "doesn't exist yet" before either INSERT lands, producing duplicate
+# rows. This is the same pattern items.py/boxes.py already used before
+# this migration for "ensure the category/location exists" -- these
+# two functions just centralize it in one place now that two different
+# call sites (write AND read-back-the-id) both need it.
+def get_or_create_cat_num(cursor, cat_name):
+    if not cat_name:
+        cat_name = "Uncategorized"
+    try:
+        cursor.execute("INSERT INTO categories (cat_name) VALUES (%s)", (cat_name,))
+    except IntegrityError:
+        pass  # category already exists -- nothing to do
+    cursor.execute("SELECT cat_num FROM categories WHERE cat_name = %s", (cat_name,))
+    row = cursor.fetchone()
+    # Falls back to 0 (Uncategorized) only if something has gone
+    # seriously wrong (e.g. the SELECT immediately after a successful
+    # INSERT somehow finds nothing) -- Uncategorized is guaranteed to
+    # exist and never be deleted (see cp_delcat in control_panel.py),
+    # so this is a safe floor, not a silent data-loss path.
+    return row[0] if row else 0
+
+
+def get_or_create_loc_num(cursor, loc_name):
+    if not loc_name:
+        loc_name = "Unspecified"
+    try:
+        cursor.execute("INSERT INTO locations (loc_name) VALUES (%s)", (loc_name,))
+    except IntegrityError:
+        pass  # location already exists -- nothing to do
+    cursor.execute("SELECT loc_num FROM locations WHERE loc_name = %s", (loc_name,))
+    row = cursor.fetchone()
+    # Same reasoning as get_or_create_cat_num() above -- Unspecified
+    # is guaranteed to exist and never be deleted (see cp_delloc).
+    return row[0] if row else 0
+
+
+########################################################################
 ### LIST-VIEW PAGE SIZE
 ########################################################################
 # Shared by every paginated list route (inventory, itembycategory,

@@ -85,8 +85,11 @@ DEFAULT_SOCKET = "/run/mysqld/mysqld.sock"
 # Privileges box_user needs on its own database: enough to manage its
 # own tables (including the /setup wizard's later CREATE TABLE calls),
 # nothing that reaches outside box_db.* and nothing that can create
-# other users or databases. Mirrors deploy/setup.sql exactly.
-GRANT_PRIVILEGES = "SELECT, INSERT, UPDATE, DELETE, LOCK TABLES, CREATE, DROP, ALTER, INDEX"
+# other users or databases. REFERENCES is required because schema.sql's
+# boxes/items tables declare foreign keys against categories/locations
+# -- without it, table creation fails the moment it hits the first
+# FOREIGN KEY constraint. Mirrors deploy/setup.sql exactly.
+GRANT_PRIVILEGES = "SELECT, INSERT, UPDATE, DELETE, LOCK TABLES, CREATE, DROP, ALTER, INDEX, REFERENCES"
 
 
 def _load_target_config():

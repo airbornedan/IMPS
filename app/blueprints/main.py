@@ -40,6 +40,17 @@ def del_firstrun():
     first_run = os.path.join(IMPS_DIR, "first.run")
     not_first_run = os.path.join(IMPS_DIR, "not_first.run")
 
+    ### SECURITY: this route has no @login_required (same reasoning as
+    ### setup.py -- there's no usable password yet the first time it
+    ### runs), which means it must be unreachable once setup has
+    ### actually completed, exactly like setup.py's _guard()/
+    ### _first_run_active(). Without this check, anyone -- logged in
+    ### or not -- could POST install_samples=1 here at any time and
+    ### have install_sample_data() seed sample locations/categories/
+    ### boxes/items into a live, already-configured install.
+    if not os.path.isfile(first_run):
+        return redirect(url_for("main.home"))
+
     ### IF THE "INSTALL SAMPLE ITEMS" CHECKBOX WAS SUBMITTED, SEED DATA
     ### BEFORE RENAMING first.run. Nothing in the current UI posts to
     ### this route anymore -- the setup wizard's own setup_samples()/

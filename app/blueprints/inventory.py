@@ -56,8 +56,12 @@ def inventory():
 
         ### INVENTORY
         ### SET UP ALL ITEMS QUERY
-        inv_query = """ SELECT * FROM items ORDER BY item_num DESC \
-                        LIMIT %s OFFSET %s """
+        inv_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+                                c.cat_name, i.item_desc
+                         FROM items i
+                         JOIN categories c ON i.cat_num = c.cat_num
+                         ORDER BY i.item_num DESC
+                         LIMIT %s OFFSET %s """
 
         ### QUERY DB
         cursor = mydb.cursor()
@@ -123,7 +127,10 @@ def boxlist():
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### QUERY FOR ALL BOXES
-        allbox_query = "SELECT * FROM boxes ORDER BY box_num;"
+        allbox_query = """ SELECT b.box_num, l.loc_name, b.box_name, b.box_date, b.box_last_changed
+                            FROM boxes b
+                            JOIN locations l ON b.loc_num = l.loc_num
+                            ORDER BY b.box_num """
         cursor = mydb.cursor()
         cursor.execute(allbox_query)
         box_list = cursor.fetchall()
@@ -167,7 +174,10 @@ def boxlistbyloc(boxlocation):
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### QUERY FOR ALL BOXES AT LOCATION
-        boxloc_query = """SELECT * FROM boxes WHERE box_loc = %s ;"""
+        boxloc_query = """ SELECT b.box_num, l.loc_name, b.box_name, b.box_date, b.box_last_changed
+                            FROM boxes b
+                            JOIN locations l ON b.loc_num = l.loc_num
+                            WHERE l.loc_name = %s """
         cursor = mydb.cursor()
         cursor.execute(boxloc_query, (box_loc,))
         box_list = cursor.fetchall()
@@ -243,7 +253,8 @@ def bycategory():
         cursor.close()
 
         ### QUERY DB FOR ALL CATEGORIES ASSIGNED TO ITEMS
-        used_cats_query = "SELECT item_cat FROM items;"
+        used_cats_query = """ SELECT DISTINCT c.cat_name FROM items i
+                               JOIN categories c ON i.cat_num = c.cat_num """
         cursor = mydb.cursor()
         cursor.execute(used_cats_query)
         used_cats_result = cursor.fetchall()
@@ -275,7 +286,8 @@ def bycategory():
 )
 def byloc():
     # Fetch an active, thread-safe connection from the pool
-    used_locs_query = "SELECT box_loc FROM boxes;"
+    used_locs_query = """ SELECT DISTINCT l.loc_name FROM boxes b
+                           JOIN locations l ON b.loc_num = l.loc_num """
     result = run_query(used_locs_query)
 
     ### TURN RESULT INTO A CLEAN LIST AND ELIMINATE DUPES
@@ -313,7 +325,11 @@ def box_view_switch(box_num):
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### BOX CONTENT QUERY
-        query_statement = """ SELECT * FROM items WHERE box_num = %s """
+        query_statement = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+                                      c.cat_name, i.item_desc
+                               FROM items i
+                               JOIN categories c ON i.cat_num = c.cat_num
+                               WHERE i.box_num = %s """
         cursor = mydb.cursor()
         cursor.execute(query_statement, (box_num,))
         item_list = cursor.fetchall()
@@ -405,7 +421,11 @@ def showbox(box_num):
         box_name = box_result[0]
 
         ### BOX CONTENT QUERY
-        items_in_box_query = """ SELECT * FROM items WHERE box_num = %s  """
+        items_in_box_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+                                         c.cat_name, i.item_desc
+                                  FROM items i
+                                  JOIN categories c ON i.cat_num = c.cat_num
+                                  WHERE i.box_num = %s """
         cursor = mydb.cursor()
         cursor.execute(items_in_box_query, (box_num,))
         item_list = cursor.fetchall()

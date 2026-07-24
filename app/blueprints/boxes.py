@@ -4,7 +4,6 @@
 from flask import Blueprint, request, render_template, redirect, url_for, make_response, session
 from array import array
 from datetime import date
-from mysql.connector.errors import IntegrityError
 
 from app.extensions import (
     get_db_connection,
@@ -15,9 +14,25 @@ from app.extensions import (
     db_errors,
     run_query,
     MAX_BOX_NUM,
+    get_or_create_loc_num,
 )
 
 bp = Blueprint("boxes", __name__)
+
+# Every "SELECT * FROM boxes" read below now needs locations joined
+# in, since boxes.loc_num is a numeric foreign key rather than a copy
+# of the location name -- but every consumer of these query results
+# (this file's own unpacking below, plus templates like
+# boxdetails.html) still expects a 5-column tuple in the original
+# (box_num, box_loc, box_name, box_date, box_last_changed) order.
+# Aliasing l.loc_name into that same 2nd position means none of that
+# downstream code has to change at all. Kept as one shared constant so
+# the several read sites below can't drift out of sync with each other.
+BOXES_WITH_LOC_NAME = """
+    SELECT b.box_num, l.loc_name, b.box_name, b.box_date, b.box_last_changed
+    FROM boxes b
+    JOIN locations l ON b.loc_num = l.loc_num
+"""
 
 
 @bp.route("/boxadd")
@@ -189,13 +204,14 @@ def boxorphanitemssuccess():
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### ORPHAN ITEMS QUERY
-        orphan_query = """ UPDATE items SET box_num = NULL WHERE box_num = %s """
-        cursor = mydb.cursor()
-        cursor.execute(orphan_query, (box_to_del,))
-        cursor.close()
-
-        ### BOX DELETE QUERY
+        ### BOX DELETE QUERY -- items.box_num is now a real foreign key
+        ### (ON DELETE SET NULL, see deploy/schema.sql), so deleting the
+        ### box automatically sets box_num = NULL on every item that
+        ### was in it. That's exactly the "orphan" behavior this route
+        ### used to do by hand with a separate UPDATE items SET
+        ### box_num = NULL statement first -- the FK now does it, so
+        ### that statement has been removed rather than left as
+        ### redundant dead code.
         box_del_query = """ DELETE FROM boxes WHERE box_num = %s """
         cursor = mydb.cursor()
         cursor.execute(box_del_query, (box_to_del,))
@@ -229,7 +245,13 @@ def boxmoveitemssuccess():
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### MOVE ITEMS TO NEW BOX QUERY
+        ### MOVE ITEMS TO NEW BOX QUERY -- this has to run BEFORE the
+        ### box is deleted below. items.box_num is now a real foreign
+        ### key with ON DELETE SET NULL (see deploy/schema.sql/
+        ### boxorphanitemssuccess() above) -- if the box were deleted
+        ### first, every item still pointing at it would already have
+        ### been set to NULL by the FK before this UPDATE's WHERE
+        ### box_num = %s (old box) could ever match them.
         move_query = """ UPDATE items SET box_num = %s WHERE box_num = %s """
         cursor = mydb.cursor()
         cursor.execute(move_query, (new_box_num, box_to_del))
@@ -321,22 +343,20 @@ def boxadded():
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### ENSURE THE LOCATION EXISTS. Relies on the loc_name UNIQUE
-        ### constraint: attempts the insert, and a duplicate-key error
-        ### simply means the location already exists.
-        add_loc_query = """ INSERT INTO locations (loc_name) VALUES (%s) """
+        ### ENSURE THE LOCATION EXISTS AND RESOLVE ITS loc_num --
+        ### relies on the loc_name UNIQUE constraint plus a caught
+        ### IntegrityError rather than a SELECT-then-check-then-INSERT,
+        ### which would be a race condition. See get_or_create_loc_num()
+        ### in extensions.py.
         cursor = mydb.cursor()
-        try:
-            cursor.execute(add_loc_query, (box_loc,))
-        except IntegrityError:
-            pass  # location already exists -- nothing to do
+        loc_num = get_or_create_loc_num(cursor, box_loc)
         cursor.close()
 
         current_date = str(date.today())
 
         ### INSERT NEW BOX DATA INTO DB
-        query_vars = (box_num, box_loc, box_name, current_date, current_date)
-        query_string = """ INSERT INTO boxes (box_num, box_loc, box_name, box_date,\
+        query_vars = (box_num, loc_num, box_name, current_date, current_date)
+        query_string = """ INSERT INTO boxes (box_num, loc_num, box_name, box_date,\
             box_last_changed) VALUES (%s,%s,%s,%s,%s) """
 
         cursor = mydb.cursor()
@@ -515,7 +535,7 @@ def boxdetails():
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### QUERY BOX
-        box_details_query = """ SELECT * FROM boxes WHERE box_num = %s """
+        box_details_query = BOXES_WITH_LOC_NAME + " WHERE b.box_num = %s "
         cursor = mydb.cursor()
         cursor.execute(box_details_query, (box_num,))
         box_details = cursor.fetchall()
@@ -570,8 +590,12 @@ def boxeditsuccess():
             cursor.execute(box_update_query, (box_name, box_num))
             cursor.close()
 
-            ### READ THE PRE-EXISTING LOCATION BACK TO SEND BACK TO THE TEMPLATE
-            box_loc_query = """ SELECT box_loc FROM boxes WHERE box_num = %s """
+            ### READ THE PRE-EXISTING LOCATION NAME BACK (via the
+            ### locations join, since boxes.loc_num is a numeric FK
+            ### rather than the name itself) TO SEND TO THE TEMPLATE
+            box_loc_query = """ SELECT l.loc_name FROM boxes b
+                                 JOIN locations l ON b.loc_num = l.loc_num
+                                 WHERE b.box_num = %s """
             cursor = mydb.cursor()
             cursor.execute(box_loc_query, (box_num,))
             result = cursor.fetchone()
@@ -585,23 +609,19 @@ def boxeditsuccess():
                 )
             box_loc = result[0]
         else:
-            box_update_query = """ UPDATE boxes SET box_name = %s , box_loc = %s WHERE box_num = %s """
+            ### RESOLVE THE SUBMITTED LOCATION NAME TO ITS loc_num,
+            ### CREATING THE LOCATION IF IT'S A BRAND NEW NAME -- relies
+            ### on the loc_name UNIQUE constraint plus a caught
+            ### IntegrityError rather than a SELECT-then-check-then-
+            ### INSERT, which would be a race condition. See
+            ### get_or_create_loc_num() in extensions.py.
             cursor = mydb.cursor()
-            cursor.execute(box_update_query, (box_name, box_loc, box_num))
+            loc_num = get_or_create_loc_num(cursor, box_loc)
             cursor.close()
 
-        ### 2. ENSURE THE LOCATION EXISTS -- relies on the loc_name
-        ### UNIQUE constraint plus a caught IntegrityError, rather than
-        ### a SELECT-then-check-then-INSERT, which would be a race
-        ### condition (two concurrent requests could both pass the
-        ### check before either INSERT lands, producing duplicate rows).
-        if box_loc != "":
-            add_loc_query = """ INSERT INTO locations (loc_name) VALUES (%s) """
+            box_update_query = """ UPDATE boxes SET box_name = %s , loc_num = %s WHERE box_num = %s """
             cursor = mydb.cursor()
-            try:
-                cursor.execute(add_loc_query, (box_loc,))
-            except IntegrityError:
-                pass  # location already exists -- nothing to do
+            cursor.execute(box_update_query, (box_name, loc_num, box_num))
             cursor.close()
 
     ### SHOW SUCCESS PAGE
@@ -767,18 +787,14 @@ def boxrenumbersuccess():
         cursor.execute(box_update_query, (new_box_num, old_box_num))
         cursor.close()
 
-        ### CASCADE TO EVERY ITEM CURRENTLY IN THIS BOX
-        ### items.box_num has no foreign key constraint tying it to
-        ### boxes.box_num (see schema.sql) -- nothing enforces this at
-        ### the database level, so skipping this step would silently
-        ### orphan every item in the box (same "orphaned" state the
-        ### control panel's orphan-items tool already exists to find
-        ### and clean up, which is exactly the mess this cascade avoids
-        ### creating in the first place).
-        items_update_query = """ UPDATE items SET box_num = %s WHERE box_num = %s """
-        cursor = mydb.cursor()
-        cursor.execute(items_update_query, (new_box_num, old_box_num))
-        cursor.close()
+        ### items.box_num is now a real foreign key with
+        ### ON UPDATE CASCADE (see deploy/schema.sql) -- the database
+        ### itself propagates the box_num change above to every item
+        ### that was in this box, automatically. That's exactly what
+        ### the manual "UPDATE items SET box_num = ... WHERE box_num =
+        ### ..." cascade used to do by hand here; it's been removed
+        ### rather than left as redundant (and now-unnecessary) dead
+        ### code.
 
     return render_template(
         "boxes/boxrenumbersuccess.html",
@@ -806,16 +822,28 @@ def boxdeletesuccess(box_to_del):
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
+        ### QUERY TO DELETE ITEMS IN THAT BOX -- this MUST run before
+        ### the box itself is deleted below. items.box_num is now a
+        ### real foreign key with ON DELETE SET NULL (see
+        ### deploy/schema.sql) -- if the box were deleted first, every
+        ### remaining item in it would already have box_num set to
+        ### NULL by the FK before this statement's WHERE box_num = %s
+        ### (the old box number) could ever match them, so they'd
+        ### silently survive as orphaned items instead of being
+        ### deleted, changing this route's actual behavior (this path
+        ### -- reached from boxdelconfirm.html -- is IMPS's genuine
+        ### "delete this box and everything in it" action, distinct
+        ### from the orphan/move flow in boxorphanitemssuccess()/
+        ### boxmoveitemssuccess() above).
+        del_items_query = """ DELETE FROM items WHERE box_num = %s """
+        cursor = mydb.cursor()
+        cursor.execute(del_items_query, (box_to_del,))
+        cursor.close()
+
         ### QUERY TO DELETE BOX
         del_box_query = """ DELETE FROM boxes WHERE box_num = %s """
         cursor = mydb.cursor()
         cursor.execute(del_box_query, (box_to_del,))
-        cursor.close()
-
-        ### QUERY TO DELETE ITEMS IN THAT BOX
-        del_items_query = """ DELETE FROM items WHERE box_num = %s """
-        cursor = mydb.cursor()
-        cursor.execute(del_items_query, (box_to_del,))
         cursor.close()
 
     ### SHOW BOX DELETE SUCCESS PAGE

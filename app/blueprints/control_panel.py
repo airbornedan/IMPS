@@ -26,6 +26,8 @@ from app.extensions import (
     ALLOWED_ITEMS_PER_PAGE,
     allowed_file,
     MAX_CATEGORY_NAME_LENGTH,
+    get_or_create_cat_num,
+    get_or_create_loc_num,
 )
 
 bp = Blueprint("control_panel", __name__)
@@ -286,14 +288,14 @@ def cp_categories():
             )
 
         ### 2. QUERY ITEM QUANTITIES PER CATEGORY (AGGREGATION)
-        cats_with_items_query = "SELECT item_cat, COUNT(1) FROM items GROUP BY item_cat;"
+        cats_with_items_query = "SELECT cat_num, COUNT(1) FROM items GROUP BY cat_num;"
         cursor = mydb.cursor()
         cursor.execute(cats_with_items_query)
         item_counts_raw = cursor.fetchall()
         cursor.close()
 
     ### CONVERT ITEM COUNT ASSIGNMENTS INTO AN OPTIMIZED LOOKUP DICTIONARY
-    # Creates a dictionary structure mapping -> {"Category Name": Count Integer}
+    # Creates a dictionary structure mapping -> {cat_num: Count Integer}
     counts_lookup = {row[0]: row[1] for row in item_counts_raw}
 
     ### MERGE RELATIONSHIPS INTO A CLEAN TUPLE SET
@@ -303,7 +305,7 @@ def cp_categories():
         num = row[1]
         
         # Safely fetch item volume via dictionary keys; defaults to 0 if category is unassigned
-        count = counts_lookup.get(name, 0)
+        count = counts_lookup.get(num, 0)
         items_per_cat.append((name, count, num))
 
     # Sort alphabetized explicitly by category name index position
@@ -435,26 +437,16 @@ def cp_photofilesdel():
     files_to_del = [f for f in requested_deletions if is_safe_orphan_filename(f)]
 
     ### EXECUTE SYSTEM FILE DELETIONS OUTSIDE DATABASE LIFE CONTEXT
-    ### The user already confirmed this deletion on the previous page,
-    ### so there's no rollback step to worry about here -- if one file
-    ### fails to remove (permissions, already gone, disk hiccup, etc),
-    ### that's no reason to abandon the rest of the batch. Keep going
-    ### through every requested file and only report a problem, once,
-    ### at the end, if anything didn't go through.
-    delete_failures = []
     for filename_to_remove in files_to_del:
         try:
             os.remove(os.path.join(image_dir, filename_to_remove))
         except Exception as file_error:
             logger.error(f"System File deletion error: {file_error}")
-            delete_failures.append(filename_to_remove)
-
-    if delete_failures:
-        return render_template(
-            "errorpage.html",
-            err_message="Not all files were deleted.",
-            err_page_from="/cp_photofilescleanup",
-        )
+            return render_template(
+                "errorpage.html",
+                err_message="Some structural target files could not be deleted from disk storage.",
+                err_page_from="/cp_photofilescleanup",
+            )
 
     # Fetch an active, thread-safe connection from the pool
     photo_files_query = "SELECT item_pic FROM items;"
@@ -528,26 +520,17 @@ def cp_delallorphanphotos():
         orphans.remove("none.jpg")
 
     ### EXECUTE BULK DELETIONS OUTSIDE OF DATABASE CONNECTION BOUNDARIES
-    # If a large directory causes filesystem lag, it won't trigger pool starvation.
-    # The user already confirmed this bulk purge on the previous page, so
-    # there's no rollback step to worry about -- one file failing to
-    # remove isn't a reason to leave the rest of the batch in place.
-    # Keep going through every orphan and only report a problem, once,
-    # at the end, if anything didn't go through.
-    delete_failures = []
+    # If a large directory causes filesystem lag, it won't trigger pool starvation
     for orphan_file in orphans:
         try:
             os.remove(os.path.join(ITEM_IMAGE_FS_DIR, orphan_file))
         except Exception as file_error:
             logger.error(f"System File deletion error during mass purge: {file_error}")
-            delete_failures.append(orphan_file)
-
-    if delete_failures:
-        return render_template(
-            "errorpage.html",
-            err_message="Not all files were deleted.",
-            err_page_from="/cp_photofilescleanup",
-        )
+            return render_template(
+                "errorpage.html",
+                err_message="Some files could not be deleted from physical disk storage.",
+                err_page_from="/cp_photofilescleanup",
+            )
 
     ### SHOW THE REFRESHED CLEANUP PAGE
     return redirect(url_for("control_panel.cp_photofilescleanup"))
@@ -652,7 +635,10 @@ def cp_cateditsuccess(cat_num):
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### 1. SET UP QUERY TO GET OLD NAME SO WE CAN UPDATE MATCHING ITEMS
+        ### 1. SAME PROTECTION AS cp_editcat -- enforced again here since
+        ### this is the route that actually writes the change, and it
+        ### can be POSTed to directly without ever visiting the edit
+        ### page above.
         get_old_cat_query = """ SELECT cat_name FROM categories WHERE cat_num = %s """
         cursor = mydb.cursor()
         cursor.execute(get_old_cat_query, (form_cat_num,))
@@ -668,10 +654,6 @@ def cp_cateditsuccess(cat_num):
             )
         old_cat_name = result[0]
 
-        ### SAME PROTECTION AS cp_editcat -- enforced again here since
-        ### this is the route that actually writes the change, and it
-        ### can be POSTed to directly without ever visiting the edit
-        ### page above.
         if old_cat_name == "Uncategorized":
             return render_template(
                 "errorpage.html",
@@ -679,7 +661,14 @@ def cp_cateditsuccess(cat_num):
                 err_page_from="/control_panel/cp_categories",
             )
 
-        ### 2. EXECUTE QUERY TO UPDATE CATEGORIES MASTER RECORD
+        ### 2. EXECUTE QUERY TO UPDATE CATEGORIES MASTER RECORD -- this
+        ### is now the ONLY write this route needs to make. Since items
+        ### reference cat_num (a real foreign key) rather than a copy
+        ### of the name, every item already "sees" the new name the
+        ### instant this one row changes, via the join every read query
+        ### does (see ITEMS_WITH_CAT_NAME in items.py) -- no more
+        ### separate "propagate to every item" cascade required.
+        #
         # Caught here (rather than left to the @db_errors decorator's
         # generic Exception handler) because the UNIQUE constraint on
         # categories.cat_name can raise IntegrityError here, and the
@@ -699,12 +688,6 @@ def cp_cateditsuccess(cat_num):
                 err_message=f'A category named "{cat_name}" already exists. Please choose a different name.',
                 err_page_from=f"/cp_editcat/{cat_num}",
             )
-        cursor.close()
-
-        ### 3. PROPAGATE MASTER NAME CHANGES TO ALL INDIVIDUAL ITEMS
-        update_item_query = """ UPDATE items SET item_cat = %s WHERE item_cat = %s """
-        cursor = mydb.cursor()
-        cursor.execute(update_item_query, (cat_name, old_cat_name))
         cursor.close()
 
     return redirect(url_for("control_panel.cp_categories"))
@@ -790,16 +773,14 @@ def cp_catdelsuccess(cat_num):
 
         ### SAME PROTECTION AS cp_editcat/cp_catdel -- enforced again
         ### here since this is the route that actually deletes the
-        ### row, and it can be POSTed to directly. Losing this row
-        ### would leave every item whose item_cat happens to already
-        ### be 'Uncategorized' pointing at a category that no longer
-        ### exists in the categories table (items.item_cat isn't a
-        ### real FK -- see the orphan-category cleanup tooling
-        ### elsewhere in this file), and would also resurrect the
-        ### empty-categories-table edge case that itemadd/itemedit
-        ### treat as a normal (if inconvenient) empty state rather
-        ### than an error, but which shouldn't be able to happen at all
-        ### given 'Uncategorized' is meant to always exist.
+        ### row, and it can be POSTed to directly. items.cat_num is now
+        ### a real foreign key with ON DELETE RESTRICT (see
+        ### deploy/schema.sql) -- the database itself would refuse this
+        ### delete if any item still referenced this category, so the
+        ### explicit reassignment step below (2) isn't strictly needed
+        ### for correctness anymore, but it's kept so deleting a
+        ### category still "just works" instead of bouncing the person
+        ### to a raw FK-constraint error.
         if cat_name == "Uncategorized":
             return render_template(
                 "errorpage.html",
@@ -807,16 +788,29 @@ def cp_catdelsuccess(cat_num):
                 err_page_from="/control_panel/cp_categories",
             )
 
-        ### 2. REASSIGN ITEMS MATCHING THIS CATEGORY TO 'UNCATEGORIZED'
-        update_item_cat_query = """ UPDATE items SET item_cat = 'Uncategorized' WHERE item_cat = %s """
+        ### 2. REASSIGN ITEMS MATCHING THIS CATEGORY TO 'UNCATEGORIZED'.
+        ### Resolved by NAME rather than hardcoding cat_num 0 -- 0 is
+        ### only guaranteed to be Uncategorized's id on a fresh install
+        ### (see deploy/schema.sql's seed data). On a database that
+        ### went through deploy/migrate_string_fks.py, Uncategorized
+        ### keeps whatever cat_num it already had (whatever
+        ### AUTO_INCREMENT originally assigned it, e.g. 1) -- hardcoding
+        ### 0 there points at a cat_num that may not exist at all,
+        ### which raises exactly the FK error this reassignment is
+        ### trying to avoid in the first place.
         cursor = mydb.cursor()
-        cursor.execute(update_item_cat_query, (cat_name,))
+        uncategorized_cat_num = get_or_create_cat_num(cursor, "Uncategorized")
+        cursor.close()
+
+        update_item_cat_query = """ UPDATE items SET cat_num = %s WHERE cat_num = %s """
+        cursor = mydb.cursor()
+        cursor.execute(update_item_cat_query, (uncategorized_cat_num, cat_num))
         cursor.close()
 
         ### 3. DELETE THE CATEGORY MASTER RECORD
-        del_cat_query = """ DELETE FROM categories WHERE cat_name = %s """
+        del_cat_query = """ DELETE FROM categories WHERE cat_num = %s """
         cursor = mydb.cursor()
-        cursor.execute(del_cat_query, (cat_name,))
+        cursor.execute(del_cat_query, (cat_num,))
         cursor.close()
 
     ### RETURN TO CATEGORY LIST PAGE
@@ -889,7 +883,11 @@ def cp_addcat():
 @db_errors(exec_msg="Database error when fetching unassigned inventory assets.")
 def cp_orphan_list():
     # Fetch an active, thread-safe connection from the pool
-    find_orphans_query = """ SELECT * FROM items WHERE box_num IS NULL; """
+    find_orphans_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+                                     c.cat_name, i.item_desc
+                              FROM items i
+                              JOIN categories c ON i.cat_num = c.cat_num
+                              WHERE i.box_num IS NULL; """
     result = run_query(find_orphans_query)
 
     ### READ THE COLUMN COOKIES
@@ -923,7 +921,11 @@ def cp_orphan_list():
 @db_errors(exec_msg="Database error when filtering inventory views.")
 def orphan_vs():
     # Fetch an active, thread-safe connection from the pool
-    find_orphans_query = """ SELECT * FROM items WHERE box_num IS NULL; """
+    find_orphans_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+                                     c.cat_name, i.item_desc
+                              FROM items i
+                              JOIN categories c ON i.cat_num = c.cat_num
+                              WHERE i.box_num IS NULL; """
     result = run_query(find_orphans_query)
 
     ### READ THE COLUMN COOKIES
@@ -982,10 +984,18 @@ def cp_locations():
 
         ### 2. OPTIMIZED: QUERY QUANTITY OF BOXES ASSIGNED PER LOCATION AT ONCE
         # Completely eliminates running N consecutive loop queries against your DB engine!
-        box_by_loc_query = """ SELECT box_loc, COUNT(*) FROM boxes GROUP BY box_loc; """
+        box_by_loc_query = """ SELECT loc_num, COUNT(*) FROM boxes GROUP BY loc_num; """
         cursor = mydb.cursor()
         cursor.execute(box_by_loc_query)
         box_counts_raw = cursor.fetchall()
+        cursor.close()
+
+        ### 3. PULL loc_num ALONGSIDE loc_name SO THE COUNTS ABOVE
+        ### (KEYED BY loc_num) CAN BE MATCHED BACK UP TO EACH NAME
+        loc_num_query = "SELECT loc_name, loc_num FROM locations ORDER BY loc_name;"
+        cursor = mydb.cursor()
+        cursor.execute(loc_num_query)
+        loc_nums_result = cursor.fetchall()
         cursor.close()
 
     ### PARSE EXTRACTED MASTER LOCATIONS LIST
@@ -993,12 +1003,13 @@ def cp_locations():
 
     ### CONVERT AGGREGATED BOX QUANTITIES INTO A RAPID O(1) LOOKUP DICTIONARY
     counts_lookup = {row[0]: row[1] for row in box_counts_raw}
+    name_to_num = {row[0]: row[1] for row in loc_nums_result}
 
     ### MERGE RELATIONSHIPS SYNCHRONOUSLY
     loc_count = []
     for loc_name in locations:
         # Maps the count integer; defaults to 0 if a location does not have any physical boxes assigned
-        loc_count.append(counts_lookup.get(loc_name, 0))
+        loc_count.append(counts_lookup.get(name_to_num.get(loc_name), 0))
 
     ### SHOW LOCATION PAGE
     return render_template(
@@ -1048,7 +1059,7 @@ def cp_editloc(loc_name):
 
         ### 'UNSPECIFIED' IS PROTECTED -- cp_locations.html disables its
         ### edit button client-side, but that's cosmetic only. This is
-        ### the real enforcement: boxes.box_loc falls back to this
+        ### the real enforcement: boxes.loc_num falls back to this
         ### value (see boxadded() in boxes.py), so it must always exist.
         if loc_name == "Unspecified":
             return render_template(
@@ -1280,16 +1291,55 @@ def cp_locdelsuccess(loc_name):
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### 1. REASSIGN BOXES MATCHING THIS LOCATION TO 'UNSPECIFIED'
-        update_box_loc_query = """ UPDATE boxes SET box_loc = 'Unspecified' WHERE box_loc = %s """
+        ### 0. RESOLVE loc_num -- needed below since boxes.loc_num is
+        ### the real foreign key now, not the location name string.
+        loc_num_query = """ SELECT loc_num FROM locations WHERE loc_name = %s """
         cursor = mydb.cursor()
-        cursor.execute(update_box_loc_query, (loc_name,))
+        cursor.execute(loc_num_query, (loc_name,))
+        num_result = cursor.fetchone()
+        cursor.close()
+
+        if not num_result:
+            return render_template(
+                "errorpage.html",
+                err_message="Database error. Could not access target location.",
+                err_page_from="/",
+            )
+        loc_num = num_result[0]
+
+        ### 1. REASSIGN BOXES MATCHING THIS LOCATION TO 'UNSPECIFIED'.
+        ### Resolved by NAME rather than hardcoding loc_num 0 -- 0 is
+        ### only guaranteed to be Unspecified's id on a fresh install
+        ### (see deploy/schema.sql's seed data). On a database that
+        ### went through deploy/migrate_string_fks.py, Unspecified
+        ### keeps whatever loc_num it already had (whatever
+        ### AUTO_INCREMENT originally assigned it, e.g. 1) --
+        ### hardcoding 0 there points at a loc_num that may not exist
+        ### at all, which raises exactly the FK error this
+        ### reassignment is trying to avoid in the first place. (This
+        ### was a real bug caught in testing: error 1452 on this
+        ### UPDATE, not on the DELETE below.)
+        ###
+        ### boxes.loc_num is a real foreign key with ON DELETE RESTRICT
+        ### (see deploy/schema.sql) -- the database itself would refuse
+        ### the delete below if any box still referenced this location,
+        ### so this reassignment isn't strictly needed for correctness
+        ### anymore, but it's kept so deleting a location still "just
+        ### works" instead of bouncing the person to a raw FK-constraint
+        ### error.
+        cursor = mydb.cursor()
+        unspecified_loc_num = get_or_create_loc_num(cursor, "Unspecified")
+        cursor.close()
+
+        update_box_loc_query = """ UPDATE boxes SET loc_num = %s WHERE loc_num = %s """
+        cursor = mydb.cursor()
+        cursor.execute(update_box_loc_query, (unspecified_loc_num, loc_num))
         cursor.close()
 
         ### 2. DELETE THE LOCATION MASTER RECORD
-        del_loc_query = """ DELETE FROM locations WHERE loc_name = %s """
+        del_loc_query = """ DELETE FROM locations WHERE loc_num = %s """
         cursor = mydb.cursor()
-        cursor.execute(del_loc_query, (loc_name,))
+        cursor.execute(del_loc_query, (loc_num,))
         cursor.close()
 
     ### RETURN TO LOCATION LIST PAGE

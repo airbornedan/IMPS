@@ -11,8 +11,6 @@ from PIL import Image, ImageOps
 from flask_paginate import Pagination, get_page_parameter
 from werkzeug.utils import secure_filename
 
-from mysql.connector.errors import IntegrityError
-
 from app.extensions import (
     get_db_connection,
     DBConnectionError,
@@ -33,9 +31,27 @@ from app.extensions import (
     get_offset_for_page,
     InvalidPageError,
     MAX_ITEM_NAME_LENGTH,
+    get_or_create_cat_num,
 )
 
 bp = Blueprint("items", __name__)
+
+# Every "SELECT * FROM items" read below now needs categories joined
+# in, since items.cat_num is a numeric foreign key rather than a
+# copy of the category name -- but every consumer of these query
+# results (this file's own unpacking below, plus templates like
+# itemdetail.html/includeitemlist.html) still expects a 7-column
+# tuple in the original (item_num, item_name, box_num, item_pic,
+# item_date, item_cat, item_desc) order. Aliasing c.cat_name into
+# that same 6th position means none of that downstream code has to
+# change at all. Kept as one shared constant so the several read
+# sites below can't drift out of sync with each other.
+ITEMS_WITH_CAT_NAME = """
+    SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+           c.cat_name, i.item_desc
+    FROM items i
+    JOIN categories c ON i.cat_num = c.cat_num
+"""
 
 
 @bp.route("/itemdetails/<item_num>")
@@ -53,7 +69,7 @@ def itemdetails(item_num):
         )
 
     # Fetch an active, thread-safe connection from the pool
-    item_query_statement = """ SELECT * FROM items WHERE item_num = %s """
+    item_query_statement = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
     result = run_query(item_query_statement, (item_num,), fetch="one")
 
     if not result:
@@ -145,7 +161,7 @@ def itemedit(item_num):
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### QUERY MAIN ITEM DETAILS
-        item_query_statement = """ SELECT * FROM items WHERE item_num = %s """
+        item_query_statement = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
         cursor = mydb.cursor()
         cursor.execute(item_query_statement, (item_num,))
         item_result = cursor.fetchone()
@@ -267,8 +283,17 @@ def updateitem(item_num):
 
         # Fetch an active, thread-safe connection from the pool
         with get_db_connection() as mydb:
-            ### 1. WRITE CORE ITEM VALUES TO DB
-            item_update_query = """ UPDATE items SET item_name = %s, item_desc = %s, item_cat = %s,\
+            ### 1. RESOLVE THE SUBMITTED CATEGORY NAME TO ITS cat_num,
+            ### CREATING THE CATEGORY IF IT'S A BRAND NEW NAME. Replaces
+            ### the old two-step "write item_cat string, separately
+            ### INSERT INTO categories" -- see get_or_create_cat_num()
+            ### in extensions.py.
+            cursor = mydb.cursor()
+            ud_cat_num = get_or_create_cat_num(cursor, ud_item_cat)
+            cursor.close()
+
+            ### 2. WRITE CORE ITEM VALUES TO DB
+            item_update_query = """ UPDATE items SET item_name = %s, item_desc = %s, cat_num = %s,\
                 item_date = %s, box_num = %s WHERE item_num = %s """
             
             cursor = mydb.cursor()
@@ -277,24 +302,12 @@ def updateitem(item_num):
                 (
                     ud_item_name,
                     ud_item_desc,
-                    ud_item_cat,
+                    ud_cat_num,
                     ud_item_date,
                     ud_box_num,
                     ud_item_num,
                 ),
             )
-            cursor.close()
-
-            ### 2. ENSURE THE CATEGORY EXISTS. Relies on the cat_name
-            ### UNIQUE constraint: attempts the insert, and a
-            ### duplicate-key error simply means the category already
-            ### exists.
-            add_cat_query = """ INSERT INTO categories (cat_name) VALUES (%s) """
-            cursor = mydb.cursor()
-            try:
-                cursor.execute(add_cat_query, (ud_item_cat,))
-            except IntegrityError:
-                pass  # category already exists -- nothing to do
             cursor.close()
 
             ####################################################
@@ -523,18 +536,29 @@ def iteminsert():
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### 1. INSERT NEW ITEM INTO DATABASE
-        insert_query = """ INSERT INTO items (item_name, box_num, item_pic, item_date, item_cat, item_desc) \
+        ### 1. RESOLVE THE SUBMITTED CATEGORY NAME TO ITS cat_num,
+        ### CREATING THE CATEGORY IF IT'S A BRAND NEW NAME -- relies on
+        ### the cat_name UNIQUE constraint plus a caught IntegrityError
+        ### rather than a SELECT-then-check-then-INSERT, which would be
+        ### a race condition (two concurrent requests could both pass
+        ### the check before either INSERT lands, producing duplicate
+        ### rows). See get_or_create_cat_num() in extensions.py.
+        cursor = mydb.cursor()
+        cat_num = get_or_create_cat_num(cursor, item_cat)
+        cursor.close()
+
+        ### 2. INSERT NEW ITEM INTO DATABASE
+        insert_query = """ INSERT INTO items (item_name, box_num, item_pic, item_date, cat_num, item_desc) \
              VALUES (%s, %s, %s, %s, %s, %s) """
     
         cursor = mydb.cursor()
         cursor.execute(
             insert_query,
-            (item_name, box_num, item_pic, current_date, item_cat, item_desc),
+            (item_name, box_num, item_pic, current_date, cat_num, item_desc),
         )
         cursor.close()
 
-        ### 2. GET THE ITEM NUMBER OF THE ITEM ADDED
+        ### 3. GET THE ITEM NUMBER OF THE ITEM ADDED
         last_item_query = "SELECT LAST_INSERT_ID();"
         cursor = mydb.cursor()
         cursor.execute(last_item_query)
@@ -548,19 +572,6 @@ def iteminsert():
                 err_page_from="/",
             )
         item_num = result[0]
-
-        ### 3. ENSURE THE CATEGORY EXISTS -- relies on the cat_name
-        ### UNIQUE constraint plus a caught IntegrityError, rather than
-        ### a SELECT-then-check-then-INSERT, which would be a race
-        ### condition (two concurrent requests could both pass the
-        ### check before either INSERT lands, producing duplicate rows).
-        add_cat_query = """ INSERT INTO categories (cat_name) VALUES (%s) """
-        cursor = mydb.cursor()
-        try:
-            cursor.execute(add_cat_query, (item_cat,))
-        except IntegrityError:
-            pass  # category already exists -- nothing to do
-        cursor.close()
 
     ### SHOW THE RESULTS PAGE
     return showitemdetail(str(item_num))
@@ -587,7 +598,7 @@ def showitemdetail(item_num):
             err_page_from="/",
         )
 
-    item_query = """ SELECT * FROM items WHERE item_num = %s """
+    item_query = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
     ### DB QUERY -- use the connection pool, same as every other route
     result = run_query(item_query, (item_num,), fetch="one")
 
@@ -646,7 +657,10 @@ def itembycategory(category):
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### QUERY FOR ITEMS IN CATEGORY
-        item_by_cat_query = """ SELECT * FROM items WHERE item_cat = %s ORDER BY item_num DESC LIMIT %s OFFSET %s """
+        item_by_cat_query = (
+            ITEMS_WITH_CAT_NAME
+            + " WHERE c.cat_name = %s ORDER BY i.item_num DESC LIMIT %s OFFSET %s "
+        )
         cursor = mydb.cursor()
         cursor.execute(item_by_cat_query, (category, limit, offset))
         result = cursor.fetchall()
@@ -662,7 +676,9 @@ def itembycategory(category):
         item_list = result
 
         ### QUERY FOR NUMBER OF ITEMS IN CATEGORY
-        count_query = """ SELECT COUNT(*) FROM items WHERE item_cat = %s """
+        count_query = """ SELECT COUNT(*) FROM items i
+                           JOIN categories c ON i.cat_num = c.cat_num
+                           WHERE c.cat_name = %s """
         cursor = mydb.cursor()
         cursor.execute(count_query, (category,))
         count_result = cursor.fetchone()
@@ -735,7 +751,7 @@ def itemdel(item_num):
         )
 
     # Fetch an active, thread-safe connection from the pool
-    del_query = """ SELECT * FROM items WHERE item_num = %s """
+    del_query = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
     result = run_query(del_query, (item_num,), fetch="one")
 
     ### CHECK THAT QUERY SUCCEEDED

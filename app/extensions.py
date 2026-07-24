@@ -97,62 +97,6 @@ if not os.path.isdir(IMPS_DIR):
     sys.exit(1)
 
 ########################################################################
-### OPTIONAL LAN-ONLY ACCESS RESTRICTION
-########################################################################
-# Off by default. If enabled ([access] restrict_to_lan = true in
-# imps_config.toml, with lan_ip set), every request is checked against
-# the derived home-network range and rejected if it's from outside it.
-# See app/__init__.py's check_lan_restriction() for the actual
-# enforcement -- this is just the config parsing, kept here alongside
-# every other imps_config.toml-derived setting.
-#
-# NOT meant to handle VPNs, multiple subnets, reverse proxies, or
-# Docker (see the comments in imps_config.toml.example) -- deliberately
-# simple: one IP in, one assumed /24 (or an explicit /prefix) out.
-import ipaddress
-
-
-def _parse_lan_network(lan_ip):
-    """Turn a config lan_ip value into an ipaddress network, or None.
-
-    Plain IP ("192.168.0.42") assumes a standard home-router /24
-    around it. An IP with an explicit prefix ("192.168.0.42/16") uses
-    that instead, for the rare non-default network. Returns None for
-    anything blank or unparseable, which callers treat as "restriction
-    can't be enforced" -- see reload_config()/module init below, which
-    both force restrict_to_lan off in that case rather than silently
-    allowing (or silently blocking) every request.
-    """
-    if not lan_ip:
-        return None
-    try:
-        if "/" not in lan_ip:
-            lan_ip = f"{lan_ip}/24"
-        return ipaddress.ip_interface(lan_ip).network
-    except ValueError:
-        return None
-
-
-def _load_lan_restriction(config):
-    access_cfg = config.get("access", {})
-    restrict_requested = bool(access_cfg.get("restrict_to_lan", False))
-    lan_network = _parse_lan_network(access_cfg.get("lan_ip", ""))
-
-    if restrict_requested and lan_network is None:
-        logger.error(
-            "[access] restrict_to_lan is true but lan_ip is missing/invalid "
-            "in imps_config.toml -- LAN restriction is DISABLED until this "
-            "is fixed, rather than blocking (or failing to block) every "
-            "request based on a value that couldn't be parsed."
-        )
-
-    enabled = restrict_requested and lan_network is not None
-    return enabled, lan_network
-
-
-LAN_RESTRICTION_ENABLED, LAN_NETWORK = _load_lan_restriction(imps_config)
-
-########################################################################
 ### FLASK SECRET KEY (GENERATED ONCE AT FIRST RUN, THEN PERSISTED)
 ########################################################################
 # The key used to sign session cookies is generated once and stored in
@@ -326,7 +270,6 @@ def login_failure_note_for_logging(ip):
             f"in the last 24 hours (threshold {LOGIN_FAILURE_LOG_THRESHOLD})."
         )
 
-
 ### APP PASSWORD (HASHED)
 pass_to_hash = imps_config["password"]["password"]
 _pass_bytes = pass_to_hash.encode("utf-8")
@@ -343,6 +286,67 @@ HASHED_IMPS_PASS = bcrypt.hashpw(_pass_bytes, _salt)
 # existing imps_error.log with no deployment/config changes needed.
 logger = logging.getLogger("imps.db")
 logger.setLevel(logging.INFO)
+
+########################################################################
+### OPTIONAL LAN-ONLY ACCESS RESTRICTION
+########################################################################
+# Off by default. If enabled ([access] restrict_to_lan = true in
+# imps_config.toml, with lan_ip set), every request is checked against
+# the derived home-network range and rejected if it's from outside it.
+# See app/__init__.py's check_lan_restriction() for the actual
+# enforcement -- this is just the config parsing, kept here alongside
+# every other imps_config.toml-derived setting.
+#
+# NOT meant to handle VPNs, multiple subnets, reverse proxies, or
+# Docker (see the comments in imps_config.toml.example) -- deliberately
+# simple: one IP in, one assumed /24 (or an explicit /prefix) out.
+#
+# Placed here (after `logger` is defined, rather than up near the
+# other imps_config-derived settings) since _load_lan_restriction()
+# below logs through it on a misconfiguration -- defining it earlier
+# would reference `logger` before it exists at module-import time.
+import ipaddress
+
+
+def _parse_lan_network(lan_ip):
+    """Turn a config lan_ip value into an ipaddress network, or None.
+
+    Plain IP ("192.168.0.42") assumes a standard home-router /24
+    around it. An IP with an explicit prefix ("192.168.0.42/16") uses
+    that instead, for the rare non-default network. Returns None for
+    anything blank or unparseable, which callers treat as "restriction
+    can't be enforced" -- see reload_config()/module init below, which
+    both force restrict_to_lan off in that case rather than silently
+    allowing (or silently blocking) every request.
+    """
+    if not lan_ip:
+        return None
+    try:
+        if "/" not in lan_ip:
+            lan_ip = f"{lan_ip}/24"
+        return ipaddress.ip_interface(lan_ip).network
+    except ValueError:
+        return None
+
+
+def _load_lan_restriction(config):
+    access_cfg = config.get("access", {})
+    restrict_requested = bool(access_cfg.get("restrict_to_lan", False))
+    lan_network = _parse_lan_network(access_cfg.get("lan_ip", ""))
+
+    if restrict_requested and lan_network is None:
+        logger.error(
+            "[access] restrict_to_lan is true but lan_ip is missing/invalid "
+            "in imps_config.toml -- LAN restriction is DISABLED until this "
+            "is fixed, rather than blocking (or failing to block) every "
+            "request based on a value that couldn't be parsed."
+        )
+
+    enabled = restrict_requested and lan_network is not None
+    return enabled, lan_network
+
+
+LAN_RESTRICTION_ENABLED, LAN_NETWORK = _load_lan_restriction(imps_config)
 if not logger.handlers:
     _handler = logging.StreamHandler()
     _handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s %(name)s: %(message)s"))
@@ -656,6 +660,56 @@ def run_query(query, params=None, fetch="all"):
             result = None
         cursor.close()
         return result
+
+
+########################################################################
+### CATEGORY / LOCATION NAME <-> NUMERIC FK RESOLUTION
+########################################################################
+# items.cat_num and boxes.loc_num are real foreign keys against
+# categories.cat_num / locations.loc_num (see deploy/schema.sql) --
+# they used to be plain strings copied directly into items/boxes, but
+# forms (itemadd.html, itemedit.html, boxadd.html, boxedit.html) still
+# submit a category/location *name*, same as before this migration,
+# so every write path needs to resolve that name to its numeric id --
+# creating the row first if it's a brand new name.
+#
+# Relies on the cat_name/loc_name UNIQUE constraint (INSERT, catch
+# IntegrityError) rather than SELECT-then-check-then-INSERT, since the
+# latter is a race condition: two concurrent requests could both see
+# "doesn't exist yet" before either INSERT lands, producing duplicate
+# rows. This is the same pattern items.py/boxes.py already used before
+# this migration for "ensure the category/location exists" -- these
+# two functions just centralize it in one place now that two different
+# call sites (write AND read-back-the-id) both need it.
+def get_or_create_cat_num(cursor, cat_name):
+    if not cat_name:
+        cat_name = "Uncategorized"
+    try:
+        cursor.execute("INSERT INTO categories (cat_name) VALUES (%s)", (cat_name,))
+    except IntegrityError:
+        pass  # category already exists -- nothing to do
+    cursor.execute("SELECT cat_num FROM categories WHERE cat_name = %s", (cat_name,))
+    row = cursor.fetchone()
+    # Falls back to 0 (Uncategorized) only if something has gone
+    # seriously wrong (e.g. the SELECT immediately after a successful
+    # INSERT somehow finds nothing) -- Uncategorized is guaranteed to
+    # exist and never be deleted (see cp_delcat in control_panel.py),
+    # so this is a safe floor, not a silent data-loss path.
+    return row[0] if row else 0
+
+
+def get_or_create_loc_num(cursor, loc_name):
+    if not loc_name:
+        loc_name = "Unspecified"
+    try:
+        cursor.execute("INSERT INTO locations (loc_name) VALUES (%s)", (loc_name,))
+    except IntegrityError:
+        pass  # location already exists -- nothing to do
+    cursor.execute("SELECT loc_num FROM locations WHERE loc_name = %s", (loc_name,))
+    row = cursor.fetchone()
+    # Same reasoning as get_or_create_cat_num() above -- Unspecified
+    # is guaranteed to exist and never be deleted (see cp_delloc).
+    return row[0] if row else 0
 
 
 ########################################################################

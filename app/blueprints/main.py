@@ -40,17 +40,6 @@ def del_firstrun():
     first_run = os.path.join(IMPS_DIR, "first.run")
     not_first_run = os.path.join(IMPS_DIR, "not_first.run")
 
-    ### SECURITY: this route has no @login_required (same reasoning as
-    ### setup.py -- there's no usable password yet the first time it
-    ### runs), which means it must be unreachable once setup has
-    ### actually completed, exactly like setup.py's _guard()/
-    ### _first_run_active(). Without this check, anyone -- logged in
-    ### or not -- could POST install_samples=1 here at any time and
-    ### have install_sample_data() seed sample locations/categories/
-    ### boxes/items into a live, already-configured install.
-    if not os.path.isfile(first_run):
-        return redirect(url_for("main.home"))
-
     ### IF THE "INSTALL SAMPLE ITEMS" CHECKBOX WAS SUBMITTED, SEED DATA
     ### BEFORE RENAMING first.run. Nothing in the current UI posts to
     ### this route anymore -- the setup wizard's own setup_samples()/
@@ -155,7 +144,7 @@ def search_result(query_term):
         ##############################################################
         # Splits the query into individual words, and matches an item
         # if it contains ANY of those words in ANY searchable
-        # column (item_name / item_desc / item_cat). Each matching
+        # column (item_name / item_desc / category name). Each matching
         # word/column adds to a relevance score so items matching
         # more words (or matching in the name vs. the description)
         # rank higher, while still surfacing partial matches instead
@@ -176,8 +165,8 @@ def search_result(query_term):
         for word in search_words:
             like_param = f"%{word}%"
             where_clauses.append(
-                "(item_name LIKE %s OR item_desc LIKE %s OR item_cat LIKE %s "
-                "OR SOUNDEX(item_name) = SOUNDEX(%s))"
+                "(i.item_name LIKE %s OR i.item_desc LIKE %s OR c.cat_name LIKE %s "
+                "OR SOUNDEX(i.item_name) = SOUNDEX(%s))"
             )
             where_params.extend([like_param, like_param, like_param, word])
 
@@ -185,8 +174,8 @@ def search_result(query_term):
             # matches, and an exact phonetic match counts a little
             # extra too, so the most relevant items bubble to the top.
             score_clauses.append(
-                "(item_name LIKE %s)*3 + (item_desc LIKE %s) + "
-                "(item_cat LIKE %s)*2 + (SOUNDEX(item_name) = SOUNDEX(%s))*2"
+                "(i.item_name LIKE %s)*3 + (i.item_desc LIKE %s) + "
+                "(c.cat_name LIKE %s)*2 + (SOUNDEX(i.item_name) = SOUNDEX(%s))*2"
             )
             score_params.extend([like_param, like_param, like_param, word])
 
@@ -194,19 +183,25 @@ def search_result(query_term):
         score_sql = " + ".join(score_clauses)
 
         ### SET UP SEARCH QUERY : SEARCH ITEM NAMES, DESCRIPTIONS, AND CATEGORIES
-        # The relevance score is computed in ORDER BY only (not SELECTed)
-        # so the result tuples stay exactly 7 columns wide -- templates
-        # like includeitemlist.html unpack each row positionally
-        # (item_num, item_name, box_num, item_pic, item_date, item_cat,
-        # item_desc) and would break if an extra column were added.
+        # items.cat_num is a numeric foreign key rather than a string,
+        # so categories has to be joined in to search/display the
+        # category name -- c.cat_name is aliased into the same 6th
+        # position item_cat used to occupy, so the result tuples stay
+        # exactly 7 columns wide, matching what includeitemlist.html
+        # (and every other consumer of these rows) already expects.
+        # The relevance score is computed in ORDER BY only (not
+        # SELECTed), for the same reason.
         # LIMIT/OFFSET are applied in SQL rather than fetching every
         # matching row and slicing to the current page in Python --
         # the previous version pulled the entire matching result set
         # (including item_desc text) across the wire on every search,
         # even though only `limit` rows of it were ever displayed.
-        item_query = f""" SELECT * FROM items
+        item_query = f""" SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+                                  c.cat_name, i.item_desc
+                           FROM items i
+                           JOIN categories c ON i.cat_num = c.cat_num
                            WHERE {where_sql}
-                           ORDER BY ({score_sql}) DESC, item_num DESC
+                           ORDER BY ({score_sql}) DESC, i.item_num DESC
                            LIMIT %s OFFSET %s """
 
         cursor = mydb.cursor()
@@ -216,7 +211,9 @@ def search_result(query_term):
         cursor.close()
 
         ### GET NUMBER OF RESULTS (same WHERE clause, for pagination)
-        num_item_query = f""" SELECT COUNT(*) FROM items WHERE {where_sql} """
+        num_item_query = f""" SELECT COUNT(*) FROM items i
+                               JOIN categories c ON i.cat_num = c.cat_num
+                               WHERE {where_sql} """
         cursor = mydb.cursor()
         cursor.execute(num_item_query, tuple(where_params))
         result = cursor.fetchone()

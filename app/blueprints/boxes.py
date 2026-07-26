@@ -1,33 +1,30 @@
 ########################################################################
 ### BOXES BLUEPRINT — CREATE/EDIT/DELETE BOXES, MOVE/ORPHAN ITEMS
 ########################################################################
-from flask import Blueprint, request, render_template, redirect, url_for, make_response, session
-from array import array
+from flask import Blueprint, request, render_template
 from datetime import date
 
 from app.extensions import (
     get_db_connection,
-    DBConnectionError,
     login_required,
     limiter,
-    logger,
     db_errors,
     run_query,
     MAX_BOX_NUM,
+    MAX_LOCATION_NAME_LENGTH,
     get_or_create_loc_num,
+    touch_box_last_changed,
 )
 
 bp = Blueprint("boxes", __name__)
 
-# Every "SELECT * FROM boxes" read below now needs locations joined
-# in, since boxes.loc_num is a numeric foreign key rather than a copy
-# of the location name -- but every consumer of these query results
-# (this file's own unpacking below, plus templates like
-# boxdetails.html) still expects a 5-column tuple in the original
+# boxes.loc_num is a numeric foreign key rather than a copy of the
+# location name, so every box read needs locations joined in. Every
+# consumer (this file's unpacking below, templates like
+# boxdetails.html) expects a 5-column tuple in
 # (box_num, box_loc, box_name, box_date, box_last_changed) order.
-# Aliasing l.loc_name into that same 2nd position means none of that
-# downstream code has to change at all. Kept as one shared constant so
-# the several read sites below can't drift out of sync with each other.
+# Aliasing l.loc_name into the 2nd position keeps that order intact.
+# Kept as one shared constant so read sites can't drift out of sync.
 BOXES_WITH_LOC_NAME = """
     SELECT b.box_num, l.loc_name, b.box_name, b.box_date, b.box_last_changed
     FROM boxes b
@@ -103,10 +100,10 @@ def boxadd():
 )
 def boxmoveitems():
     ### GET FORM DATA. Use .get() with a "" default (rather than
-    ### request.form["box_to_del"]) so a malformed/incomplete POST --
-    ### a stale cached page, a bookmarked/replayed request -- falls
-    ### through to the int() check below and shows IMPS's own error
-    ### page, instead of an unhandled KeyError (a generic Flask 400).
+    ### request.form["box_to_del"]) so a malformed/incomplete POST (stale
+    ### cached page, bookmarked/replayed request) falls through to the
+    ### int() check below, showing IMPS's own error page instead of an
+    ### unhandled KeyError (a generic Flask 400).
     old_box_num = request.form.get("box_to_del", "")
 
     ### VERIFY FORM ENTRY IS AN INT
@@ -204,14 +201,10 @@ def boxorphanitemssuccess():
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### BOX DELETE QUERY -- items.box_num is now a real foreign key
-        ### (ON DELETE SET NULL, see deploy/schema.sql), so deleting the
-        ### box automatically sets box_num = NULL on every item that
-        ### was in it. That's exactly the "orphan" behavior this route
-        ### used to do by hand with a separate UPDATE items SET
-        ### box_num = NULL statement first -- the FK now does it, so
-        ### that statement has been removed rather than left as
-        ### redundant dead code.
+        ### BOX DELETE QUERY -- items.box_num is a real foreign key
+        ### (ON DELETE SET NULL, see deploy/schema.sql), so deleting
+        ### the box automatically sets box_num = NULL on every item
+        ### that was in it. No separate UPDATE needed to orphan them.
         box_del_query = """ DELETE FROM boxes WHERE box_num = %s """
         cursor = mydb.cursor()
         cursor.execute(box_del_query, (box_to_del,))
@@ -246,7 +239,7 @@ def boxmoveitemssuccess():
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### MOVE ITEMS TO NEW BOX QUERY -- this has to run BEFORE the
-        ### box is deleted below. items.box_num is now a real foreign
+        ### box is deleted below. items.box_num is a real foreign
         ### key with ON DELETE SET NULL (see deploy/schema.sql/
         ### boxorphanitemssuccess() above) -- if the box were deleted
         ### first, every item still pointing at it would already have
@@ -255,6 +248,14 @@ def boxmoveitemssuccess():
         move_query = """ UPDATE items SET box_num = %s WHERE box_num = %s """
         cursor = mydb.cursor()
         cursor.execute(move_query, (new_box_num, box_to_del))
+        cursor.close()
+
+        ### TOUCH THE DESTINATION BOX -- every item from the deleted
+        ### box just arrived in it. (box_to_del isn't touched: it's
+        ### deleted immediately below, moot.) See
+        ### touch_box_last_changed() in extensions.py.
+        cursor = mydb.cursor()
+        touch_box_last_changed(cursor, new_box_num)
         cursor.close()
 
         ### DELETE BOX QUERY
@@ -307,17 +308,28 @@ def boxadded():
     if box_loc is None or box_loc == "":
         box_loc = "Unspecified"
 
+    ### VALIDATE LOCATION NAME LENGTH -- box_loc doubles as a
+    ### free-text "create a new location" field (see get_or_create_loc_num()
+    ### below), so it's not limited to picking an existing name. UI
+    ### enforces this via maxlength + JS (see boxadd.html), client-side
+    ### only -- a direct POST bypasses it, so it's checked here too.
+    if len(box_loc) > MAX_LOCATION_NAME_LENGTH:
+        return render_template(
+            "errorpage.html",
+            err_message=f"Location names are limited to {MAX_LOCATION_NAME_LENGTH} characters.",
+            err_page_from="/boxadd",
+        )
+
     ### IF NEXT AVAILABLE IS SET, USE THAT BOX
     if box_type == "next_available":
         box_num = next_available_box_num
 
     ### RE-VALIDATE THE FINAL box_num -- next_available_box_num comes
-    ### from a hidden/readonly form field, so it's only "read-only" in
-    ### the UI, not actually enforced server-side; a direct POST could
-    ### substitute anything. Also enforces the MAX_BOX_NUM cap, which
-    ### applies either way. The UI already enforces this cap via
-    ### maxlength="4" + JS (see boxadd.html), but that's client-side
-    ### only.
+    ### from a hidden/readonly form field, only "read-only" in the UI,
+    ### not enforced server-side; a direct POST could substitute
+    ### anything. Also enforces the MAX_BOX_NUM cap. UI already
+    ### enforces this cap via maxlength="4" + JS (see boxadd.html),
+    ### client-side only.
     try:
         final_box_num = int(box_num)
     except (ValueError, TypeError):
@@ -418,12 +430,11 @@ def boxdel():
         not_empty_result = cursor.fetchall()
         cursor.close()
 
-        ### NOTE: an empty not_empty_result here is a normal, valid
-        ### state -- it just means every existing box is currently
-        ### empty (e.g. boxes were created but nothing's been added
-        ### to them yet), not a database failure.
+        ### NOTE: an empty not_empty_result is normal and valid -- it
+        ### just means every existing box is currently empty (created
+        ### but nothing added yet), not a database failure.
 
-    ### CONVERT TUPLE RESULTS INTO CLEAN LISTS VIA COMPREHENSIONS
+    ### EXTRACT BOX NUMBERS
     box_nums = [row[0] for row in available_result]
     not_empty_box_num_list = [row[0] for row in not_empty_result]
 
@@ -460,10 +471,6 @@ def delboxconf():
             err_message="Entry is not a number.",
             err_page_from="/",
         )
-
-    ### GET ADDITIONAL FORM DATA. Not currently used below, but same
-    ### .get() treatment for consistency/safety in case that changes.
-    item_handling = request.form.get("item_handling", "")
 
     ### CHECK IF BOX HAS CONTENTS
     box_state_query = """ SELECT * FROM items WHERE box_num = %s """
@@ -581,13 +588,31 @@ def boxeditsuccess():
     box_loc = request.form.get("box_loc")
     box_num = request.form.get("box_num")
 
+    ### VALIDATE LOCATION NAME LENGTH -- box_loc == "" means "keep the
+    ### existing location" (handled below), so only a genuinely
+    ### submitted name needs checking. Doubles as a free-text "create a
+    ### new location" field (see get_or_create_loc_num() below). UI
+    ### enforces this via maxlength + JS (see boxdetails.html),
+    ### client-side only -- a direct POST bypasses it, so it's checked
+    ### here too.
+    if box_loc and len(box_loc) > MAX_LOCATION_NAME_LENGTH:
+        return render_template(
+            "errorpage.html",
+            err_message=f"Location names are limited to {MAX_LOCATION_NAME_LENGTH} characters.",
+            err_page_from="/boxedit",
+        )
+
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### 1. PROCESS BOX RECORD MUTATIONS
+        ### 1. PROCESS BOX RECORD MUTATIONS. box_last_changed is set
+        ### here directly (not via touch_box_last_changed()) since
+        ### this route already writes this exact row -- see
+        ### touch_box_last_changed() in extensions.py for what else
+        ### counts as a box "touch".
         if box_loc == "":
-            box_update_query = """ UPDATE boxes SET box_name = %s WHERE box_num = %s """
+            box_update_query = """ UPDATE boxes SET box_name = %s, box_last_changed = %s WHERE box_num = %s """
             cursor = mydb.cursor()
-            cursor.execute(box_update_query, (box_name, box_num))
+            cursor.execute(box_update_query, (box_name, str(date.today()), box_num))
             cursor.close()
 
             ### READ THE PRE-EXISTING LOCATION NAME BACK (via the
@@ -619,9 +644,9 @@ def boxeditsuccess():
             loc_num = get_or_create_loc_num(cursor, box_loc)
             cursor.close()
 
-            box_update_query = """ UPDATE boxes SET box_name = %s , loc_num = %s WHERE box_num = %s """
+            box_update_query = """ UPDATE boxes SET box_name = %s , loc_num = %s, box_last_changed = %s WHERE box_num = %s """
             cursor = mydb.cursor()
-            cursor.execute(box_update_query, (box_name, loc_num, box_num))
+            cursor.execute(box_update_query, (box_name, loc_num, str(date.today()), box_num))
             cursor.close()
 
     ### SHOW SUCCESS PAGE
@@ -756,10 +781,9 @@ def boxrenumbersuccess():
             )
 
         ### CONFIRM THE NEW NUMBER ISN'T ALREADY IN USE
-        ### (checked here, ahead of time, so a collision shows a clear
-        ### message -- the UNIQUE constraint on boxes.box_num would
-        ### also catch this at the database level, which is what
-        ### integrity_msg above is for as a defense-in-depth backstop,
+        ### (checked here for a clear message; the UNIQUE constraint on
+        ### boxes.box_num also catches this at the DB level --
+        ### integrity_msg above is a defense-in-depth backstop for that,
         ### e.g. a race condition, not the primary path)
         existing_query = """ SELECT box_num FROM boxes WHERE box_num = %s """
         cursor = mydb.cursor()
@@ -787,14 +811,10 @@ def boxrenumbersuccess():
         cursor.execute(box_update_query, (new_box_num, old_box_num))
         cursor.close()
 
-        ### items.box_num is now a real foreign key with
-        ### ON UPDATE CASCADE (see deploy/schema.sql) -- the database
-        ### itself propagates the box_num change above to every item
-        ### that was in this box, automatically. That's exactly what
-        ### the manual "UPDATE items SET box_num = ... WHERE box_num =
-        ### ..." cascade used to do by hand here; it's been removed
-        ### rather than left as redundant (and now-unnecessary) dead
-        ### code.
+        ### items.box_num is a real foreign key with ON UPDATE CASCADE
+        ### (see deploy/schema.sql) -- the database itself propagates
+        ### the box_num change above to every item that was in this
+        ### box, automatically. No separate UPDATE needed here.
 
     return render_template(
         "boxes/boxrenumbersuccess.html",
@@ -822,19 +842,16 @@ def boxdeletesuccess(box_to_del):
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### QUERY TO DELETE ITEMS IN THAT BOX -- this MUST run before
-        ### the box itself is deleted below. items.box_num is now a
-        ### real foreign key with ON DELETE SET NULL (see
-        ### deploy/schema.sql) -- if the box were deleted first, every
-        ### remaining item in it would already have box_num set to
-        ### NULL by the FK before this statement's WHERE box_num = %s
-        ### (the old box number) could ever match them, so they'd
-        ### silently survive as orphaned items instead of being
-        ### deleted, changing this route's actual behavior (this path
-        ### -- reached from boxdelconfirm.html -- is IMPS's genuine
-        ### "delete this box and everything in it" action, distinct
-        ### from the orphan/move flow in boxorphanitemssuccess()/
-        ### boxmoveitemssuccess() above).
+        ### QUERY TO DELETE ITEMS IN THAT BOX -- MUST run before the box
+        ### itself is deleted below. items.box_num has ON DELETE SET
+        ### NULL (see deploy/schema.sql): if the box were deleted
+        ### first, remaining items would already have box_num set to
+        ### NULL by the FK before this WHERE box_num = %s could match
+        ### them, so they'd silently survive as orphans instead of
+        ### being deleted. This path -- reached from boxdelconfirm.html
+        ### -- is IMPS's "delete this box and everything in it" action,
+        ### distinct from the orphan/move flow in
+        ### boxorphanitemssuccess()/boxmoveitemssuccess() above.
         del_items_query = """ DELETE FROM items WHERE box_num = %s """
         cursor = mydb.cursor()
         cursor.execute(del_items_query, (box_to_del,))

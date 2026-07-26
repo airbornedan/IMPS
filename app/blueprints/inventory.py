@@ -1,7 +1,7 @@
 ########################################################################
 ### INVENTORY BLUEPRINT — BROWSING/LISTING BOXES & ITEMS
 ########################################################################
-from flask import Blueprint, request, render_template, redirect, url_for, make_response, session
+from flask import Blueprint, request, render_template, make_response
 import os
 import qrcode
 
@@ -9,12 +9,10 @@ from flask_paginate import Pagination, get_page_parameter
 
 from app.extensions import (
     get_db_connection,
-    DBConnectionError,
     login_required,
     ITEM_IMAGE_DIR,
     IMPS_DIR,
     IMPS_IP,
-    logger,
     db_errors,
     run_query,
     get_items_per_page,
@@ -57,14 +55,14 @@ def inventory():
         ### INVENTORY
         ### SET UP ALL ITEMS QUERY
         inv_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
-                                c.cat_name, i.item_desc
+                                c.cat_name AS item_cat, i.item_desc
                          FROM items i
                          JOIN categories c ON i.cat_num = c.cat_num
                          ORDER BY i.item_num DESC
                          LIMIT %s OFFSET %s """
 
         ### QUERY DB
-        cursor = mydb.cursor()
+        cursor = mydb.cursor(dictionary=True)
         cursor.execute(inv_query, (limit, offset))
         result = cursor.fetchall()
         cursor.close()
@@ -326,11 +324,11 @@ def box_view_switch(box_num):
     with get_db_connection() as mydb:
         ### BOX CONTENT QUERY
         query_statement = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
-                                      c.cat_name, i.item_desc
+                                      c.cat_name AS item_cat, i.item_desc
                                FROM items i
                                JOIN categories c ON i.cat_num = c.cat_num
                                WHERE i.box_num = %s """
-        cursor = mydb.cursor()
+        cursor = mydb.cursor(dictionary=True)
         cursor.execute(query_statement, (box_num,))
         item_list = cursor.fetchall()
         cursor.close()
@@ -399,13 +397,9 @@ def showbox(box_num):
     with get_db_connection() as mydb:
         ### BOX NAME QUERY -- also doubles as the existence check: a
         ### box number that was never created (or was since deleted)
-        ### has no row here at all, which is the one case that should
-        ### actually be a hard error. An empty box (a real box with
-        ### zero items in it) is a normal, expected state -- it used
-        ### to be lumped in with "box doesn't exist" and shown the
-        ### same generic error page, which was misleading for anyone
-        ### who'd just legitimately created a box and not added
-        ### anything to it yet.
+        ### has no row here, the one case that should be a hard error.
+        ### An empty box (a real box with zero items) is a normal,
+        ### expected state, distinct from "box doesn't exist".
         box_name_query = """ SELECT box_name FROM boxes WHERE box_num = %s """
         cursor = mydb.cursor()
         cursor.execute(box_name_query, (box_num,))
@@ -422,11 +416,11 @@ def showbox(box_num):
 
         ### BOX CONTENT QUERY
         items_in_box_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
-                                         c.cat_name, i.item_desc
+                                         c.cat_name AS item_cat, i.item_desc
                                   FROM items i
                                   JOIN categories c ON i.cat_num = c.cat_num
                                   WHERE i.box_num = %s """
-        cursor = mydb.cursor()
+        cursor = mydb.cursor(dictionary=True)
         cursor.execute(items_in_box_query, (box_num,))
         item_list = cursor.fetchall()
         cursor.close()
@@ -501,8 +495,8 @@ def boxlabel(box_num):
     ### qrcodes_fs_dir is anchored to IMPS_DIR (not the process's cwd),
     ### same reasoning as BACKUP_DIR/ITEM_IMAGE_FS_DIR in extensions.py.
     ### os.makedirs(..., exist_ok=True) ensures static/images/qrcodes/
-    ### exists (it's gitignored, with no tracked content) before the
-    ### first label print tries to save into it.
+    ### exists (gitignored, no tracked content) before the first label
+    ### print tries to save into it.
     qrcodes_fs_dir = os.path.join(IMPS_DIR, "static", "images", "qrcodes")
     os.makedirs(qrcodes_fs_dir, exist_ok=True)
     save_location = os.path.join(qrcodes_fs_dir, f"qr_code_for_box_{box_num}.png")

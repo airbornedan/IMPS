@@ -86,11 +86,10 @@ def setup_landing():
     ########################################
     ### TEST DIRECTORIES
     ### (imps_dir isn't checked here -- if it were wrong, the app
-    ### wouldn't have booted at all, per the startup check added in
-    ### extensions.py, so reaching this page at all already proves it's
-    ### fine. Showing a light for it here would be meaningless -- it'd
-    ### always be green, or you'd never see this page to find out it
-    ### wasn't.)
+    ### wouldn't have booted at all, per the startup check in
+    ### extensions.py, so reaching this page already proves it's fine.
+    ### Showing a light for it here would be meaningless -- it'd always
+    ### be green, or you'd never see this page to find out it wasn't.)
 
     item_image_config = os.path.exists(ITEM_IMAGE_FS_DIR)
     backup_config = os.path.exists(BACKUP_DIR)

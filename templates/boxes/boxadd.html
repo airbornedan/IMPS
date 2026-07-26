@@ -88,7 +88,7 @@ function faNumberCaller(){
                                <b>Location</b>
                         </div>
                         <div>
-                                 <input list="box_loc" name="box_loc" placeholder="Unspecified" autocomplete="off"/></label>
+                                 <input list="box_loc" name="box_loc" placeholder="Unspecified" maxlength="255" autocomplete="off"/></label>
                                         <datalist id="box_loc" name="box_loc_selector">
                                         {% for loc_name , loc_num in locations%}
                                         <option value="{{loc_name}}">{{loc_name}}</option>
@@ -241,6 +241,9 @@ function validateForm() {
     let selected_loc = document.forms["add_box_form"]["box_loc"].value;
     if (selected_loc.length==0){
          document.forms["add_box_form"]["box_loc"].value = "Unspecified";
+    } else if (selected_loc.length > 255){
+        showValidationError("Location names are limited to 255 characters.");
+        return false;
     }
 }
 </script>

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% include 'includes/warning.html' %}
 <div class="container-flex">
 	<div class="row">
 		<p class="page_title">Edit box {{box_num}}</p>
@@ -8,7 +9,7 @@
 		<p><a href="/boxrenumber/{{box_num}}"><button type="button" class="imps icon-left edit">Change #</button></a></p>
 	</div>
 
-	<form name="update_box" action="/boxedited" method="POST">
+	<form name="update_box" action="/boxedited" method="POST" onsubmit="return validateForm(event);">
 	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 	<input type="hidden" name="box_num" id="box_num" value="{{box_num}}">
 
@@ -18,7 +19,7 @@
 				Location:
 			</div>
 			<div>
-				<input list="box_loc" name="box_loc" placeholder="{{box_loc}}" autocomplete="off">
+				<input list="box_loc" name="box_loc" placeholder="{{box_loc}}" maxlength="255" autocomplete="off">
 				<datalist id="box_loc">
 					{% for loc_name , loc_num in locations %}
 						<option value="{{loc_name}}">{{loc_name}}</option>
@@ -52,4 +53,15 @@
 	</div>
 	</form>
 </div>
+
+<script>
+function validateForm() {
+  let box_loc = document.forms["update_box"]["box_loc"].value;
+
+  if (box_loc.length > 255){
+    showValidationError("Location names are limited to 255 characters.");
+    return false;
+  }
+}
+</script>
 {% endblock %}

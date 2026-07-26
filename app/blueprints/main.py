@@ -25,10 +25,10 @@ bp = Blueprint("main", __name__)
 
 @bp.route("/welcome")
 def welcome():
-    ### KEPT AS A THIN REDIRECT FOR OLD BOOKMARKS/MUSCLE MEMORY -- the
-    ### full status page (DB + directories, both split into their own
-    ### tables) now lives at setup.setup_landing, which is also where
-    ### home() sends first-time visitors (see below).
+    ### THIN REDIRECT, for old bookmarks/muscle memory -- the full
+    ### status page (DB + directories, each in its own table) lives at
+    ### setup.setup_landing, also where home() sends first-time
+    ### visitors (see below).
     return redirect(url_for("setup.setup_landing"))
 
 
@@ -41,13 +41,12 @@ def del_firstrun():
     not_first_run = os.path.join(IMPS_DIR, "not_first.run")
 
     ### IF THE "INSTALL SAMPLE ITEMS" CHECKBOX WAS SUBMITTED, SEED DATA
-    ### BEFORE RENAMING first.run. Nothing in the current UI posts to
-    ### this route anymore -- the setup wizard's own setup_samples()/
-    ### setup_password() (app/blueprints/setup.py) now handle sample
-    ### data and finishing setup directly. Kept here, still functional,
-    ### only for old bookmarks/direct hits; a plain GET (or a POST
-    ### without the checkbox) just renames first.run with no sample
-    ### data, same as the original behavior.
+    ### BEFORE RENAMING first.run. The setup wizard's own
+    ### setup_samples()/setup_password() (app/blueprints/setup.py)
+    ### handle sample data and finishing setup directly; this route
+    ### stays functional for old bookmarks/direct hits. A plain GET (or
+    ### a POST without the checkbox) just renames first.run with no
+    ### sample data.
     if request.method == "POST" and request.form.get("install_samples"):
         try:
             install_sample_data()
@@ -82,10 +81,10 @@ def home():
     ### adapter.wsgi, which os.chdir()s there explicitly, but not
     ### guaranteed under every possible way of starting the app).
     ### THIS MUST RUN BEFORE THE LOGIN CHECK BELOW -- a fresh install
-    ### has no session yet, so gating this behind @login_required (as
-    ### before) sent every first-time visitor to the login page
-    ### instead of the setup wizard, since decorators run before any
-    ### code in the function body.
+    ### has no session yet, so gating this behind @login_required would
+    ### send every first-time visitor to the login page instead of the
+    ### setup wizard, since decorators run before any code in the
+    ### function body.
     if os.path.isfile(os.path.join(IMPS_DIR, "first.run")):
         return redirect(url_for("setup.setup_landing"))
 
@@ -142,18 +141,18 @@ def search_result(query_term):
         ##############################################################
         ### BUILD A FUZZY, WORD-BY-WORD SEARCH
         ##############################################################
-        # Splits the query into individual words, and matches an item
-        # if it contains ANY of those words in ANY searchable
-        # column (item_name / item_desc / category name). Each matching
-        # word/column adds to a relevance score so items matching
-        # more words (or matching in the name vs. the description)
-        # rank higher, while still surfacing partial matches instead
-        # of requiring every word to hit.
+        # Splits the query into individual words, matches an item if it
+        # contains ANY of those words in ANY searchable column
+        # (item_name / item_desc / category name). Each matching
+        # word/column adds to a relevance score so items matching more
+        # words (or matching in the name vs. the description) rank
+        # higher, while still surfacing partial matches instead of
+        # requiring every word to hit.
         #
         # SOUNDEX is also added as a phonetic fallback against
         # item_name, so a typo like "lamq" or "lampp" still surfaces
         # items named "lamp" -- true typo tolerance, not just substring
-        # matching, with no extra DB extensions required.
+        # matching, no extra DB extensions required.
         search_words = [w for w in re.split(r"\s+", query_term.strip()) if w]
         if not search_words:
             search_words = [query_term]
@@ -185,26 +184,26 @@ def search_result(query_term):
         ### SET UP SEARCH QUERY : SEARCH ITEM NAMES, DESCRIPTIONS, AND CATEGORIES
         # items.cat_num is a numeric foreign key rather than a string,
         # so categories has to be joined in to search/display the
-        # category name -- c.cat_name is aliased into the same 6th
-        # position item_cat used to occupy, so the result tuples stay
-        # exactly 7 columns wide, matching what includeitemlist.html
-        # (and every other consumer of these rows) already expects.
-        # The relevance score is computed in ORDER BY only (not
-        # SELECTed), for the same reason.
+        # category name -- c.cat_name is aliased as item_cat and rows
+        # are fetched with a dict cursor, so includeitemlist.html (and
+        # every other consumer) reads fields by name (row['item_cat'])
+        # rather than by column position. See ITEMS_WITH_CAT_NAME in
+        # items.py for the same convention. Relevance score is
+        # computed in ORDER BY only (not SELECTed), so it doesn't need
+        # a dict key here.
         # LIMIT/OFFSET are applied in SQL rather than fetching every
         # matching row and slicing to the current page in Python --
-        # the previous version pulled the entire matching result set
-        # (including item_desc text) across the wire on every search,
-        # even though only `limit` rows of it were ever displayed.
+        # keeps only `limit` rows (including item_desc text) crossing
+        # the wire per search, not the entire matching result set.
         item_query = f""" SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
-                                  c.cat_name, i.item_desc
+                                  c.cat_name AS item_cat, i.item_desc
                            FROM items i
                            JOIN categories c ON i.cat_num = c.cat_num
                            WHERE {where_sql}
                            ORDER BY ({score_sql}) DESC, i.item_num DESC
                            LIMIT %s OFFSET %s """
 
-        cursor = mydb.cursor()
+        cursor = mydb.cursor(dictionary=True)
         cursor.execute(item_query, tuple(where_params + score_params + [limit, offset]))
         result = cursor.fetchall()
         item_list = result

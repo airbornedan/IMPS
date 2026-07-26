@@ -3,16 +3,15 @@
 ########################################################################
 # Inserts a small set of sample locations, categories, boxes, and items
 # (with bundled placeholder photos) so a fresh IMPS install isn't
-# completely empty. This is opt-in -- called only from the first-run
-# welcome page, only if the user checks "Install sample items" (see
-# del_firstrun() in app/blueprints/main.py).
+# empty. Opt-in -- called only from the first-run welcome page, only
+# if the user checks "Install sample items" (see del_firstrun() in
+# app/blueprints/main.py).
 #
-# Best-effort by design: this exists purely to make an empty install
-# look nicer, not to enforce data integrity. A partial failure here
-# (e.g. one sample image missing) shouldn't block someone from
-# finishing setup, so individual pieces degrade gracefully rather than
-# raising -- see _copy_sample_image()'s fallback to the "no photo"
-# placeholder.
+# Best-effort by design: exists purely to make an empty install look
+# nicer, not to enforce data integrity. A partial failure here (e.g.
+# one sample image missing) shouldn't block finishing setup, so
+# individual pieces degrade gracefully rather than raising -- see
+# _copy_sample_image()'s fallback to the "no photo" placeholder.
 
 import os
 import shutil

@@ -29,7 +29,14 @@
         <span class="table_label">Delete</span>
     </span>
     <span class="table_body">
-    {%- for item_num, item_name, box_num, item_pic, item_date, item_cat, item_desc in item_list %}
+    {%- for item in item_list %}
+    {%- set item_num = item.item_num %}
+    {%- set item_name = item.item_name %}
+    {%- set box_num = item.box_num %}
+    {%- set item_pic = item.item_pic %}
+    {%- set item_date = item.item_date %}
+    {%- set item_cat = item.item_cat %}
+    {%- set item_desc = item.item_desc %}
     	<div class= "table_row">
         	<div class= "table_cell">
 			<a href="/itemdetails/{{item_num}}" style="font-weight:normal;" onmouseover="this.style.color='black';" onmouseout="this.style.color='';">

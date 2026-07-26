@@ -47,3 +47,6 @@ __pycache__/
 
 # Virtual environments
 .venv/
+deploy/tools/build_release_zip.sh
+deploy/seed_images.zip
+deploy/seed_db.sql

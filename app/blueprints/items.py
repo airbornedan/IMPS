@@ -1,7 +1,7 @@
 ########################################################################
 ### ITEMS BLUEPRINT — CREATE/EDIT/DELETE ITEMS
 ########################################################################
-from flask import Blueprint, request, render_template, redirect, url_for, make_response, session
+from flask import Blueprint, request, render_template, session
 import os
 import pathlib
 import time
@@ -13,7 +13,6 @@ from werkzeug.utils import secure_filename
 
 from app.extensions import (
     get_db_connection,
-    DBConnectionError,
     login_required,
     allowed_file,
     ITEM_IMAGE_DIR,
@@ -31,24 +30,24 @@ from app.extensions import (
     get_offset_for_page,
     InvalidPageError,
     MAX_ITEM_NAME_LENGTH,
+    MAX_ITEM_DESC_LENGTH,
     get_or_create_cat_num,
+    touch_box_last_changed,
 )
 
 bp = Blueprint("items", __name__)
 
-# Every "SELECT * FROM items" read below now needs categories joined
-# in, since items.cat_num is a numeric foreign key rather than a
-# copy of the category name -- but every consumer of these query
-# results (this file's own unpacking below, plus templates like
-# itemdetail.html/includeitemlist.html) still expects a 7-column
-# tuple in the original (item_num, item_name, box_num, item_pic,
-# item_date, item_cat, item_desc) order. Aliasing c.cat_name into
-# that same 6th position means none of that downstream code has to
-# change at all. Kept as one shared constant so the several read
-# sites below can't drift out of sync with each other.
+# items.cat_num is a numeric foreign key rather than a copy of the
+# category name, so every items read needs categories joined in. Read
+# sites fetch this with run_query(..., as_dict=True): each row comes
+# back as a dict keyed by column/alias name (e.g. row['item_cat']),
+# not a positional tuple, so column order doesn't need to match
+# anything downstream by convention. c.cat_name is aliased to item_cat
+# so the dict key matches the variable name every call site uses.
+# Kept as one shared constant so read sites can't drift out of sync.
 ITEMS_WITH_CAT_NAME = """
     SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
-           c.cat_name, i.item_desc
+           c.cat_name AS item_cat, i.item_desc
     FROM items i
     JOIN categories c ON i.cat_num = c.cat_num
 """
@@ -70,7 +69,7 @@ def itemdetails(item_num):
 
     # Fetch an active, thread-safe connection from the pool
     item_query_statement = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
-    result = run_query(item_query_statement, (item_num,), fetch="one")
+    result = run_query(item_query_statement, (item_num,), fetch="one", as_dict=True)
 
     if not result:
         return render_template(
@@ -79,14 +78,14 @@ def itemdetails(item_num):
             err_page_from="/",
         )
 
-    # Deconstruct properties explicitly out of the isolated result tuple
-    item_num = result[0]
-    item_name = result[1]
-    box_num = result[2]
-    item_pic = result[3]
-    item_date = result[4]
-    item_cat = result[5]
-    item_desc = result[6]
+    # Deconstruct properties out of the result dict by column name
+    item_num = result["item_num"]
+    item_name = result["item_name"]
+    box_num = result["box_num"]
+    item_pic = result["item_pic"]
+    item_date = result["item_date"]
+    item_cat = result["item_cat"]
+    item_desc = result["item_desc"]
 
     return render_template(
         "items/itemdetail.html",
@@ -162,7 +161,7 @@ def itemedit(item_num):
     with get_db_connection() as mydb:
         ### QUERY MAIN ITEM DETAILS
         item_query_statement = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
-        cursor = mydb.cursor()
+        cursor = mydb.cursor(dictionary=True)
         cursor.execute(item_query_statement, (item_num,))
         item_result = cursor.fetchone()
         cursor.close()
@@ -189,13 +188,13 @@ def itemedit(item_num):
         cursor.close()
 
     ### ASSIGN RESULT VALUES
-    item_num = item_result[0]
-    item_name = item_result[1]
-    box_num = item_result[2]
-    item_pic = item_result[3]
-    item_date = item_result[4]
-    item_cat = item_result[5]
-    item_desc = item_result[6]
+    item_num = item_result["item_num"]
+    item_name = item_result["item_name"]
+    box_num = item_result["box_num"]
+    item_pic = item_result["item_pic"]
+    item_date = item_result["item_date"]
+    item_cat = item_result["item_cat"]
+    item_desc = item_result["item_desc"]
 
     categories = categories_result
     
@@ -267,10 +266,9 @@ def updateitem(item_num):
 
         ### VALIDATE ITEM NAME LENGTH -- before any DB write or photo
         ### processing below, so a too-long name is rejected up front
-        ### rather than after other work's already been done. The UI
-        ### already enforces this via maxlength="50" + JS (see
-        ### itemedit.html), but that's client-side only -- a direct
-        ### POST bypasses it entirely, so it has to be checked here too.
+        ### rather than after other work's done. UI enforces this via
+        ### maxlength="50" + JS (see itemedit.html), client-side only
+        ### -- a direct POST bypasses it, so it's checked here too.
         if ud_item_name and len(ud_item_name) > MAX_ITEM_NAME_LENGTH:
             return render_template(
                 "errorpage.html",
@@ -281,16 +279,43 @@ def updateitem(item_num):
                 err_page_from=f"/itemedit/{item_num}",
             )
 
+        ### VALIDATE ITEM DESCRIPTION LENGTH, SAME REASONING -- UI
+        ### enforces this via maxlength + JS (see itemedit.html),
+        ### client-side only -- a direct POST bypasses it, so it's
+        ### checked here too.
+        if ud_item_desc and len(ud_item_desc) > MAX_ITEM_DESC_LENGTH:
+            return render_template(
+                "errorpage.html",
+                err_message=f"Item descriptions are limited to {MAX_ITEM_DESC_LENGTH} characters.",
+                err_page_from=f"/itemedit/{item_num}",
+            )
+
         # Fetch an active, thread-safe connection from the pool
         with get_db_connection() as mydb:
             ### 1. RESOLVE THE SUBMITTED CATEGORY NAME TO ITS cat_num,
-            ### CREATING THE CATEGORY IF IT'S A BRAND NEW NAME. Replaces
-            ### the old two-step "write item_cat string, separately
-            ### INSERT INTO categories" -- see get_or_create_cat_num()
-            ### in extensions.py.
+            ### CREATING THE CATEGORY IF IT'S A BRAND NEW NAME. See
+            ### get_or_create_cat_num() in extensions.py.
             cursor = mydb.cursor()
             ud_cat_num = get_or_create_cat_num(cursor, ud_item_cat)
             cursor.close()
+
+            ### 1b. READ THE ITEM'S CURRENT box_num, BEFORE THE UPDATE
+            ### OVERWRITES IT -- needed below (step 2b) to tell whether
+            ### this edit moved the item to a different box.
+            ### box_last_changed only gets touched on a real move, not
+            ### a same-box name/desc/category/photo edit. Cast to int
+            ### (this column comes back as an int; ud_box_num is a raw
+            ### form value) for a real integer comparison, invalid-safe.
+            cursor = mydb.cursor()
+            cursor.execute("SELECT box_num FROM items WHERE item_num = %s", (ud_item_num,))
+            previous_box_row = cursor.fetchone()
+            cursor.close()
+            previous_box_num = previous_box_row[0] if previous_box_row else None
+
+            try:
+                ud_box_num_int = int(ud_box_num)
+            except (TypeError, ValueError):
+                ud_box_num_int = None
 
             ### 2. WRITE CORE ITEM VALUES TO DB
             item_update_query = """ UPDATE items SET item_name = %s, item_desc = %s, cat_num = %s,\
@@ -309,6 +334,17 @@ def updateitem(item_num):
                 ),
             )
             cursor.close()
+
+            ### 2b. IF THE ITEM MOVED TO A DIFFERENT BOX, TOUCH BOTH THE
+            ### OLD AND NEW BOX -- something left one, arrived in the
+            ### other. A same-box edit doesn't count, so this is
+            ### skipped entirely then. See touch_box_last_changed() in
+            ### extensions.py.
+            if previous_box_num != ud_box_num_int:
+                cursor = mydb.cursor()
+                touch_box_last_changed(cursor, previous_box_num)
+                touch_box_last_changed(cursor, ud_box_num_int)
+                cursor.close()
 
             ####################################################
             ### IMAGE HANDLING (FILESYSTEM OPERATIONS)
@@ -437,9 +473,9 @@ def iteminsert():
     ### VALIDATE ITEM NAME LENGTH UP FRONT -- before any photo
     ### processing below, so a too-long name is rejected immediately
     ### rather than after an upload's already been saved/resized for
-    ### nothing. The UI already enforces this via maxlength="50" +
-    ### JS (see itemadd.html), but that's client-side only -- a direct
-    ### POST bypasses it entirely, so it has to be checked here too.
+    ### nothing. UI enforces this via maxlength="50" + JS (see
+    ### itemadd.html), client-side only -- a direct POST bypasses it,
+    ### so it's checked here too.
     item_name = request.form.get("item_name") or ""
     if len(item_name) > MAX_ITEM_NAME_LENGTH:
         return render_template(
@@ -448,6 +484,17 @@ def iteminsert():
                 f"Item names are limited to {MAX_ITEM_NAME_LENGTH} characters. "
                 "Use the description field to store more information about this item."
             ),
+            err_page_from="/itemadd",
+        )
+
+    ### VALIDATE ITEM DESCRIPTION LENGTH UP FRONT, SAME REASONING -- UI
+    ### enforces this via maxlength + JS (see itemadd.html), client-side
+    ### only -- a direct POST bypasses it, so it's checked here too.
+    item_desc_precheck = request.form.get("item_desc") or ""
+    if len(item_desc_precheck) > MAX_ITEM_DESC_LENGTH:
+        return render_template(
+            "errorpage.html",
+            err_message=f"Item descriptions are limited to {MAX_ITEM_DESC_LENGTH} characters.",
             err_page_from="/itemadd",
         )
 
@@ -558,6 +605,12 @@ def iteminsert():
         )
         cursor.close()
 
+        ### 2b. TOUCH THE BOX -- an item was just added to it. See
+        ### touch_box_last_changed() in extensions.py.
+        cursor = mydb.cursor()
+        touch_box_last_changed(cursor, box_num)
+        cursor.close()
+
         ### 3. GET THE ITEM NUMBER OF THE ITEM ADDED
         last_item_query = "SELECT LAST_INSERT_ID();"
         cursor = mydb.cursor()
@@ -600,7 +653,7 @@ def showitemdetail(item_num):
 
     item_query = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
     ### DB QUERY -- use the connection pool, same as every other route
-    result = run_query(item_query, (item_num,), fetch="one")
+    result = run_query(item_query, (item_num,), fetch="one", as_dict=True)
 
     ### CHECK THAT QUERY SUCCEEDED
     if not result:
@@ -612,13 +665,13 @@ def showitemdetail(item_num):
     item_result = result
 
     ### SET UP VARIABLES TO SHOW ITEM DETAIL PAGE
-    item_num = item_result[0]
-    item_name = item_result[1]
-    box_num = item_result[2]
-    item_pic = item_result[3]
-    item_date = item_result[4]
-    item_cat = item_result[5]
-    item_desc = item_result[6]
+    item_num = item_result["item_num"]
+    item_name = item_result["item_name"]
+    box_num = item_result["box_num"]
+    item_pic = item_result["item_pic"]
+    item_date = item_result["item_date"]
+    item_cat = item_result["item_cat"]
+    item_desc = item_result["item_desc"]
 
     ### RETURN RESULTS PAGE
     return render_template(
@@ -661,7 +714,7 @@ def itembycategory(category):
             ITEMS_WITH_CAT_NAME
             + " WHERE c.cat_name = %s ORDER BY i.item_num DESC LIMIT %s OFFSET %s "
         )
-        cursor = mydb.cursor()
+        cursor = mydb.cursor(dictionary=True)
         cursor.execute(item_by_cat_query, (category, limit, offset))
         result = cursor.fetchall()
         cursor.close()
@@ -752,7 +805,7 @@ def itemdel(item_num):
 
     # Fetch an active, thread-safe connection from the pool
     del_query = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
-    result = run_query(del_query, (item_num,), fetch="one")
+    result = run_query(del_query, (item_num,), fetch="one", as_dict=True)
 
     ### CHECK THAT QUERY SUCCEEDED
     if not result:
@@ -762,22 +815,22 @@ def itemdel(item_num):
             err_page_from="/",
         )
 
-    ### SET VARIABLES NEEDED FOR PAGE DISPLAY FROM UNCOUPLED TUPLE
-    item_num = result[0]
-    item_name = result[1]
-    box_num = result[2]
-    item_pic = result[3]
-    item_date = result[4]
-    item_cat = result[5]
-    item_desc = result[6]
+    ### SET VARIABLES NEEDED FOR PAGE DISPLAY FROM RESULT DICT
+    item_num = result["item_num"]
+    item_name = result["item_name"]
+    box_num = result["box_num"]
+    item_pic = result["item_pic"]
+    item_date = result["item_date"]
+    item_cat = result["item_cat"]
+    item_desc = result["item_desc"]
 
     ### PULL WHERE THE USER CAME FROM OUT OF THE SESSION (see
     ### LIST_VIEW_ENDPOINTS / remember_list_view in app/__init__.py) SO
-    ### THE POST-DELETE SUCCESS PAGE CAN OFFER A WAY BACK TO IT. This
-    ### doesn't rely on the browser's Referer header, which proxies,
-    ### CDNs, and privacy settings can strip unpredictably. Sanitized
-    ### here AND again in itemdeleted() before ever being rendered as a
-    ### link -- never trust it as a redirect target without checking.
+    ### THE POST-DELETE SUCCESS PAGE CAN OFFER A WAY BACK TO IT. Doesn't
+    ### rely on the browser's Referer header, which proxies, CDNs, and
+    ### privacy settings can strip unpredictably. Sanitized here AND
+    ### again in itemdeleted() before being rendered as a link -- never
+    ### trust it as a redirect target without checking.
     back_url = safe_relative_url(session.get("last_list_view"))
 
     ### RETURN RESULTS PAGE
@@ -832,8 +885,10 @@ def itemdeleted(item_to_del):
             )
         photo_filename = photo_result[0]
 
-        ### 2. GET ITEM NAME FOR RESULTS PAGE BEFORE DELETION
-        item_name_query = """ SELECT item_name FROM items WHERE item_num = %s """
+        ### 2. GET ITEM NAME AND BOX NUMBER FOR RESULTS PAGE / BOX-TOUCH
+        ### BEFORE DELETION -- box_num is needed to mark the box as
+        ### touched below (step 3b); once the row's deleted, it's gone.
+        item_name_query = """ SELECT item_name, box_num FROM items WHERE item_num = %s """
         cursor = mydb.cursor()
         cursor.execute(item_name_query, (item_to_del,))
         name_result = cursor.fetchone()
@@ -847,6 +902,7 @@ def itemdeleted(item_to_del):
                 err_page_from="/",
             )
         item_name = name_result[0]
+        box_num = name_result[1]
 
         ### 3. EXECUTE DELETION STATEMENT
         del_query = """ DELETE FROM items WHERE item_num = %s """
@@ -854,26 +910,29 @@ def itemdeleted(item_to_del):
         cursor.execute(del_query, (item_to_del,))
         cursor.close()
 
+        ### 3b. TOUCH THE BOX -- an item was just removed from it. See
+        ### touch_box_last_changed() in extensions.py.
+        cursor = mydb.cursor()
+        touch_box_last_changed(cursor, box_num)
+        cursor.close()
+
     ### PROCESS FILESYSTEM OPERATIONS OUTSIDE DATABASE LOCKS
     photo_dir = ITEM_IMAGE_FS_DIR
     delete_failed = False
 
     ### ATTEMPT TO DELETE THE PHOTO UNLESS THERE'S NO REAL IMAGE TO DELETE.
-    ### "No real image" covers the normal placeholder ("none.jpg") as well
-    ### as NULL/empty item_pic values that can show up in older or
-    ### imported data -- none of these represent an actual file on disk,
-    ### so there's nothing to attempt, let alone fail at.
+    ### "No real image" covers the placeholder ("none.jpg") and
+    ### NULL/empty item_pic values from older or imported data -- none
+    ### represent an actual file on disk, so nothing to attempt.
     has_real_photo = bool(photo_filename) and photo_filename != "none.jpg"
 
     if has_real_photo:
-        ### photo_filename comes out of the database rather than
-        ### straight off the request, but treat it as untrusted anyway
-        ### and run it through safe_image_path() -- same as every
-        ### other photo-delete path in the app (updateitem() above,
-        ### cp_photofilesdel() in control_panel.py). Keeps this route
-        ### safe even if item_pic ever ends up holding something
-        ### unexpected (hand-edited data, a restored backup, a future
-        ### code path that doesn't go through the upload flow).
+        ### photo_filename comes from the DB, not the request, but
+        ### treat it as untrusted anyway and run it through
+        ### safe_image_path() -- same as every other photo-delete path
+        ### (updateitem() above, cp_photofilesdel() in control_panel.py).
+        ### Keeps this route safe even if item_pic holds something
+        ### unexpected (hand-edited data, a restored backup).
         photo_file = safe_image_path(photo_filename, photo_dir)
         if photo_file is None:
             logger.error(
@@ -884,11 +943,10 @@ def itemdeleted(item_to_del):
         try:
             os.remove(photo_file)
         except FileNotFoundError:
-            # The file was already gone (e.g. previously cleaned up via
-            # the orphan-photos tool, or removed by hand). The end state
-            # we wanted -- no orphaned file on disk -- is already true,
-            # so this isn't a real failure and shouldn't be reported as
-            # one; only genuine errors (permissions, I/O, etc.) below.
+            # Best effort file removal. File already gone (cleaned up
+            # by the orphan-photos tool, or removed by hand) is fine --
+            # the end state we wanted is already true. Not a real
+            # failure; only genuine errors (permissions, I/O) below.
             pass
         except Exception:
             delete_failed = True

@@ -33,16 +33,16 @@ def login():
 
 @bp.route("/attemptlogin", methods=["POST"])
 # Throttle login attempts per source IP. IMPS has a single shared
-# password with no per-user lockout, so this is the main defense against
-# brute-forcing it. 10/minute allows for normal typos while making
+# password with no per-user lockout, so this is the main defense
+# against brute-forcing it. 10/minute allows normal typos while making
 # sustained guessing impractical; the daily cap blocks slow/distributed
-# attempts that try to stay under the per-minute threshold.
+# attempts staying under the per-minute threshold.
 #
 # This flat limit is a hard ceiling; login_backoff_* (extensions.py)
 # below is a second, softer layer that kicks in earlier -- each
 # consecutive failure from an IP doubles its wait before the next
-# attempt is even checked, so a sustained guessing run keeps slowing
-# down well before it ever reaches this per-minute/per-day cutoff.
+# attempt is even checked, so a sustained guessing run slows down
+# well before reaching this per-minute/per-day cutoff.
 @limiter.limit("10 per minute; 100 per day")
 def attemptlogin():
     remote_ip = request.remote_addr
@@ -64,11 +64,11 @@ def attemptlogin():
 
     userPassword = request.form.get("password")
 
-    ### A MALFORMED/INCOMPLETE POST (e.g. a stale cached page, a
-    ### replayed/bookmarked request) can arrive with no "password"
-    ### field at all -- request.form["password"] would raise an
-    ### unhandled KeyError (a generic Flask 400 page) in that case, so
-    ### use .get() and handle it explicitly with IMPS's own error page.
+    ### A MALFORMED/INCOMPLETE POST (stale cached page, replayed/
+    ### bookmarked request) can arrive with no "password" field at all
+    ### -- request.form["password"] would raise an unhandled KeyError
+    ### (a generic Flask 400) in that case, so use .get() and handle it
+    ### explicitly with IMPS's own error page.
     if not userPassword:
         return render_template(
             "errorpage.html",
@@ -77,10 +77,10 @@ def attemptlogin():
         )
 
     ### MATCH AGAINST PASS SET IN imps_config.toml
-    ### (read via the extensions module, not a bare imported name, so
-    ### a password change made through the setup wizard -- which calls
-    ### extensions.reload_config() -- takes effect immediately here,
-    ### rather than needing a process restart)
+    ### (read via the extensions module, not a bare imported name, so a
+    ### password change through the setup wizard -- which calls
+    ### extensions.reload_config() -- takes effect immediately, no
+    ### process restart needed)
     userBytes = userPassword.encode("utf-8")
     pass_match = bcrypt.checkpw(userBytes, extensions.HASHED_IMPS_PASS)
 

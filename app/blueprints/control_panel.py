@@ -2,7 +2,7 @@
 ### CONTROL PANEL BLUEPRINT — ADMIN: CATEGORIES, LOCATIONS, BACKUPS,
 ### ORPHANED PHOTO CLEANUP, VIEW/COLUMN PREFERENCES
 ########################################################################
-from flask import Blueprint, request, render_template, redirect, url_for, make_response, session
+from flask import Blueprint, request, render_template, redirect, url_for, make_response
 import os
 import shutil
 import subprocess
@@ -13,7 +13,6 @@ from mysql.connector.errors import IntegrityError
 from app import extensions
 from app.extensions import (
     get_db_connection,
-    DBConnectionError,
     login_required,
     IMPS_DIR,
     BACKUP_DIR,
@@ -26,6 +25,7 @@ from app.extensions import (
     ALLOWED_ITEMS_PER_PAGE,
     allowed_file,
     MAX_CATEGORY_NAME_LENGTH,
+    MAX_LOCATION_NAME_LENGTH,
     get_or_create_cat_num,
     get_or_create_loc_num,
 )
@@ -66,13 +66,10 @@ def _record_backup_and_prune(mydb, backup_type, filename, backup_date):
 
     stale_rows = all_rows[BACKUP_HISTORY_KEEP:]
     for stale_id, stale_filename in stale_rows:
-        # Best-effort file removal -- if the file's already gone for
-        # some reason, that's fine, we still want the DB row cleaned
-        # up either way. stale_filename is whatever was stored in
-        # backup_history.filename when the backup was made -- an
-        # absolute path (BACKUP_DIR is resolved to an absolute path
-        # anchored to IMPS_DIR, in extensions.py), so this works
-        # regardless of the current process's working directory.
+        # Best effort file removal. If file can't be deleted, clean DB
+        # row anyway. stale_filename is from backup_history.filename at
+        # backup time, an absolute path from IMPS_DIR in extensions.py.
+        # Working directory independent.
         try:
             os.remove(stale_filename)
         except OSError as e:
@@ -85,11 +82,10 @@ def _record_backup_and_prune(mydb, backup_type, filename, backup_date):
 
 ########################################################################
 ### CONTROL PANEL -- SETTINGS/BOX-ITEM TAB (default landing page)
-# Split from a single tabbed /control_panel route into four separate
-# routes (one per former tab) so each tab is a real, bookmarkable page
-# with its own context-sensitive help topic. The tab bar itself is a
-# shared include (templates/includes/cp_tabs.html) so all four pages
-# keep the same look; see that file for the "active tab" highlighting.
+# Four separate routes, one per tab, each a real bookmarkable page
+# with its own help topic. Tab bar is a shared include
+# (templates/includes/cp_tabs.html); see that file for "active tab"
+# highlighting.
 @bp.route("/control_panel")
 @login_required
 def controlpanel():
@@ -104,11 +100,10 @@ def controlpanel():
 def cp_backups():
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### READ THE MOST RECENT BACKUP_HISTORY_KEEP ROWS FOR EACH
-        ### BACKUP TYPE, NEWEST FIRST. Empty is a valid state (a
-        ### fresh install with no backups yet) -- not an error, so
-        ### the template just shows no "last backup" link in that
-        ### case rather than the page failing to load.
+        ### READ THE MOST RECENT BACKUP_HISTORY_KEEP ROWS PER BACKUP
+        ### TYPE, NEWEST FIRST. Empty is valid (fresh install, no
+        ### backups yet), not an error. Template shows no "last
+        ### backup" link in that case.
         cursor = mydb.cursor()
         cursor.execute(
             """
@@ -143,9 +138,8 @@ def cp_backups():
 
 
 ########################################################################
-### CONTROL PANEL -- CLEANUP TAB (launcher; the actual cleanup tools
-### live at their own existing routes, /cp_orphaneditemscleanup and
-### /cp_photofilescleanup)
+### CONTROL PANEL -- CLEANUP TAB (launcher; cleanup tools live at
+### their own routes, /cp_orphaneditemscleanup and /cp_photofilescleanup)
 @bp.route("/cp_cleanup")
 @login_required
 def cp_cleanup():
@@ -158,8 +152,8 @@ def cp_cleanup():
 @login_required
 def cp_server():
     ### OBSCURE PASSWORD MAPPING VARIABLES
-    ### (read via the extensions module so a credential change made
-    ### through the setup wizard is reflected immediately)
+    ### (read via extensions module: reflects wizard credential changes
+    ### immediately)
     obscure_pass = "*" * len(extensions.dbpass) if extensions.dbpass else ""
 
     return render_template(
@@ -174,15 +168,14 @@ def cp_server():
 
 
 ########################################################################
-# SECURITY: POST-only. This runs mysqldump (disk + subprocess cost) and
-# writes a new file every call with no confirmation step, so as a GET
-# route it was CSRF-able -- any page loaded in a logged-in admin's
-# browser (an <img> tag, a link, a crawler) could trigger a backup with
-# no token check, since CSRFProtect only validates state-changing HTTP
-# methods, never GET. Not destructive like boxdeletesuccess, but still
-# an unauthorized-trigger / mild-DoS vector worth closing off. No
-# confirmation dialog is added -- creating a backup isn't something a
-# user needs to be warned before doing, unlike a delete.
+# SECURITY: POST-only. Runs mysqldump (disk + subprocess cost) and
+# writes a new file every call, no confirmation. As a GET route it was
+# CSRF-able -- any page loaded in a logged-in admin's browser (img
+# tag, link, crawler) could trigger a backup with no token check;
+# CSRFProtect only validates state-changing methods, never GET. Not
+# destructive like boxdeletesuccess, but still an unauthorized-trigger
+# / mild-DoS vector. No confirmation dialog needed -- creating a
+# backup isn't a warn-before-doing action, unlike a delete.
 @bp.route("/cp_dbbackup", methods=["POST"])
 @login_required
 @db_errors(exec_msg="Database logging error during backup configuration storage lifecycle.")
@@ -191,11 +184,10 @@ def cp_dbbackup():
     backup_time = str(time.time())
     backup_file = os.path.join(BACKUP_DIR, f"{extensions.dbname}-{backup_time}.sql")
 
-    # Runs mysqldump directly (no shell) with an explicit argument list,
-    # so shell-metacharacter injection isn't possible. The password is
-    # passed via the MYSQL_PWD environment variable rather than on the
-    # command line, since command-line args are visible to any other
-    # local process via `ps`/`/proc` while the dump is running.
+    # Runs mysqldump directly (no shell), explicit argument list --
+    # shell-metacharacter injection isn't possible. Password passed via
+    # MYSQL_PWD env var, not the command line, since command-line args
+    # are visible to other local processes via `ps`/`/proc`.
     dump_env = os.environ.copy()
     dump_env["MYSQL_PWD"] = extensions.dbpass
 
@@ -220,9 +212,8 @@ def cp_dbbackup():
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### RECORD THIS BACKUP IN THE ROUND-ROBIN HISTORY (KEEPS THE
-        ### MOST RECENT BACKUP_HISTORY_KEEP, PRUNES ANY OLDER ONES --
-        ### BOTH THE DB ROW AND THE FILE ON DISK)
+        ### RECORD IN ROUND-ROBIN HISTORY (KEEPS MOST RECENT
+        ### BACKUP_HISTORY_KEEP, PRUNES OLDER: DB ROW AND FILE)
         _record_backup_and_prune(mydb, "db", backup_file, today)
 
     ### RENDER PAGE
@@ -231,20 +222,18 @@ def cp_dbbackup():
 
 ########################################################################
 ### CREATE PHOTO ARCHIVE AND LOG TO DB
-# SECURITY: POST-only -- same reasoning as cp_dbbackup above. This
-# calls shutil.make_archive over the whole item-image directory on
-# every hit; as a GET route it was CSRF-able with no token check.
+# SECURITY: POST-only, same reasoning as cp_dbbackup above. Calls
+# shutil.make_archive over the whole item-image directory every hit;
+# as GET it was CSRF-able with no token check.
 @bp.route("/cp_photoarchive", methods=["POST"])
 @login_required
 @db_errors(exec_msg="Database logging error during image compression archiving lifecycle.")
 def cp_photoarchive():
     ### CREATE AN ARCHIVE OF PHOTOS (SYSTEM FILE IO)
     today = str(date.today())
-    # Include a time component, not just the date, so archiving more
-    # than once on the same day produces distinct files rather than
-    # silently overwriting the previous one -- important now that we
-    # keep BACKUP_HISTORY_KEEP separate archives in rotation, not just
-    # a single "last one".
+    # Time component, not just date: same-day archiving produces
+    # distinct files instead of overwriting. Needed since
+    # BACKUP_HISTORY_KEEP keeps several archives in rotation.
     archive_file = os.path.join(BACKUP_DIR, f"imps_imagearchive.{today}-{time.time()}")
     archive_start_location = ITEM_IMAGE_FS_DIR
     shutil.make_archive(archive_file, "zip", archive_start_location)
@@ -254,9 +243,8 @@ def cp_photoarchive():
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### RECORD THIS ARCHIVE IN THE ROUND-ROBIN HISTORY (KEEPS THE
-        ### MOST RECENT BACKUP_HISTORY_KEEP, PRUNES ANY OLDER ONES --
-        ### BOTH THE DB ROW AND THE FILE ON DISK)
+        ### RECORD IN ROUND-ROBIN HISTORY (KEEPS MOST RECENT
+        ### BACKUP_HISTORY_KEEP, PRUNES OLDER: DB ROW AND FILE)
         _record_backup_and_prune(mydb, "image", archive_file, today)
 
     ### RETURN PAGE
@@ -295,7 +283,6 @@ def cp_categories():
         cursor.close()
 
     ### CONVERT ITEM COUNT ASSIGNMENTS INTO AN OPTIMIZED LOOKUP DICTIONARY
-    # Creates a dictionary structure mapping -> {cat_num: Count Integer}
     counts_lookup = {row[0]: row[1] for row in item_counts_raw}
 
     ### MERGE RELATIONSHIPS INTO A CLEAN TUPLE SET
@@ -303,19 +290,16 @@ def cp_categories():
     for row in categories_master:
         name = row[0]
         num = row[1]
-        
-        # Safely fetch item volume via dictionary keys; defaults to 0 if category is unassigned
+
+        # Defaults to 0 if the category has no items
         count = counts_lookup.get(num, 0)
         items_per_cat.append((name, count, num))
 
-    # Sort alphabetized explicitly by category name index position
     items_per_cat.sort(key=lambda x: x[0])
 
     ### LIST OF EXISTING CATEGORY NAMES FOR CLIENT-SIDE DUPLICATE CHECKING
-    # categories table now has a UNIQUE constraint on cat_name, so a
-    # duplicate add would fail at the DB layer anyway -- this lets the UI
-    # catch it immediately with the same modal pattern used elsewhere
-    # instead of bouncing the user to a raw DB error.
+    # cat_name has a UNIQUE constraint; DB rejects duplicates anyway.
+    # This lets the UI catch it immediately instead of a raw DB error.
     available_categories = [row[0] for row in categories_master]
 
     ### RETURN SUCCESS
@@ -344,25 +328,22 @@ def cp_photofilescleanup():
             err_page_from="/",
         )
 
-    ### CONVERT TUPLE RESULTS TO A CLEAN LIST VIA COMPREHENSION
+    ### EXTRACT NAMES FROM RESULT ROWS
     num_items = len(result)
     item_list = [row[0] for row in result if row[0]]
     item_list.sort()
 
     ### READ ALL FILES IN PHYSICAL DIRECTORY
-    # Filtered to recognized image extensions (the same set IMPS itself
-    # ever uploads -- see allowed_file() in extensions.py) so a stray
-    # non-image file (a leftover archive, a manual copy, anything else
-    # that doesn't belong there) is never treated as a deletable
-    # "orphaned photo" -- not shown as a checkbox option here, and not
-    # swept up by bulk-delete-all either.
+    # Filtered to recognized image extensions (see allowed_file() in
+    # extensions.py). Stray non-image files are never treated as
+    # deletable "orphaned photos".
     files_in_dir = [f for f in os.listdir(ITEM_IMAGE_FS_DIR) if allowed_file(f)]
     files_in_dir.sort()
 
     ### FIND ORPHAN ENTRIES USING SET DIFFERENCING
     orphans = list(set(files_in_dir).difference(item_list))
     
-    # Safely pop out placeholder assets if tracked
+    # Remove placeholder image if present
     if "none.jpg" in orphans:
         orphans.remove("none.jpg")
 
@@ -392,15 +373,13 @@ def cp_photofilesdel():
         if str(x + 1) in checkbox_list:
             requested_deletions.append(str(file_list[x]))
 
-    ### SECURITY: NEVER TRUST CLIENT-SUPPLIED FILENAMES DIRECTLY FOR A
-    ### FILESYSTEM DELETE. Recompute the actual orphan set server-side
-    ### (DB photo references vs. what's really in the image directory)
-    ### and only delete files that are: (a) a bare filename with no path
-    ### separators or traversal sequences, and (b) genuinely present in
-    ### that freshly-computed orphan set. This closes off a path-traversal
-    ### delete (e.g. filename=../../../../etc/passwd) since an attacker
-    ### can only ever select files this route itself already considers
-    ### orphaned image files.
+    ### SECURITY: NEVER TRUST CLIENT-SUPPLIED FILENAMES FOR A FILESYSTEM
+    ### DELETE. Recompute orphan set server-side (DB photo references
+    ### vs. actual image directory contents). Only delete files that
+    ### are a bare filename (no path separators/traversal) and genuinely
+    ### in that orphan set. Closes path-traversal deletes (e.g.
+    ### filename=../../../../etc/passwd): attacker can only select
+    ### files this route already considers orphaned.
     photo_files_query = "SELECT item_pic FROM items;"
     result = run_query(photo_files_query)
 
@@ -436,7 +415,7 @@ def cp_photofilesdel():
 
     files_to_del = [f for f in requested_deletions if is_safe_orphan_filename(f)]
 
-    ### EXECUTE SYSTEM FILE DELETIONS OUTSIDE DATABASE LIFE CONTEXT
+    ### DELETE FILES ON DISK
     for filename_to_remove in files_to_del:
         try:
             os.remove(os.path.join(image_dir, filename_to_remove))
@@ -460,7 +439,7 @@ def cp_photofilesdel():
             err_page_from="/",
         )
 
-    ### PARSE FRESH DATA COMPREHENSIONS POST TRANSACTION CONTEXT
+    ### RE-QUERY AFTER DELETION
     item_list = [row[0] for row in result if row[0]]
     item_list.sort()
 
@@ -500,15 +479,14 @@ def cp_delallorphanphotos():
             err_page_from="/",
         )
 
-    ### CONVERT TUPLE RESULTS TO A CLEAN LIST VIA COMPREHENSION
+    ### EXTRACT NAMES FROM RESULT ROWS
     item_list = [row[0] for row in result if row[0]]
     item_list.sort()
 
     ### READ ALL FILES IN PHYSICAL DIRECTORY
-    # Same image-extension filter as cp_photofilescleanup() above --
-    # especially important here, since this route deletes every file
-    # in the computed orphan set immediately with no per-file
-    # confirmation step first.
+    # Same image-extension filter as cp_photofilescleanup() above.
+    # Especially important here: this route deletes every file in the
+    # orphan set immediately, no per-file confirmation.
     files_in_dir = [f for f in os.listdir(ITEM_IMAGE_FS_DIR) if allowed_file(f)]
     files_in_dir.sort()
 
@@ -519,8 +497,8 @@ def cp_delallorphanphotos():
     if "none.jpg" in orphans:
         orphans.remove("none.jpg")
 
-    ### EXECUTE BULK DELETIONS OUTSIDE OF DATABASE CONNECTION BOUNDARIES
-    # If a large directory causes filesystem lag, it won't trigger pool starvation
+    ### DELETE FILES OUTSIDE THE DB CONNECTION -- a slow filesystem
+    ### shouldn't hold a pooled connection open
     for orphan_file in orphans:
         try:
             os.remove(os.path.join(ITEM_IMAGE_FS_DIR, orphan_file))
@@ -570,11 +548,10 @@ def cp_editcat(cat_num):
             )
         cat_name = result[0]
 
-        ### 'UNCATEGORIZED' IS PROTECTED -- cp_categories.html disables
-        ### its edit button client-side, but that's cosmetic only. This
-        ### is the real enforcement: someone hitting this URL directly
-        ### (or with JS disabled) shouldn't be able to rename the
-        ### category every uncategorized item silently falls back to.
+        ### 'UNCATEGORIZED' IS PROTECTED. cp_categories.html disables its
+        ### edit button client-side, but that's cosmetic. Real
+        ### enforcement is here: a direct URL hit (or JS disabled)
+        ### shouldn't rename the fallback category for uncategorized items.
         if cat_name == "Uncategorized":
             return render_template(
                 "errorpage.html",
@@ -583,8 +560,8 @@ def cp_editcat(cat_num):
             )
 
         ### LIST OF ALL OTHER CATEGORY NAMES, FOR CLIENT-SIDE DUPLICATE
-        ### CHECKING (excludes this category's own current name, since
-        ### saving the form unchanged shouldn't trip a "duplicate" warning)
+        ### CHECKING (excludes this category's own name -- saving the
+        ### form unchanged shouldn't trip a "duplicate" warning)
         all_cats_query = """ SELECT cat_name FROM categories """
         cursor = mydb.cursor()
         cursor.execute(all_cats_query)
@@ -623,9 +600,9 @@ def cp_cateditsuccess(cat_num):
     form_cat_num = request.form.get("cat_num")
     cat_name = request.form.get("cat_name") or ""
 
-    ### VALIDATE CATEGORY NAME LENGTH -- the edit form already enforces
-    ### this client-side via maxlength="50" + JS (see cp_catedit.html),
-    ### but that's client-side only; a direct POST bypasses it entirely.
+    ### VALIDATE CATEGORY NAME LENGTH. Edit form enforces this
+    ### client-side (maxlength="64" + JS, see cp_catedit.html), but a
+    ### direct POST bypasses that.
     if len(cat_name) > MAX_CATEGORY_NAME_LENGTH:
         return render_template(
             "errorpage.html",
@@ -635,9 +612,8 @@ def cp_cateditsuccess(cat_num):
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### 1. SAME PROTECTION AS cp_editcat -- enforced again here since
-        ### this is the route that actually writes the change, and it
-        ### can be POSTed to directly without ever visiting the edit
+        ### 1. SAME PROTECTION AS cp_editcat. This route writes the
+        ### change and can be POSTed to directly, bypassing the edit
         ### page above.
         get_old_cat_query = """ SELECT cat_name FROM categories WHERE cat_num = %s """
         cursor = mydb.cursor()
@@ -661,22 +637,19 @@ def cp_cateditsuccess(cat_num):
                 err_page_from="/control_panel/cp_categories",
             )
 
-        ### 2. EXECUTE QUERY TO UPDATE CATEGORIES MASTER RECORD -- this
-        ### is now the ONLY write this route needs to make. Since items
-        ### reference cat_num (a real foreign key) rather than a copy
-        ### of the name, every item already "sees" the new name the
-        ### instant this one row changes, via the join every read query
-        ### does (see ITEMS_WITH_CAT_NAME in items.py) -- no more
-        ### separate "propagate to every item" cascade required.
+        ### 2. UPDATE THE CATEGORIES MASTER RECORD -- the only write this
+        ### route needs. Items reference cat_num (a real foreign key)
+        ### rather than a copy of the name, so every item "sees" the new
+        ### name the instant this row changes, via the join every read
+        ### query does (see ITEMS_WITH_CAT_NAME in items.py).
         #
-        # Caught here (rather than left to the @db_errors decorator's
-        # generic Exception handler) because the UNIQUE constraint on
-        # categories.cat_name can raise IntegrityError here, and the
-        # message needs the request-specific cat_name/cat_num values --
-        # something a decorator argument, evaluated once at import time,
-        # can't provide. Already checked client-side in cp_catedit.html's
-        # JS; this only fires if JS is disabled or two admins rename to
-        # the same name at the same moment.
+        # Caught here, not the @db_errors decorator's generic handler:
+        # UNIQUE constraint on categories.cat_name can raise
+        # IntegrityError, and the message needs request-specific
+        # cat_name/cat_num values a decorator argument can't provide.
+        # Already checked client-side in cp_catedit.html's JS; fires
+        # only if JS is disabled or two admins rename to the same name
+        # at once.
         update_cat_query = """ UPDATE categories SET cat_name = %s WHERE cat_num = %s """
         cursor = mydb.cursor()
         try:
@@ -771,16 +744,11 @@ def cp_catdelsuccess(cat_num):
             )
         cat_name = result[0]
 
-        ### SAME PROTECTION AS cp_editcat/cp_catdel -- enforced again
-        ### here since this is the route that actually deletes the
-        ### row, and it can be POSTed to directly. items.cat_num is now
-        ### a real foreign key with ON DELETE RESTRICT (see
-        ### deploy/schema.sql) -- the database itself would refuse this
-        ### delete if any item still referenced this category, so the
-        ### explicit reassignment step below (2) isn't strictly needed
-        ### for correctness anymore, but it's kept so deleting a
-        ### category still "just works" instead of bouncing the person
-        ### to a raw FK-constraint error.
+        ### SAME PROTECTION AS cp_editcat/cp_catdel. This route deletes
+        ### the row and can be POSTed to directly. items.cat_num has
+        ### ON DELETE RESTRICT (see deploy/schema.sql), so without the
+        ### reassignment step below (2), deleting an in-use category
+        ### would raise a raw FK-constraint error instead.
         if cat_name == "Uncategorized":
             return render_template(
                 "errorpage.html",
@@ -791,13 +759,10 @@ def cp_catdelsuccess(cat_num):
         ### 2. REASSIGN ITEMS MATCHING THIS CATEGORY TO 'UNCATEGORIZED'.
         ### Resolved by NAME rather than hardcoding cat_num 0 -- 0 is
         ### only guaranteed to be Uncategorized's id on a fresh install
-        ### (see deploy/schema.sql's seed data). On a database that
-        ### went through deploy/migrate_string_fks.py, Uncategorized
-        ### keeps whatever cat_num it already had (whatever
-        ### AUTO_INCREMENT originally assigned it, e.g. 1) -- hardcoding
-        ### 0 there points at a cat_num that may not exist at all,
-        ### which raises exactly the FK error this reassignment is
-        ### trying to avoid in the first place.
+        ### (see deploy/schema.sql's seed data). Elsewhere, Uncategorized's
+        ### cat_num is whatever AUTO_INCREMENT assigned it, so hardcoding
+        ### 0 could point at a cat_num that doesn't exist, raising the
+        ### exact FK error this reassignment exists to avoid.
         cursor = mydb.cursor()
         uncategorized_cat_num = get_or_create_cat_num(cursor, "Uncategorized")
         cursor.close()
@@ -818,7 +783,7 @@ def cp_catdelsuccess(cat_num):
 
 
 ########################################################################
-### RE-ROUTED EMPTY STUB HANDLER (FOR CONTEXT CLEANUP)
+### REDIRECT TO THE REAL BULK-DELETE ENDPOINT
 @bp.route("/cp_delallorphans", methods=["POST"])
 @login_required
 def cp_delallorphans():
@@ -837,7 +802,7 @@ def cp_addcat():
     new_cat = request.form.get("new_cat") or ""
 
     ### VALIDATE CATEGORY NAME LENGTH -- the "add category" form
-    ### already enforces this client-side via maxlength="50" + JS (see
+    ### already enforces this client-side via maxlength="64" + JS (see
     ### cp_categories.html), but that's client-side only; a direct
     ### POST bypasses it entirely.
     if len(new_cat) > MAX_CATEGORY_NAME_LENGTH:
@@ -850,14 +815,12 @@ def cp_addcat():
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### ADD CATEGORY TO DB
-        # Caught here (rather than left to the @db_errors decorator's
-        # generic Exception handler) because the UNIQUE constraint on
-        # categories.cat_name can raise IntegrityError here, and the
-        # message needs the request-specific new_cat value -- something
-        # a decorator argument, evaluated once at import time, can't
-        # provide. The "add category" form already checks this
-        # client-side with JavaScript, so this only fires if JS is
-        # disabled or two admins submit the same new name at once.
+        # Caught here, not the @db_errors decorator's generic handler:
+        # UNIQUE constraint on categories.cat_name can raise
+        # IntegrityError, and the message needs the request-specific
+        # new_cat value a decorator argument can't provide. The "add
+        # category" form already checks this client-side; fires only
+        # if JS is disabled or two admins submit the same name at once.
         add_cat_query = """ INSERT INTO categories (cat_num, cat_name) VALUES (NULL, %s) """
         cursor = mydb.cursor()
         try:
@@ -884,11 +847,11 @@ def cp_addcat():
 def cp_orphan_list():
     # Fetch an active, thread-safe connection from the pool
     find_orphans_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
-                                     c.cat_name, i.item_desc
+                                     c.cat_name AS item_cat, i.item_desc
                               FROM items i
                               JOIN categories c ON i.cat_num = c.cat_num
                               WHERE i.box_num IS NULL; """
-    result = run_query(find_orphans_query)
+    result = run_query(find_orphans_query, as_dict=True)
 
     ### READ THE COLUMN COOKIES
     info_column = request.cookies.get("info_column")
@@ -922,11 +885,11 @@ def cp_orphan_list():
 def orphan_vs():
     # Fetch an active, thread-safe connection from the pool
     find_orphans_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
-                                     c.cat_name, i.item_desc
+                                     c.cat_name AS item_cat, i.item_desc
                               FROM items i
                               JOIN categories c ON i.cat_num = c.cat_num
                               WHERE i.box_num IS NULL; """
-    result = run_query(find_orphans_query)
+    result = run_query(find_orphans_query, as_dict=True)
 
     ### READ THE COLUMN COOKIES
     info_column = request.cookies.get("info_column")
@@ -982,8 +945,8 @@ def cp_locations():
                 err_page_from="/",
             )
 
-        ### 2. OPTIMIZED: QUERY QUANTITY OF BOXES ASSIGNED PER LOCATION AT ONCE
-        # Completely eliminates running N consecutive loop queries against your DB engine!
+        ### 2. QUANTITY OF BOXES ASSIGNED PER LOCATION, IN ONE QUERY
+        # Avoids N separate queries, one per location.
         box_by_loc_query = """ SELECT loc_num, COUNT(*) FROM boxes GROUP BY loc_num; """
         cursor = mydb.cursor()
         cursor.execute(box_by_loc_query)
@@ -1001,14 +964,14 @@ def cp_locations():
     ### PARSE EXTRACTED MASTER LOCATIONS LIST
     locations = [row[0] for row in locations_result]
 
-    ### CONVERT AGGREGATED BOX QUANTITIES INTO A RAPID O(1) LOOKUP DICTIONARY
+    ### CONVERT AGGREGATED BOX QUANTITIES INTO A LOOKUP DICTIONARY
     counts_lookup = {row[0]: row[1] for row in box_counts_raw}
     name_to_num = {row[0]: row[1] for row in loc_nums_result}
 
-    ### MERGE RELATIONSHIPS SYNCHRONOUSLY
+    ### MERGE COUNTS BACK ONTO EACH LOCATION NAME
     loc_count = []
     for loc_name in locations:
-        # Maps the count integer; defaults to 0 if a location does not have any physical boxes assigned
+        # Defaults to 0 if the location has no boxes
         loc_count.append(counts_lookup.get(name_to_num.get(loc_name), 0))
 
     ### SHOW LOCATION PAGE
@@ -1046,7 +1009,7 @@ def cp_editloc(loc_name):
                 err_page_from="/",
             )
 
-        ### CONVERT TUPLE ENTRIES INTO A CLEAN LIST VIA COMPREHENSION
+        ### EXTRACT LOCATION NAMES
         locations = [row[0] for row in all_locs_result]
 
         ### VERIFY ROUTE DECORATOR INPUT VALUES MATCH KNOWN ENTRIES
@@ -1099,17 +1062,25 @@ def cp_editloc(loc_name):
 @login_required
 @db_errors(exec_msg="Database error. Could not append new location record definition.")
 def cp_addloc():
-    new_loc = request.form.get("new_loc")
+    new_loc = request.form.get("new_loc") or ""
 
-    # Caught here (rather than left to the @db_errors decorator's
-    # generic Exception handler) because the UNIQUE constraint on
-    # locations.loc_name can raise IntegrityError here, and the
-    # message needs the request-specific new_loc value -- something a
-    # decorator argument, evaluated once at import time, can't
-    # provide. The "add location" form doesn't check this client-side
-    # yet (see cp_locations.html), so this is currently the only thing
-    # standing between two submissions of the same name and a
-    # duplicate row.
+    ### VALIDATE LOCATION NAME LENGTH -- the "add location" form
+    ### enforces this client-side via maxlength + JS (see
+    ### cp_locations.html), but that's client-side only; a direct POST
+    ### bypasses it entirely.
+    if len(new_loc) > MAX_LOCATION_NAME_LENGTH:
+        return render_template(
+            "errorpage.html",
+            err_message=f"Location names are limited to {MAX_LOCATION_NAME_LENGTH} characters.",
+            err_page_from="/cp_locations",
+        )
+
+    # Caught here, not the @db_errors decorator's generic handler:
+    # UNIQUE constraint on locations.loc_name can raise IntegrityError,
+    # and the message needs the request-specific new_loc value a
+    # decorator argument can't provide. The "add location" form doesn't
+    # check this client-side yet (see cp_locations.html), so this is the
+    # only guard against duplicate submissions.
     add_loc_query = """ INSERT INTO locations (loc_num, loc_name) VALUES (NULL, %s) """
     try:
         run_query(add_loc_query, (new_loc,), fetch=None)
@@ -1135,8 +1106,18 @@ def cp_addloc():
 def cp_locedited():
     ### GET FORM DATA
     loc_num = request.form.get("loc_num")
-    new_loc_name = request.form.get("new_loc_name")
+    new_loc_name = request.form.get("new_loc_name") or ""
     old_loc_name = request.form.get("old_loc_name")
+
+    ### VALIDATE LOCATION NAME LENGTH -- the edit form enforces this
+    ### client-side via maxlength + JS (see cp_locedit.html), but a
+    ### direct POST bypasses it entirely.
+    if len(new_loc_name) > MAX_LOCATION_NAME_LENGTH:
+        return render_template(
+            "errorpage.html",
+            err_message=f"Location names are limited to {MAX_LOCATION_NAME_LENGTH} characters.",
+            err_page_from=f"/cp_editloc/{old_loc_name}",
+        )
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
@@ -1155,7 +1136,7 @@ def cp_locedited():
                 err_page_from="/",
             )
 
-        ### CONVERT TUPLE RESULTS TO A CLEAN LIST VIA COMPREHENSION
+        ### EXTRACT NAMES FROM RESULT ROWS
         locations = [row[0] for row in loc_result]
 
         ### VERIFY WE ARE UPDATING A KNOWN LOCATION
@@ -1166,9 +1147,8 @@ def cp_locedited():
                 err_page_from="/cp_locations",
             )
 
-        ### SAME PROTECTION AS cp_editloc -- enforced again here since
-        ### this is the route that actually writes the change, and it
-        ### can be POSTed to directly without ever visiting the edit
+        ### SAME PROTECTION AS cp_editloc. This route writes the
+        ### change and can be POSTed to directly, bypassing the edit
         ### page above.
         if old_loc_name == "Unspecified":
             return render_template(
@@ -1178,13 +1158,11 @@ def cp_locedited():
             )
 
         ### 2. EXECUTE QUERY TO UPDATE LOCATION NAME
-        # Caught here (rather than left to the @db_errors decorator's
-        # generic Exception handler) because the UNIQUE constraint on
-        # locations.loc_name can raise IntegrityError here, and the
-        # message needs the request-specific new_loc_name/loc_num
-        # values -- something a decorator argument, evaluated once at
-        # import time, can't provide. Mirrors cp_cateditsuccess()'s
-        # handling of the same case for categories.
+        # Caught here, not the @db_errors decorator's generic handler:
+        # UNIQUE constraint on locations.loc_name can raise
+        # IntegrityError, and the message needs the request-specific
+        # new_loc_name/loc_num values a decorator argument can't
+        # provide. Mirrors cp_cateditsuccess()'s handling for categories.
         loc_update_query = """ UPDATE locations SET loc_name = %s WHERE loc_num = %s; """
         cursor = mydb.cursor()
         try:
@@ -1228,7 +1206,7 @@ def cp_delloc(loc_name):
                 err_page_from="/",
             )
 
-        ### CONVERT TUPLE RESULTS TO A CLEAN LIST VIA COMPREHENSION
+        ### EXTRACT NAMES FROM RESULT ROWS
         locations = [row[0] for row in loc_result]
 
         ### VERIFY ROUTE DECORATOR IS A KNOWN LOCATION
@@ -1277,11 +1255,9 @@ def cp_delloc(loc_name):
 @login_required
 @db_errors(exec_msg="Database error. Could not safely remove location or update dependent box records.")
 def cp_locdelsuccess(loc_name):
-    ### SAME PROTECTION AS cp_editloc/cp_delloc -- enforced again here
-    ### since this is the route that actually deletes the row, and it
-    ### can be POSTed to directly. Losing this row would break the
-    ### fallback boxadded() in boxes.py relies on for any box left
-    ### without a location.
+    ### SAME PROTECTION AS cp_editloc/cp_delloc. This route deletes
+    ### the row and can be POSTed to directly. Losing this row would
+    ### break boxadded()'s fallback in boxes.py for boxes with no location.
     if loc_name == "Unspecified":
         return render_template(
             "errorpage.html",
@@ -1292,7 +1268,7 @@ def cp_locdelsuccess(loc_name):
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### 0. RESOLVE loc_num -- needed below since boxes.loc_num is
-        ### the real foreign key now, not the location name string.
+        ### the real foreign key, not the location name string.
         loc_num_query = """ SELECT loc_num FROM locations WHERE loc_name = %s """
         cursor = mydb.cursor()
         cursor.execute(loc_num_query, (loc_name,))
@@ -1310,23 +1286,15 @@ def cp_locdelsuccess(loc_name):
         ### 1. REASSIGN BOXES MATCHING THIS LOCATION TO 'UNSPECIFIED'.
         ### Resolved by NAME rather than hardcoding loc_num 0 -- 0 is
         ### only guaranteed to be Unspecified's id on a fresh install
-        ### (see deploy/schema.sql's seed data). On a database that
-        ### went through deploy/migrate_string_fks.py, Unspecified
-        ### keeps whatever loc_num it already had (whatever
-        ### AUTO_INCREMENT originally assigned it, e.g. 1) --
-        ### hardcoding 0 there points at a loc_num that may not exist
-        ### at all, which raises exactly the FK error this
-        ### reassignment is trying to avoid in the first place. (This
-        ### was a real bug caught in testing: error 1452 on this
-        ### UPDATE, not on the DELETE below.)
+        ### (see deploy/schema.sql's seed data). Elsewhere, Unspecified's
+        ### loc_num is whatever AUTO_INCREMENT assigned it, so hardcoding
+        ### 0 could point at a loc_num that doesn't exist, raising the
+        ### exact FK error this reassignment exists to avoid.
         ###
         ### boxes.loc_num is a real foreign key with ON DELETE RESTRICT
-        ### (see deploy/schema.sql) -- the database itself would refuse
-        ### the delete below if any box still referenced this location,
-        ### so this reassignment isn't strictly needed for correctness
-        ### anymore, but it's kept so deleting a location still "just
-        ### works" instead of bouncing the person to a raw FK-constraint
-        ### error.
+        ### (see deploy/schema.sql), so without this reassignment the
+        ### delete below would bounce the person to a raw FK-constraint
+        ### error instead of succeeding.
         cursor = mydb.cursor()
         unspecified_loc_num = get_or_create_loc_num(cursor, "Unspecified")
         cursor.close()

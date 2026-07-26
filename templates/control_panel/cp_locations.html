@@ -58,7 +58,7 @@
 	<div>
                 <form action="/cp_addloc" name="add_loc" id="add_loc" method="POST" onsubmit="return validateForm(event);" >
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-				<input type="text" name="new_loc" id="new_loc" width="14"></input>
+				<input type="text" name="new_loc" id="new_loc" width="14" maxlength="255"></input>
 				<button type="submit" class="imps icon-left add">
 					Add location
 				</button>
@@ -71,6 +71,11 @@ function validateForm() {
 
   if (new_cat == ""){
     showValidationError("A location name <br>is required.");
+    return false;
+  }
+
+  if (new_cat.length > 255){
+    showValidationError("Location names are limited to 255 characters.");
     return false;
   }
 }

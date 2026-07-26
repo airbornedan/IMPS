@@ -33,7 +33,7 @@
 	</div>
 	<div >Description (Optional)</div>
         <div >
-                <textarea rows="4" cols="40" name="item_desc" id="item_desc"></textarea>
+                <textarea rows="4" cols="40" name="item_desc" id="item_desc" maxlength="255"></textarea>
         </div>
         <div>
                 <input type="radio" id="no" name="photo_yes_no" value="no" checked>
@@ -110,6 +110,12 @@ function validateForm() {
 
   if (name_input.length > 50){
     showValidationError("Item names are limited to 50 characters. <br>Use the description field to store <br>more information about this item.");
+    return false;
+  }
+
+  let desc_input = document.forms["add_item"]["item_desc"].value;
+  if (desc_input.length > 255){
+    showValidationError("Item descriptions are limited to 255 characters.");
     return false;
   }
 

@@ -11,7 +11,7 @@
      <p>Location name:</p>
 	     <input type="hidden" id="loc_num" name="loc_num" value="{{old_loc_num}}">
 	     <input type="hidden" id="old_loc_name" name="old_loc_name" value="{{old_loc_name}}">
-	     <input id="new_loc_name" type="text" name="new_loc_name" size="12" value="{{old_loc_name}}">
+	     <input id="new_loc_name" type="text" name="new_loc_name" size="12" maxlength="255" value="{{old_loc_name}}">
 </div>
 <div>
       <button type="submit" class="imps icon-left update">
@@ -27,6 +27,11 @@ function validateForm() {
 
   if (loc_name == ""){
     showValidationError("The location name<br>cannot be blank.");
+    return false;
+  }
+
+  if (loc_name.length > 255){
+    showValidationError("Location names are limited to 255 characters.");
     return false;
   }
 }

@@ -10,10 +10,8 @@
 --   mysql -u box_user -p box_db < static/backup/schema.sql
 --
 -- MIGRATING AN EXISTING INSTALL: this file is for FRESH installs
--- only (it DROPs and recreates every table). If you already have
--- data, use deploy/migrate_string_fks.py instead -- it converts an
--- existing database to this same structure in place, without losing
--- data.
+-- only (it DROPs and recreates every table). Do not run this
+-- against a database with existing data you want to keep.
 --
 -- Table order matters here: categories/locations are created first
 -- because boxes/items now hold real foreign keys into them (see
@@ -29,7 +27,7 @@ DROP TABLE IF EXISTS `boxes`;
 DROP TABLE IF EXISTS `categories`;
 CREATE TABLE `categories` (
   `cat_num` int NOT NULL AUTO_INCREMENT,
-  `cat_name` varchar(36) NOT NULL,
+  `cat_name` varchar(64) NOT NULL,
   PRIMARY KEY (`cat_num`),
   UNIQUE KEY `uq_categories_cat_name` (`cat_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

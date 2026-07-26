@@ -51,8 +51,8 @@ def create_app():
     # imps_config.toml.example for the config format and the
     # Docker/reverse-proxy caveat. Deliberately simple: reject anything
     # outside the derived home-network range, no exceptions list, no
-    # X-Forwarded-For handling -- this only makes sense for IMPS talking
-    # to clients directly (the plain Apache/mod_wsgi deploy).
+    # X-Forwarded-For handling -- only makes sense for IMPS talking to
+    # clients directly (the plain Apache/mod_wsgi deploy).
     @app.before_request
     def enforce_lan_restriction():
         if not extensions.LAN_RESTRICTION_ENABLED:
@@ -69,21 +69,20 @@ def create_app():
     ### STATIC FILE CACHING
     ####################################################################
     # Without this, Flask's static handler only sets an ETag/
-    # Last-Modified, so the browser still issues a conditional GET (and
-    # waits on a 304 response) for every static asset -- including the
-    # header logo -- on every single page navigation, since this app
-    # does a full page reload on every link click. That round trip is
-    # what was showing up as a visible flash/repaint of the logo.
+    # Last-Modified, so the browser issues a conditional GET (and waits
+    # on a 304) for every static asset -- including the header logo --
+    # on every page navigation, since this app does a full page reload
+    # on every link click. That round trip shows up as a visible
+    # flash/repaint of the logo.
     #
     # A max-age here lets the browser skip asking the server entirely
-    # for repeat views within this window, instead of just skipping
-    # the download. Kept fairly short (1 hour) rather than the usual
-    # far-future value, since static/help/*.html is being actively
-    # hand-edited right now -- a long cache would mean edited help
-    # pages don't show up in the browser until it expires or the page
-    # gets a hard refresh. Once help content settles down this can be
-    # raised (a day, a week) for a bit more benefit on the rarely
-    # changing assets (logo, icons, CSS/JS).
+    # for repeat views within this window, not just skip the download.
+    # Kept fairly short (1 hour) rather than the usual far-future
+    # value, since static/help/*.html is actively hand-edited -- a long
+    # cache would mean edited help pages don't show up in the browser
+    # until it expires or gets a hard refresh. Once help content
+    # settles, this can be raised (a day, a week) for more benefit on
+    # the rarely-changing assets (logo, icons, CSS/JS).
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 3600
 
     ####################################################################
@@ -118,11 +117,11 @@ def create_app():
     # Derives a stable "topic" name from the current route so templates
     # can point the help panel's iframe at
     # /static/help/imps_<help_topic>_help.html without every route
-    # having to set this itself. URL variables (<box_num>, <item_num>,
-    # etc.) are stripped out first since the *route* is the help topic,
-    # not whichever particular box/item/category happened to be in the
-    # URL -- e.g. /boxshowcontent/4 and /boxshowcontent/17 both resolve
-    # to the same "boxshowcontent" topic.
+    # setting this itself. URL variables (<box_num>, <item_num>, etc.)
+    # are stripped out first since the *route* is the help topic, not
+    # whichever box/item/category happened to be in the URL -- e.g.
+    # /boxshowcontent/4 and /boxshowcontent/17 both resolve to the same
+    # "boxshowcontent" topic.
     @app.context_processor
     def inject_help_topic():
         topic = "home"

@@ -6,12 +6,11 @@
 # JSON list of {topic, title, snippet}.
 #
 # The corpus here is small and static (46 short files, only ever
-# changed by hand-editing them in static/help/) so this deliberately
-# does the simplest thing that can't go stale: read the files fresh
-# from disk into an in-memory list, cached at module scope, and
-# substring-match against title + body text. No build step, no search
-# index file to remember to regenerate -- whatever's on disk right
-# now is what gets searched.
+# changed by hand-editing them in static/help/) so this does the
+# simplest thing that can't go stale: read the files fresh from disk
+# into an in-memory list, cached at module scope, and substring-match
+# against title + body text. No build step, no search index file to
+# regenerate -- whatever's on disk gets searched.
 import os
 import re
 

@@ -3,42 +3,39 @@
 ### IMPS DATABASE SETUP
 ########################################################################
 # One-time, root-privileged provisioning: creates the MySQL/MariaDB
-# database and user account IMPS will run as, and grants that user
-# just enough privilege to manage its own tables. Run this ONCE,
-# after imps_config.toml exists and BEFORE visiting /setup in a
-# browser.
+# database and user account IMPS runs as, and grants that user just
+# enough privilege to manage its own tables. Run this ONCE, after
+# imps_config.toml exists and BEFORE visiting /setup in a browser.
 #
 # WHAT THIS DOES NOT DO: create IMPS's tables. That happens in the
 # /setup web wizard (app/blueprints/setup.py) the first time you log
-# in. It's handled there rather than here because box_user (the
-# account this script creates) is already granted CREATE/DROP/ALTER
-# on its own database -- table creation genuinely doesn't need root,
-# so it belongs in the app, where it can also detect and prompt
-# before overwriting a database that already has real data in it
-# (something this script has no way to know about). Nothing here
-# touches schema.sql.
+# in. Handled there rather than here because box_user (the account
+# this script creates) is already granted CREATE/DROP/ALTER on its own
+# database -- table creation doesn't need root, so it belongs in the
+# app, where it can also detect and prompt before overwriting a
+# database that already has real data (this script has no way to know
+# about that). Nothing here touches schema.sql.
 #
 # WHY THIS ISN'T PART OF THE APP ITSELF: the account IMPS runs as
-# (box_user, by default) is deliberately scoped to box_db.* only --
-# it can manage its own tables, but it can't create other databases
-# or users. Doing that instead requires the MySQL/MariaDB root
-# account, and the /setup wizard's routes are reachable over the
-# network with no login yet (there's no password to check until
-# setup finishes) -- see the docstring at the top of
-# app/blueprints/setup.py. Handing root DB credentials to code behind
-# an unauthenticated web route would erase that safety boundary, so
-# this stays a separate script that only ever runs at the terminal,
-# by whoever already has root/sudo on the machine.
+# (box_user, by default) is deliberately scoped to box_db.* only -- it
+# can manage its own tables, but can't create other databases or
+# users. That requires the MySQL/MariaDB root account, and the /setup
+# wizard's routes are reachable over the network with no login yet
+# (no password to check until setup finishes) -- see the docstring at
+# the top of app/blueprints/setup.py. Handing root DB credentials to
+# code behind an unauthenticated web route would erase that safety
+# boundary, so this stays a separate script that only runs at the
+# terminal, by whoever already has root/sudo on the machine.
 #
 # CREDENTIALS: reads the target database name/user/password straight
 # out of imps_config.toml's [database] section -- whatever's already
-# there -- so there's exactly one place those values live, instead of
-# a second copy to keep in sync. Root access to the DB server itself
-# is obtained via passwordless sudo/unix_socket auth (the default for
-# a fresh Debian/Ubuntu MariaDB install) with no prompt needed in the
-# common case; if that doesn't work, this falls back to prompting for
-# root DB credentials interactively (never stored, never passed as a
-# command-line argument, never logged).
+# there -- so there's exactly one place those values live, not a
+# second copy to keep in sync. Root access to the DB server itself is
+# obtained via passwordless sudo/unix_socket auth (the default for a
+# fresh Debian/Ubuntu MariaDB install), no prompt needed in the common
+# case; otherwise falls back to prompting for root DB credentials
+# interactively (never stored, never passed as a command-line
+# argument, never logged).
 #
 # USAGE (from the IMPS install root, i.e. the same directory
 # imps_config.toml lives in):
@@ -70,7 +67,7 @@ except ImportError:
     )
 
 ### RESOLVED RELATIVE TO THIS SCRIPT'S OWN LOCATION, NOT THE CURRENT
-### WORKING DIRECTORY -- this script now lives in deploy/, alongside
+### WORKING DIRECTORY -- this script lives in deploy/, alongside
 ### schema.sql/setup.sql, and is meant to be run as `cd deploy &&
 ### sudo python3 db_setup.py`, so a bare relative "imps_config.toml"
 ### would look in deploy/ and never find it.

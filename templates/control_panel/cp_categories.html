@@ -63,7 +63,7 @@
 	<div>
 		<form action="/cp_addcat" name="add_cat" id="add_cat" method="POST" onsubmit="return validateForm(event);" >
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-			<input type="text" name="new_cat" id="new_cat" width="14" maxlength="50"></input>
+			<input type="text" name="new_cat" id="new_cat" width="14" maxlength="64"></input>
 			<button type="submit" class="imps icon-left add">
 				Add category
 			</button>
@@ -78,8 +78,8 @@ showValidationError("A category name is required.");
 return false;
 }
 
-if (new_cat.length > 50){
-showValidationError("Category names are limited to 50 characters.");
+if (new_cat.length > 64){
+showValidationError("Category names are limited to 64 characters.");
 return false;
 }
 

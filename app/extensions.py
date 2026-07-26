@@ -14,6 +14,7 @@ import secrets
 import bcrypt
 import toml
 from contextlib import contextmanager
+from datetime import date
 from functools import wraps
 from flask import session, redirect, url_for, render_template, request
 from mysql.connector import pooling
@@ -53,21 +54,18 @@ dbpass = imps_config["database"]["password"]
 IMPS_DIR = imps_config["directories"]["imps_dir"]
 IMPS_IP = imps_config["directories"]["imps_ip"]
 
-### ITEM_IMAGE_DIR HAS TWO DIFFERENT JOBS, SO IT NEEDS TWO DIFFERENT
-### FORMS. The toml value (e.g. "static/images/items/") is a plain
-### path relative to IMPS_DIR, same convention as backup_dir below.
-### Templates use it directly as a URL fragment
-### (<img src="{{ITEM_IMAGE_DIR}}{{item_pic}}">), which needs a
-### leading slash to be a valid root-relative URL; filesystem code
-### (os.listdir, os.remove, saving uploads, etc) needs an actual path
-### on disk, anchored to IMPS_DIR -- and os.path.join() can't be used
-### for that directly, because a component starting with "/" makes it
-### treat that component as absolute and silently discard everything
-### before it (IMPS_DIR would just vanish). So both forms are derived
-### once, here, from the single relative config value:
+### ITEM_IMAGE_DIR HAS TWO JOBS, SO IT NEEDS TWO FORMS. The toml value
+### (e.g. "static/images/items/") is a plain path relative to
+### IMPS_DIR, same convention as backup_dir below. Templates use it as
+### a URL fragment (<img src="{{ITEM_IMAGE_DIR}}{{item_pic}}">), which
+### needs a leading slash to be root-relative. Filesystem code
+### (os.listdir, os.remove, saving uploads) needs an actual path on
+### disk anchored to IMPS_DIR -- os.path.join() can't do that directly,
+### since a component starting with "/" makes it discard everything
+### before it (IMPS_DIR would vanish). Both forms are derived once,
+### here, from the single relative config value:
 ###   ITEM_IMAGE_DIR    -- "/" + relative value, URL-relative, template-facing
-###   ITEM_IMAGE_FS_DIR -- filesystem-absolute, resolved once here,
-###                        for every filesystem call site instead
+###   ITEM_IMAGE_FS_DIR -- filesystem-absolute, resolved once here
 _item_image_dir_rel = imps_config["directories"]["item_image_dir"]
 ITEM_IMAGE_DIR = "/" + _item_image_dir_rel
 ITEM_IMAGE_FS_DIR = os.path.join(IMPS_DIR, _item_image_dir_rel)
@@ -78,10 +76,10 @@ ITEM_IMAGE_FS_DIR = os.path.join(IMPS_DIR, _item_image_dir_rel)
 BACKUP_DIR = os.path.join(IMPS_DIR, imps_config["directories"]["backup_dir"])
 
 ### VALIDATE imps_dir BEFORE ANYTHING ELSE TRIES TO USE IT
-### A missing/incorrect imps_dir fails here with a plain, specific
-### message and a clean exit. (BACKUP_DIR/ITEM_IMAGE_FS_DIR aren't
-### checked here: they're allowed to not exist yet on a fresh install --
-### the setup wizard's status page just shows them red.)
+### A missing/incorrect imps_dir fails here with a plain message and
+### clean exit. (BACKUP_DIR/ITEM_IMAGE_FS_DIR aren't checked: they're
+### allowed to not exist yet on a fresh install -- setup wizard's
+### status page just shows them red.)
 if not os.path.isdir(IMPS_DIR):
     print("=" * 70)
     print("IMPS CONFIGURATION ERROR")
@@ -99,10 +97,9 @@ if not os.path.isdir(IMPS_DIR):
 ########################################################################
 ### FLASK SECRET KEY (GENERATED ONCE AT FIRST RUN, THEN PERSISTED)
 ########################################################################
-# The key used to sign session cookies is generated once and stored in
-# its own file outside of source control, alongside the rest of the
-# install (IMPS_DIR). Every subsequent start reads the same file back
-# in, so sessions survive restarts.
+# Key used to sign session cookies, generated once and stored in its
+# own file outside source control, alongside the install (IMPS_DIR).
+# Every start reads the same file back, so sessions survive restarts.
 
 SECRET_KEY_FILE = os.path.join(IMPS_DIR, ".secret_key")
 
@@ -138,30 +135,26 @@ FLASK_SECRET_KEY = _get_or_create_secret_key()
 ### CSRF PROTECTION
 ########################################################################
 # Flask-WTF's CSRFProtect checks every state-changing request (POST/PUT/
-# PATCH/DELETE) for a valid csrf_token, generated per-session and embedded
-# as a hidden field in each form (see templates). It's instantiated here,
-# uninitialized, and wired up with csrf.init_app(app) in app/__init__.py
-# so blueprints/templates can all share the same instance.
+# PATCH/DELETE) for a valid csrf_token, generated per-session and
+# embedded as a hidden field in each form (see templates). Instantiated
+# here, uninitialized, wired up with csrf.init_app(app) in
+# app/__init__.py so blueprints/templates share the same instance.
 csrf = CSRFProtect()
 
 ########################################################################
 ### RATE LIMITING
 ########################################################################
 # Shared limiter instance, initialized against the app in app/__init__.py.
-# Used primarily to throttle login attempts (see app/blueprints/auth.py),
-# since IMPS has a single shared password with no account lockout.
+# Throttles login attempts (see app/blueprints/auth.py) -- IMPS has a
+# single shared password with no account lockout.
 #
-# storage_uri controls where request counts are tracked. It's read from
-# an optional [rate_limit] section in imps_config.toml so a deployment
-# that runs IMPS across more than one worker process (multiple mod_wsgi
-# processes, multiple gunicorn workers, etc) can point every worker at
-# the same store -- e.g. storage_uri = "redis://127.0.0.1:6379" --
-# instead of each process only ever seeing its own share of requests.
-# With no [rate_limit] section (the default), it falls back to
-# "memory://": counts are tracked in that process's own memory only,
-# which is correct as long as IMPS is served from a single process
-# (any number of threads within it share that memory), and resets
-# whenever the process restarts.
+# storage_uri controls where request counts are tracked, read from an
+# optional [rate_limit] section in imps_config.toml so a multi-worker
+# deployment (multiple mod_wsgi/gunicorn processes) can point every
+# worker at the same store, e.g. storage_uri = "redis://127.0.0.1:6379".
+# With no [rate_limit] section, falls back to "memory://": counts
+# tracked in that process's own memory, correct for a single process
+# (threads within it share the memory), resets on restart.
 RATE_LIMIT_STORAGE_URI = imps_config.get("rate_limit", {}).get("storage_uri", "memory://")
 limiter = Limiter(key_func=get_remote_address, storage_uri=RATE_LIMIT_STORAGE_URI)
 
@@ -170,19 +163,16 @@ limiter = Limiter(key_func=get_remote_address, storage_uri=RATE_LIMIT_STORAGE_UR
 ########################################################################
 # The flat "10 per minute; 100 per day" limiter above (applied in
 # app/blueprints/auth.py) caps sustained guessing but treats every
-# attempt the same up until the cutoff. This adds a second, cheaper
-# layer on top of it: each consecutive failure from the same IP
-# doubles how long that IP has to wait before its next attempt is even
-# checked against the password, up to a capped ceiling. A single typo
-# costs nothing; a sustained guessing attempt gets slower and slower
-# rather than being allowed to run at a flat rate right up until it
-# hits the per-minute wall.
+# attempt the same up until the cutoff. This adds a cheaper second
+# layer: each consecutive failure from the same IP doubles the wait
+# before its next attempt is even checked against the password, up to
+# a capped ceiling. A single typo costs nothing; a sustained guessing
+# attempt slows down instead of running at a flat rate to the wall.
 #
-# In-memory, keyed by source IP -- same "single process" caveat as the
+# In-memory, keyed by source IP -- same single-process caveat as the
 # rate limiter's default memory:// storage (see RATE_LIMIT_STORAGE_URI
-# above): correct for IMPS's normal single-process deployment, and
-# resets on restart. A lock guards it since WSGIDaemonProcess runs
-# multiple threads (see the similar _pool_rebuild_lock above).
+# above), resets on restart. A lock guards it since WSGIDaemonProcess
+# runs multiple threads (see the similar _pool_rebuild_lock above).
 LOGIN_BACKOFF_BASE_SECONDS = 1        # delay after the 1st failure
 LOGIN_BACKOFF_MAX_SECONDS = 30        # ceiling, however many failures in a row
 _login_backoff_lock = threading.Lock()
@@ -228,15 +218,14 @@ def login_backoff_record_success(ip):
 # anything down -- so an admin scanning imps_error.log (or grepping/
 # alerting on it) has something to notice. 20 in 24 hours is well
 # under the flat rate limiter's 100/day hard cap (see `limiter` above/
-# app/blueprints/auth.py), so this fires as an early warning well
-# before an attacker could exhaust that budget, while being well above
-# anything a person mistyping their own password would ever hit.
+# app/blueprints/auth.py): fires as an early warning well before an
+# attacker exhausts that budget, well above anything a person
+# mistyping their own password would hit.
 #
-# Logs once per IP per rolling 24h window the first time it crosses
-# the threshold, not on every failure after that -- a sustained attempt
-# already shows up clearly as a single WARNING plus however many
-# per-attempt log lines get written elsewhere; repeating this same line
-# hundreds more times wouldn't add information, just noise.
+# Logs once per IP per rolling 24h window, on first crossing the
+# threshold, not on every failure after -- a sustained attempt already
+# shows as one WARNING plus the per-attempt log lines elsewhere;
+# repeating this line hundreds more times adds noise, not information.
 LOGIN_FAILURE_LOG_THRESHOLD = 20
 LOGIN_FAILURE_LOG_WINDOW_SECONDS = 24 * 60 * 60
 _login_failure_log_lock = threading.Lock()
@@ -279,11 +268,10 @@ HASHED_IMPS_PASS = bcrypt.hashpw(_pass_bytes, _salt)
 ########################################################################
 ### LOGGING
 ########################################################################
-# A real logger instead of print() -- gives severity levels (so a
-# CRITICAL pool failure is distinguishable from routine INFO at a
-# glance/grep), timestamps, and consistent formatting. Still writes to
-# stderr, same as the print() calls it replaces, so it lands in the
-# existing imps_error.log with no deployment/config changes needed.
+# A real logger instead of print() -- severity levels (CRITICAL pool
+# failure distinguishable from routine INFO at a glance/grep),
+# timestamps, consistent formatting. Still writes to stderr, so it
+# lands in the existing imps_error.log with no config changes needed.
 logger = logging.getLogger("imps.db")
 logger.setLevel(logging.INFO)
 
@@ -292,19 +280,18 @@ logger.setLevel(logging.INFO)
 ########################################################################
 # Off by default. If enabled ([access] restrict_to_lan = true in
 # imps_config.toml, with lan_ip set), every request is checked against
-# the derived home-network range and rejected if it's from outside it.
-# See app/__init__.py's check_lan_restriction() for the actual
-# enforcement -- this is just the config parsing, kept here alongside
-# every other imps_config.toml-derived setting.
+# the derived home-network range and rejected if from outside it. See
+# app/__init__.py's check_lan_restriction() for the enforcement --
+# this is just the config parsing, kept alongside every other
+# imps_config.toml-derived setting.
 #
-# NOT meant to handle VPNs, multiple subnets, reverse proxies, or
-# Docker (see the comments in imps_config.toml.example) -- deliberately
-# simple: one IP in, one assumed /24 (or an explicit /prefix) out.
+# Not meant to handle VPNs, multiple subnets, reverse proxies, or
+# Docker (see imps_config.toml.example) -- deliberately simple: one IP
+# in, one assumed /24 (or explicit /prefix) out.
 #
-# Placed here (after `logger` is defined, rather than up near the
-# other imps_config-derived settings) since _load_lan_restriction()
-# below logs through it on a misconfiguration -- defining it earlier
-# would reference `logger` before it exists at module-import time.
+# Placed here, after `logger` is defined, since _load_lan_restriction()
+# below logs through it on misconfiguration -- earlier placement would
+# reference `logger` before it exists at module-import time.
 import ipaddress
 
 
@@ -313,11 +300,11 @@ def _parse_lan_network(lan_ip):
 
     Plain IP ("192.168.0.42") assumes a standard home-router /24
     around it. An IP with an explicit prefix ("192.168.0.42/16") uses
-    that instead, for the rare non-default network. Returns None for
-    anything blank or unparseable, which callers treat as "restriction
-    can't be enforced" -- see reload_config()/module init below, which
-    both force restrict_to_lan off in that case rather than silently
-    allowing (or silently blocking) every request.
+    that instead, for non-default networks. Returns None for anything
+    blank or unparseable; callers treat that as "restriction can't be
+    enforced" -- see reload_config()/module init below, which both
+    force restrict_to_lan off in that case rather than silently
+    allowing (or blocking) every request.
     """
     if not lan_ip:
         return None
@@ -381,10 +368,9 @@ def _build_pool_with_retry(max_attempts=2, base_delay_seconds=1):
 
     Makes a small, bounded number of attempts to build the pool so
     startup stays fast even with no database reachable yet (e.g. a
-    fresh install that hasn't run the setup wizard). If every attempt
-    fails, the app still starts -- get_db_connection() below rebuilds
-    the pool lazily on a later request once the database becomes
-    reachable.
+    fresh install, setup wizard not run). If every attempt fails, the
+    app still starts -- get_db_connection() below rebuilds the pool
+    lazily on a later request once the database is reachable.
     """
     delay = base_delay_seconds
     for attempt in range(1, max_attempts + 1):
@@ -433,11 +419,11 @@ class DBConnectionError(Exception):
     pass
 
 
-# Guards lazy pool-rebuild attempts below. A lock (not just the cooldown
-# timestamp alone) matters because WSGIDaemonProcess runs multiple
-# threads (threads=5, per the Apache config) -- without it, several
-# concurrent requests arriving while the pool is down could each try to
-# rebuild it at the same moment.
+# Guards lazy pool-rebuild attempts below. A lock (not just the
+# cooldown timestamp) matters because WSGIDaemonProcess runs multiple
+# threads (threads=5, per the Apache config) -- without it, concurrent
+# requests arriving while the pool is down could each try to rebuild
+# it at once.
 _pool_rebuild_lock = threading.Lock()
 _last_pool_rebuild_attempt = 0.0
 POOL_REBUILD_COOLDOWN_SECONDS = 30  # don't hammer MySQL every request while it's down
@@ -448,10 +434,10 @@ def get_db_connection():
     global db_pool, _last_pool_rebuild_attempt
 
     # SELF-HEALING: if the pool is missing (failed at startup, or a
-    # prior attempt failed), try to rebuild it here, lazily, on
-    # whatever request happens to need it next. Rate-limited via the
-    # cooldown + lock so a sustained database outage doesn't turn into
-    # a rebuild attempt on every single request.
+    # prior attempt failed), try rebuilding it here, lazily, on
+    # whatever request needs it next. Rate-limited via the cooldown +
+    # lock so a sustained outage doesn't trigger a rebuild attempt on
+    # every request.
     if db_pool is None:
         with _pool_rebuild_lock:
             now = time.time()
@@ -484,11 +470,11 @@ def get_db_connection():
 ########################################################################
 ### CONFIG WRITE / RELOAD (used by the setup wizard)
 ########################################################################
-# Everything above this point reads imps_config.toml once, at import
-# time, into module-level names (dbhost, dbuser, HASHED_IMPS_PASS,
-# etc). The /setup wizard (app/blueprints/setup.py) uses the functions
-# below to write new DB credentials or a new IMPS password and apply
-# them to the running process, with no restart required.
+# Everything above reads imps_config.toml once, at import time, into
+# module-level names (dbhost, dbuser, HASHED_IMPS_PASS, etc). The
+# /setup wizard (app/blueprints/setup.py) uses the functions below to
+# write new DB credentials or app password and apply them to the
+# running process, no restart required.
 #
 # write_config_values() persists new values into imps_config.toml.
 # reload_config() re-reads the file and updates the live globals
@@ -496,20 +482,19 @@ def get_db_connection():
 # sees the change.
 #
 # toml.dump() re-serializes the whole file, so hand-written comments
-# in imps_config.toml (like the ones in the shipped .example file)
-# don't survive a write from here.
+# in imps_config.toml (like the shipped .example file) don't survive a
+# write from here.
 
 
 def read_config():
     """Fresh read of imps_config.toml from disk -- independent of the
     module-level globals above (dbhost, HASHED_IMPS_PASS, etc), which
-    only ever hold what was true at the last import/reload_config()
-    call, and in the password's case, a one-way hash that can't be
-    read back at all.
+    only hold what was true at the last import/reload_config() call,
+    and in the password's case, a one-way hash that can't be read back.
 
     Used by the setup wizard to check the *current* value of a field
     (e.g. the IMPS password) before deciding whether to keep it
-    unchanged when someone leaves that field blank in a form -- see
+    unchanged when someone leaves that field blank -- see
     setup_password() in app/blueprints/setup.py.
     """
     with open(CONFIG_PATH, mode="r") as f:
@@ -630,27 +615,37 @@ def db_errors(conn_msg=None, exec_msg=None, integrity_msg=None, err_page_from="/
 # the usual four lines (cursor = mydb.cursor() / execute / fetch /
 # close(), all inside a `with get_db_connection()` block) into one call.
 #
-# NOT for multi-statement work: if a route runs more than one query
-# against the same connection (a transaction, or a follow-up query that
-# depends on the first -- e.g. LAST_INSERT_ID() right after an INSERT),
-# keep using `with get_db_connection() as mydb:` directly instead. Each
-# call to run_query() checks out its own connection from the pool, so
-# splitting a multi-statement sequence across several run_query() calls
-# would silently turn one logical unit of work into several separate
-# pool checkouts -- slower, and no longer guaranteed to run on the same
-# underlying MySQL connection/session.
+# NOT for multi-statement work: if a route runs more than one query on
+# the same connection (a transaction, or a follow-up query depending
+# on the first, e.g. LAST_INSERT_ID() after an INSERT), use
+# `with get_db_connection() as mydb:` directly instead. Each
+# run_query() call checks out its own connection from the pool, so
+# splitting a multi-statement sequence across several calls turns one
+# logical unit of work into several separate pool checkouts -- slower,
+# and not guaranteed to run on the same MySQL connection/session.
 
 
-def run_query(query, params=None, fetch="all"):
+def run_query(query, params=None, fetch="all", as_dict=False):
     """Run a single SQL statement on a connection borrowed from the pool.
 
     fetch="all" (default) -> cursor.fetchall()
     fetch="one"           -> cursor.fetchone()
     fetch=None            -> no fetch (INSERT/UPDATE/DELETE with nothing
                               to read back); returns None
+
+    as_dict=False (default) -> rows come back as plain tuples,
+                                positional access (result[0], ...).
+                                Every existing call site depends on it.
+    as_dict=True            -> rows come back as dicts keyed by column
+                                name/alias (result['col_name']), so
+                                field access doesn't depend on SELECT
+                                column order. Opt in per-call for
+                                queries like ITEMS_WITH_CAT_NAME where
+                                position isn't a reliable contract on
+                                its own -- see items.py.
     """
     with get_db_connection() as mydb:
-        cursor = mydb.cursor()
+        cursor = mydb.cursor(dictionary=True) if as_dict else mydb.cursor()
         cursor.execute(query, params or ())
         if fetch == "all":
             result = cursor.fetchall()
@@ -666,21 +661,17 @@ def run_query(query, params=None, fetch="all"):
 ### CATEGORY / LOCATION NAME <-> NUMERIC FK RESOLUTION
 ########################################################################
 # items.cat_num and boxes.loc_num are real foreign keys against
-# categories.cat_num / locations.loc_num (see deploy/schema.sql) --
-# they used to be plain strings copied directly into items/boxes, but
-# forms (itemadd.html, itemedit.html, boxadd.html, boxedit.html) still
-# submit a category/location *name*, same as before this migration,
-# so every write path needs to resolve that name to its numeric id --
-# creating the row first if it's a brand new name.
+# categories.cat_num / locations.loc_num (see deploy/schema.sql), but
+# forms (itemadd.html, itemedit.html, boxadd.html, boxedit.html) submit
+# a category/location *name*, so every write path needs to resolve
+# that name to its numeric id -- creating the row first if new.
 #
 # Relies on the cat_name/loc_name UNIQUE constraint (INSERT, catch
-# IntegrityError) rather than SELECT-then-check-then-INSERT, since the
-# latter is a race condition: two concurrent requests could both see
-# "doesn't exist yet" before either INSERT lands, producing duplicate
-# rows. This is the same pattern items.py/boxes.py already used before
-# this migration for "ensure the category/location exists" -- these
-# two functions just centralize it in one place now that two different
-# call sites (write AND read-back-the-id) both need it.
+# IntegrityError) rather than SELECT-then-check-then-INSERT: the
+# latter is a race condition, since two concurrent requests could both
+# see "doesn't exist yet" before either INSERT lands, producing
+# duplicate rows. Centralized here since both write paths and
+# read-back-the-id paths need it.
 def get_or_create_cat_num(cursor, cat_name):
     if not cat_name:
         cat_name = "Uncategorized"
@@ -691,10 +682,10 @@ def get_or_create_cat_num(cursor, cat_name):
     cursor.execute("SELECT cat_num FROM categories WHERE cat_name = %s", (cat_name,))
     row = cursor.fetchone()
     # Falls back to 0 (Uncategorized) only if something has gone
-    # seriously wrong (e.g. the SELECT immediately after a successful
-    # INSERT somehow finds nothing) -- Uncategorized is guaranteed to
-    # exist and never be deleted (see cp_delcat in control_panel.py),
-    # so this is a safe floor, not a silent data-loss path.
+    # seriously wrong (e.g. the SELECT right after a successful INSERT
+    # finds nothing) -- Uncategorized is guaranteed to exist and never
+    # be deleted (see cp_delcat in control_panel.py), so this is a
+    # safe floor, not a silent data-loss path.
     return row[0] if row else 0
 
 
@@ -713,16 +704,37 @@ def get_or_create_loc_num(cursor, loc_name):
 
 
 ########################################################################
+### boxes.box_last_changed -- MARKING A BOX AS "TOUCHED"
+########################################################################
+# Tracks physical/contents changes, not every edit: item added, moved,
+# or deleted counts; box name/location edited counts; editing an
+# item's name/description/category/photo/date in place does NOT. One
+# helper, one place writes this column, so every call site agrees on
+# what "touched" means. Call sites: iteminsert()/itemdeleted()/
+# updateitem() in items.py; boxmoveitemssuccess()/boxeditsuccess() in
+# boxes.py.
+#
+# No-ops on a falsy/None box_num (an orphaned item has no box to
+# touch) rather than gating each call site with its own if-check.
+def touch_box_last_changed(cursor, box_num):
+    if not box_num:
+        return
+    cursor.execute(
+        "UPDATE boxes SET box_last_changed = %s WHERE box_num = %s",
+        (str(date.today()), box_num),
+    )
+
+
+########################################################################
 ### LIST-VIEW PAGE SIZE
 ########################################################################
 # Shared by every paginated list route (inventory, itembycategory,
-# search_result). This is a per-visitor preference, not a fixed value:
-# since IMPS has no per-user account system (see HASHED_IMPS_PASS
-# above -- a single shared password), it's stored the same way as the
+# search_result). A per-visitor preference, not a fixed value: IMPS
+# has no per-user account system (see HASHED_IMPS_PASS above -- a
+# single shared password), so it's stored the same way as the
 # column-visibility settings on Control Panel > View -- a long-lived
-# cookie set client-side by that page's JS. A browser with no cookie
-# set falls back to DEFAULT_ITEMS_PER_PAGE via get_items_per_page()
-# below.
+# cookie set client-side by that page's JS. No cookie falls back to
+# DEFAULT_ITEMS_PER_PAGE via get_items_per_page() below.
 DEFAULT_ITEMS_PER_PAGE = 25
 ALLOWED_ITEMS_PER_PAGE = (25, 50, 100)
 
@@ -731,10 +743,9 @@ def get_items_per_page():
     """Return the caller's preferred list page size.
 
     Reads the items_per_page cookie (set from Control Panel > View);
-    falls back to DEFAULT_ITEMS_PER_PAGE if the cookie is missing, not
-    an integer, or holds a value outside ALLOWED_ITEMS_PER_PAGE -- the
-    cookie is client-supplied, so treat it as untrusted input rather
-    than trusting it straight into a SQL LIMIT.
+    falls back to DEFAULT_ITEMS_PER_PAGE if missing, not an integer, or
+    outside ALLOWED_ITEMS_PER_PAGE -- the cookie is client-supplied, so
+    treat it as untrusted input rather than trusting it into a SQL LIMIT.
     """
     raw = request.cookies.get("items_per_page")
     try:
@@ -749,13 +760,10 @@ def get_items_per_page():
 ########################################################################
 # ?page= is client-supplied (typed in the URL, bookmarked, or shared),
 # so it can't be trusted to be a valid positive integer. Centralizes
-# the int(page_req) parsing that used to be duplicated in
-# main.search_result(), inventory.inventory(), and
-# items.itembycategory() -- each of which called bare int() on it and
-# relied on the surrounding @db_errors decorator to catch the
-# resulting ValueError as if it were a database failure. This raises
-# a specific, catchable error instead, so each route can show an
-# accurate "that page doesn't exist" message rather than a misleading
+# int(page_req) parsing for main.search_result(), inventory.inventory(),
+# and items.itembycategory(). Raises a specific, catchable error
+# instead of a bare ValueError, so each route can show an accurate
+# "that page doesn't exist" message rather than a misleading
 # "database error".
 
 
@@ -768,11 +776,10 @@ class InvalidPageError(Exception):
 def get_offset_for_page(limit):
     """Return the SQL OFFSET for the current request's ?page= value.
 
-    Reads request.args.get("page") directly (same as every call site
-    used to), so no page argument means page 1 / offset 0. Raises
-    InvalidPageError for anything that isn't a positive integer --
-    callers should catch this and show a clear, specific error message
-    rather than letting it bubble up as a generic database error.
+    Reads request.args.get("page") directly, so no page argument means
+    page 1 / offset 0. Raises InvalidPageError for anything that isn't
+    a positive integer -- callers should catch this and show a clear,
+    specific error message rather than a generic database error.
     """
     page_req = request.args.get("page")
     if page_req is None:
@@ -796,19 +803,33 @@ def get_offset_for_page(limit):
 ########################################################################
 # Item names: capped at 50 so the item list/grid views stay readable --
 # there's a separate item_desc field for anything longer. Well under
-# the items.item_name column's actual varchar(256) limit, so a name
-# over 50 is rejected here with a clear message rather than being
-# silently truncated (or erroring at the DB layer) at 256.
+# items.item_name's actual varchar(256) limit, so a name over 50 is
+# rejected here with a clear message rather than silently truncated
+# (or erroring at the DB layer) at 256.
 MAX_ITEM_NAME_LENGTH = 50
 
 # Box numbers: capped at a 4-digit ceiling. Plenty for a home inventory
-# (a box number is looked up by its printed label, so it's meant to
-# stay short and readable), and keeps box numbers visually distinct
-# from item numbers, which can run much higher.
-# Category names: same 50-character cap as item names, for the same
-# reason (keeps category chips/lists readable; categories are meant to
-# be short labels, not descriptions).
-MAX_CATEGORY_NAME_LENGTH = 50
+# (a box number is looked up by its printed label, so it stays short
+# and readable), and keeps box numbers visually distinct from item
+# numbers, which can run much higher.
+# Category names: same-width cap as categories.cat_name varchar(64)
+# (see deploy/schema.sql) -- keeps category chips/lists readable;
+# categories are short labels, not descriptions.
+MAX_CATEGORY_NAME_LENGTH = 64
+
+# Location names: same-width cap as locations.loc_name varchar(255)
+# (see deploy/schema.sql). Unlike item/category names, this matches
+# the column exactly rather than leaving headroom below it -- there's
+# no separate "long form" field for locations, so the cap here exists
+# purely to reject an over-limit value with a clear message instead of
+# a silent truncation or a raw DB error, not to keep the UI compact.
+MAX_LOCATION_NAME_LENGTH = 255
+
+# Item descriptions: same-width cap as items.item_desc varchar(255)
+# (see deploy/schema.sql), for the same reason as MAX_LOCATION_NAME_LENGTH
+# above -- this is the field with the most room already, so the cap
+# here is the actual DB limit, not a UI-driven one.
+MAX_ITEM_DESC_LENGTH = 255
 
 MAX_BOX_NUM = 9999
 
@@ -820,10 +841,10 @@ MAX_BOX_NUM = 9999
 UPLOAD_FOLDER = ITEM_IMAGE_DIR
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
-# Cap on the total size of the item-image directory. Since IMPS write
-# access is deliberately open (public demo password), there's no other
-# limit on how much a visitor could upload between resets -- this stops
-# a script from filling the disk. Checked in items.py before each save.
+# Cap on the total size of the item-image directory. IMPS write access
+# is deliberately open (public demo password), with no other limit on
+# how much a visitor could upload between resets -- this stops a
+# script from filling the disk. Checked in items.py before each save.
 MAX_IMAGE_DIR_BYTES = 500 * 1024 * 1024  # 500 MB
 
 
@@ -851,10 +872,10 @@ def verify_and_reencode_image(save_path):
     """Confirm the uploaded file is actually a decodable image (not just
     named like one) and re-encode it, discarding the original bytes.
 
-    This is the real defense against a malicious/polyglot file disguised
-    with an image extension: allowed_file() only checks the filename, so
-    this is the point where file *content* is verified. Returns True on
-    success; on failure the bad file is removed and False is returned.
+    Real defense against a malicious/polyglot file disguised with an
+    image extension: allowed_file() only checks the filename; this is
+    where file *content* is verified. Returns True on success; on
+    failure the bad file is removed and False is returned.
     """
     from PIL import Image, UnidentifiedImageError
 
@@ -880,10 +901,10 @@ def verify_and_reencode_image(save_path):
 ########################################################################
 # Turns a stored photo filename into a real filesystem path for
 # deletion (e.g. replacing/removing an item's photo). The filename
-# often round-trips through a hidden form field, so it's treated as
+# often round-trips through a hidden form field, so treat it as
 # untrusted input: a value like "../../../../etc/passwd" must never
-# reach os.remove() directly. Used by any route that needs to resolve
-# an image filename to a path, including cp_photofilesdel() in
+# reach os.remove() directly. Used by any route resolving an image
+# filename to a path, including cp_photofilesdel() in
 # app/blueprints/control_panel.py.
 
 
@@ -927,8 +948,8 @@ def safe_relative_url(url):
 ########################################################################
 ### AUTH DECORATOR
 ########################################################################
-# NOTE: redirects to the "auth" blueprint's login endpoint, since login()
-# now lives in app/blueprints/auth.py instead of the top-level app.
+# NOTE: redirects to the "auth" blueprint's login endpoint --
+# login() lives in app/blueprints/auth.py.
 
 def login_required(f):
     @wraps(f)

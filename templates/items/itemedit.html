@@ -48,7 +48,7 @@
 				Description:
                         </div>
                         <div>
-                                <textarea rows="3" cols="30" name="item_desc" id="item_desc">{{ item_desc }}</textarea>
+                                <textarea rows="3" cols="30" name="item_desc" id="item_desc" maxlength="255">{{ item_desc }}</textarea>
                         </div>
 			<div style="border: 2px solid black; width: 400px;">
 	        	                <img src="{{ITEM_IMAGE_DIR}}{{ item_pic }}" height="300px;">
@@ -158,6 +158,17 @@ function validateForm() {
 
     if (item_name.length > 50){
         showValidationError("Item names are limited to 50 characters. <br>Use the description field to store <br>more information about this item.");
+        return false;
+     }
+
+    // Check that the description isn't over the 255-character limit
+    // (maxlength="255" on the field already blocks typing/pasting past
+    // that, but this catches a value set some other way, same
+    // reasoning as the item_name check above.)
+
+    let item_desc = document.forms["update_item"]["item_desc"].value;
+    if (item_desc.length > 255){
+        showValidationError("Item descriptions are limited to 255 characters.");
         return false;
      }
 

@@ -12,6 +12,7 @@ from app.extensions import (
     run_query,
     MAX_BOX_NUM,
     MAX_LOCATION_NAME_LENGTH,
+    MAX_BOX_NAME_LENGTH,
     get_or_create_loc_num,
     touch_box_last_changed,
 )
@@ -302,7 +303,17 @@ def boxadded():
     ### GET ADDITIONAL FORM DATA
     next_available_box_num = request.form.get("next_available_box_num")
     box_loc = request.form.get("box_loc")
-    box_name = request.form.get("box_name")
+    box_name = request.form.get("box_name") or ""
+
+    ### VALIDATE BOX NAME LENGTH -- UI enforces this via maxlength + JS
+    ### (see boxadd.html), client-side only -- a direct POST bypasses
+    ### it, so it's checked here too.
+    if len(box_name) > MAX_BOX_NAME_LENGTH:
+        return render_template(
+            "errorpage.html",
+            err_message=f"Box names are limited to {MAX_BOX_NAME_LENGTH} characters.",
+            err_page_from="/boxadd",
+        )
 
     ### IF NO LOCATION WAS SELECTED, SET TO UNSPECIFIED
     if box_loc is None or box_loc == "":
@@ -566,13 +577,13 @@ def boxdetails():
     ### ASSIGN VALUES TO FORM VARIABLES FROM FIRST FETCHED ROW
     box_num = box_details[0][0]
     box_loc = box_details[0][1]
-    box_desc = box_details[0][2]
+    box_name = box_details[0][2]
 
     ### SHOW BOX DETAILS
     return render_template(
         "boxes/boxdetails.html",
         box_num=box_num,
-        box_desc=box_desc,
+        box_name=box_name,
         box_loc=box_loc,
         locations=locations,
     )
@@ -584,9 +595,19 @@ def boxdetails():
 @db_errors(exec_msg="Database error. Could not successfully complete updating box metrics.")
 def boxeditsuccess():
     ### GET FORM DATA
-    box_name = request.form.get("box_name")
+    box_name = request.form.get("box_name") or ""
     box_loc = request.form.get("box_loc")
     box_num = request.form.get("box_num")
+
+    ### VALIDATE BOX NAME LENGTH -- UI enforces this via maxlength + JS
+    ### (see boxdetails.html), client-side only -- a direct POST
+    ### bypasses it, so it's checked here too.
+    if len(box_name) > MAX_BOX_NAME_LENGTH:
+        return render_template(
+            "errorpage.html",
+            err_message=f"Box names are limited to {MAX_BOX_NAME_LENGTH} characters.",
+            err_page_from="/boxedit",
+        )
 
     ### VALIDATE LOCATION NAME LENGTH -- box_loc == "" means "keep the
     ### existing location" (handled below), so only a genuinely

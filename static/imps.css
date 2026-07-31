@@ -362,10 +362,26 @@ p.note {
    page, so :first-child reliably targets it everywhere this table is
    used (inventory, category view, search results, box view) without
    needing template changes. Width is sized to comfortably fit the
-   25-char truncation cap. */
-.table_label:first-child,
-.table_cell:first-child {
+   25-char truncation cap.
+
+   boxlist.html reuses the same table_label/table_cell classes, but
+   its first column is Box # (a 4-digit number), not Item -- excluded
+   below via :not() so it gets its own narrow width instead. */
+.table_label:first-child:not(.table_label-boxnum),
+.table_cell:first-child:not(.table_cell-boxnum) {
   width: 220px;
+}
+
+/* Box list's Box # column -- narrow, fits a 4-digit number with
+   padding. Name gets the width freed up from Box #, sized to
+   comfortably fit its 20-char truncation cap (see boxlist.html). */
+.table_label-boxnum,
+.table_cell-boxnum {
+  width: 50px;
+}
+.table_label-boxname,
+.table_cell-boxname {
+  width: 190px;
 }
 
 /* Category has the same per-page width-shift problem the Item column

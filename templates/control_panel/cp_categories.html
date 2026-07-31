@@ -25,7 +25,10 @@
 		{% for category in items_per_category %}
 
 		<div class="grid-item-left">
-			{{category[0]}}
+			<div class="tooltip">
+				{{ category[0] | truncate(25) }}
+				<span class="tooltiptext">{{ category[0] }}</span>
+			</div>
 		</div>
 		<div class="grid-item">
 			{{category[1]}}

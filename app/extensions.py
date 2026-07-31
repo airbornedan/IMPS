@@ -825,6 +825,11 @@ MAX_CATEGORY_NAME_LENGTH = 64
 # a silent truncation or a raw DB error, not to keep the UI compact.
 MAX_LOCATION_NAME_LENGTH = 255
 
+# Box names: same-width cap as boxes.box_name varchar(64) (see
+# deploy/schema.sql) -- keeps box list/label displays readable;
+# boxes are short labels, not descriptions.
+MAX_BOX_NAME_LENGTH = 64
+
 # Item descriptions: same-width cap as items.item_desc varchar(255)
 # (see deploy/schema.sql), for the same reason as MAX_LOCATION_NAME_LENGTH
 # above -- this is the field with the most room already, so the cap

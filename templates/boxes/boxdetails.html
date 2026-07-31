@@ -32,7 +32,7 @@
 				Box name
 			</div>
 			<div>
-				<input type="text" id="box_name" name="box_name" size="25" value="{{- box_desc -}}">
+				<input type="text" id="box_name" name="box_name" size="25" maxlength="64" value="{{- box_name -}}">
 			</div>
 		</div>
 	</div>
@@ -60,6 +60,13 @@ function validateForm() {
 
   if (box_loc.length > 255){
     showValidationError("Location names are limited to 255 characters.");
+    return false;
+  }
+
+  let box_name = document.forms["update_box"]["box_name"].value;
+
+  if (box_name.length > 64){
+    showValidationError("Box names are limited to 64 characters.");
     return false;
   }
 }

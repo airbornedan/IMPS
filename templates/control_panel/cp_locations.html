@@ -26,7 +26,10 @@
 	{% for loc_name in locations %}
         {% set ns.counter = ns.counter+1 %}
 	<div class="grid-item-left">
-		{{loc_name}}
+		<div class="tooltip">
+			{{ loc_name | truncate(25) }}
+			<span class="tooltiptext">{{ loc_name }}</span>
+		</div>
 	</div>
         <div class="grid-item">{{loc_count[ns.counter]}}</div>
         <div class="grid-item">

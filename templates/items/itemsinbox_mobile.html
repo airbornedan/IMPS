@@ -21,7 +21,7 @@
 			</div>
 			<div>
                                 {% if box_name != "" %}
-                                        {{box_name}}&nbsp;
+                                        {{box_name | truncate(25)}}&nbsp;
                                 {% endif %}
 			</div>
 		</div><br>

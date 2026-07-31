@@ -21,9 +21,9 @@ Control panel to veiw the available locations. </p>
 <div class="container-flex">
 	<div class="item_display_table" id="itemdisplaytable">
 		<span class="table_head">
-			<span class="table_label">Box #&nbsp;</span>
+			<span class="table_label table_label-boxnum">Box #&nbsp;</span>
 			<span class="table_label">Location</span>
-			<span class="table_label">Name</span>
+			<span class="table_label table_label-boxname">Name</span>
                         <span class="table_label">Last change</span>
 			<span class="table_label">Items</span>
 		        <span class="table_label">Edit</span>
@@ -33,15 +33,19 @@ Control panel to veiw the available locations. </p>
                 <span class="table_body">
 		{% for box_num, box_loc, box_name, box_date, box_last_changed in box_list %}
 		<div class="table_row">
-			<div class="table_cell">
+			<div class="table_cell table_cell-boxnum">
 				{{ box_num }}
 			</div>
 			<div class="table_cell"  style="background-color: #eee;">
-			        {{ box_loc }}
+				<div class="tooltip">
+					{{ box_loc | truncate(25) }}
+					<span class="tooltiptext">{{ box_loc }}</span>
+				</div>
 		        </div>
-		        <div class="table_cell">
-				<div data-tooltip="{{box_name}}">
-					{{ box_name | truncate(20)}}
+		        <div class="table_cell table_cell-boxname">
+				<div class="tooltip">
+					{{ box_name | truncate(20) }}
+					<span class="tooltiptext">{{ box_name }}</span>
 				</div>
 		        </div>
                         <div class="table_cell">

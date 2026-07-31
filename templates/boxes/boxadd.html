@@ -103,7 +103,7 @@ function faNumberCaller(){
 			<b>Box name</b>
 		</div>
 		<div>
-			<input id="box_name" type="text" placeholder="(optional)" name="box_name">
+			<input id="box_name" type="text" placeholder="(optional)" maxlength="64" name="box_name">
 		</div>
 	</div>
 	<div>
@@ -243,6 +243,12 @@ function validateForm() {
          document.forms["add_box_form"]["box_loc"].value = "Unspecified";
     } else if (selected_loc.length > 255){
         showValidationError("Location names are limited to 255 characters.");
+        return false;
+    }
+
+    let selected_name = document.forms["add_box_form"]["box_name"].value;
+    if (selected_name.length > 64){
+        showValidationError("Box names are limited to 64 characters.");
         return false;
     }
 }

@@ -66,7 +66,7 @@ INSERT INTO `locations` VALUES
 CREATE TABLE `boxes` (
   `box_num` int NOT NULL,
   `loc_num` int NOT NULL DEFAULT 0,
-  `box_name` varchar(255) NOT NULL,
+  `box_name` varchar(64) NOT NULL,
   `box_date` date NOT NULL,
   `box_last_changed` date NOT NULL,
   PRIMARY KEY (`box_num`),

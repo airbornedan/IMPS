@@ -10,7 +10,7 @@
 			<div>
 				{% if current_view == "mobile" %}
 					{% if box_name != "" %}
-						{{box_name}}&nbsp;
+						{{box_name | truncate(25)}}&nbsp;
 					{% endif %}
 				{% else %}
 					{% if box_name != "" %}

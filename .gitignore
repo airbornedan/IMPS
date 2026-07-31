@@ -1,7 +1,10 @@
-# Don't include any zip files
+# Don't include any zip/tar files
 *.zip
+*.tar
 
-# IMPS — secrets & real credentials.
+# ===================================================================
+# IMPS — secrets & real credentials
+# ===================================================================
 imps_config.toml
 deploy/reset_credentials.toml
 deploy/mail_credentials.toml
@@ -9,18 +12,36 @@ deploy/mail_credentials.toml
 # Docker secrets (real values; .env.example is the tracked template)
 .env
 
+# TLS private material -- san.cnf/gunicorn.conf.py (templates, no
+# secrets) stay tracked; anything actually generated from them doesn't.
+certificates/*.key
+certificates/*.crt
+certificates/*.pem
+
 # Session-signing secret (regenerated automatically on first run)
 .secret_key
 
 # Install-state markers (generated per-install, not source)
 not_first.run
 
-# deploy/ — track only what an actual private install needs
-# (db_setup.py, schema.sql, setup.sql, apache/, docker/). Everything
-# else in here is specific to running the public demo site
-# (demo.getimps.com) — reset/monitoring scripts, their credential
-# templates, seed data, and the tools/ packaging directory — and has
-# no reason to live in this repo at all.
+# ===================================================================
+# deploy/ — track only what an actual private install needs.
+# Everything else here is demo-site-only (demo.getimps.com) and has
+# no reason to ship to end users:
+#   - imps_reset.py, db_monitor.py       -- demo reset/monitoring scripts
+#   - seed_db.sql, seed_images.zip       -- demo seed data
+#   - box_db2-*.sql                      -- a real DB dump pulled off the
+#                                            demo site; must never be
+#                                            tracked or shipped
+#   - deploy/imps-apache.conf            -- superseded by deploy/apache/
+#   - deploy/tools/                      -- packaging + the demo's
+#                                            systemd .service/.timer units
+#                                            (imps-reset.*, imps-db-monitor.*,
+#                                            mysql-restart-override.conf,
+#                                            build_release_zip.sh itself)
+# The *_example.toml templates ARE meant to be tracked, so they're
+# explicitly un-ignored below alongside the other real install files.
+# ===================================================================
 deploy/*
 !deploy/db_setup.py
 !deploy/schema.sql
@@ -44,9 +65,7 @@ static/backup/*
 # Python
 # ===================================================================
 __pycache__/
+*.pyc
 
 # Virtual environments
 .venv/
-deploy/tools/build_release_zip.sh
-deploy/seed_images.zip
-deploy/seed_db.sql

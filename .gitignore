@@ -30,7 +30,6 @@ not_first.run
 # no reason to ship to end users:
 #   - imps_reset.py, db_monitor.py       -- demo reset/monitoring scripts
 #   - seed_db.sql, seed_images.zip       -- demo seed data
-#   - box_db2-*.sql                      -- a real DB dump pulled off the
 #                                            demo site; must never be
 #                                            tracked or shipped
 #   - deploy/imps-apache.conf            -- superseded by deploy/apache/

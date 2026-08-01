@@ -22,7 +22,7 @@
 
 <script>
 // Shared with validateForm()'s submit-time check below.
-const valid_numbers = {{available_boxes}};
+const valid_numbers = {{available_boxes|tojson}};
 const boxNumInput = document.getElementById("box-num");
 
 // LIVE FEEDBACK: red border as soon as the typed number isn't a real,

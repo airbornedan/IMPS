@@ -40,6 +40,18 @@ def del_firstrun():
     first_run = os.path.join(IMPS_DIR, "first.run")
     not_first_run = os.path.join(IMPS_DIR, "not_first.run")
 
+    ### GUARD: ONLY REACHABLE DURING FIRST-RUN SETUP.
+    ### Deliberately no @login_required here -- a fresh install has no
+    ### usable password yet, same reasoning as every route in setup.py
+    ### (see that file's module docstring / _guard()). Gating on
+    ### first.run's presence instead gives the same effect: once setup
+    ### has finished and first.run is renamed away, this route stops
+    ### doing anything for anyone, logged in or not, rather than
+    ### staying open forever as an unauthenticated way to re-seed
+    ### sample data into a live inventory.
+    if not os.path.isfile(first_run):
+        return redirect(url_for("main.home"))
+
     ### IF THE "INSTALL SAMPLE ITEMS" CHECKBOX WAS SUBMITTED, SEED DATA
     ### BEFORE RENAMING first.run. The setup wizard's own
     ### setup_samples()/setup_password() (app/blueprints/setup.py)

@@ -37,7 +37,7 @@
 <script>
 // Hoisted out of validateForm() so both the live-typing check below and
 // the on-submit check can both use it without duplicating the data.
-const valid_numbers = {{available_boxes}};
+const valid_numbers = {{available_boxes|tojson}};
 const boxNumInput = document.getElementById("box-num");
 
 // LIVE FEEDBACK: as the user types, flag the input red as soon as the

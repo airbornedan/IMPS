@@ -124,7 +124,7 @@ span.onclick = function() {
 }
 
 // Shared with validateForm()'s submit-time check below.
-const boxes_in_use = {{box_nums|safe}}
+const boxes_in_use = {{box_nums|tojson}}
 const boxNumInput = document.getElementById("box_num");
 
 // LIVE FEEDBACK: as the user types a box number to reuse, flag the
@@ -223,7 +223,7 @@ function validateForm() {
 
     if (box_type=="choose_number"){
         let i=0;
-        const boxes_in_use = {{box_nums|safe}}
+        const boxes_in_use = {{box_nums|tojson}}
         while (i < boxes_in_use.length){
              if (boxes_in_use[i] == box_num){
                  //alert ("Box number currently in use.");

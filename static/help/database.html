@@ -38,7 +38,7 @@ for you and reloads them immediately.</p>
 <h2>Setting up the database manually (alternative)</h2>
 <p>If you'd rather not use the wizard, you can set up the database
 yourself using the SQL files included with IMPS.</p>
-<p>The <i>static/backup/setup.sql</i> file creates the database and a
+<p>The <i>deploy/setup.sql</i> file creates the database and a
 database user with the permissions IMPS needs. While the file has a
 default username and password provided, you should edit the file to
 change these to something unique to your IMPS install for security
@@ -52,8 +52,8 @@ connection</i> page asks for your credentials, or directly in
 <i>imps_config.toml</i> if you're skipping the wizard entirely.</p>
 <p><b>Setup database on MySQL / Mariadb</b></p>
 <ol>
-<li><code>sudo mysql -u root &lt; static/backup/setup.sql</code></li>
-<li><code>mysql -u box_user -p box_db &lt; static/backup/schema.sql</code></li>
+<li><code>sudo mysql -u root &lt; deploy/setup.sql</code></li>
+<li><code>mysql -u box_user -p box_db &lt; deploy/schema.sql</code></li>
 </ol>
 <p class="note">Most people are better served by the setup wizard above --
 it does the same thing without needing you to run SQL by hand.</p>

@@ -1,26 +1,35 @@
+# Exact-pinned to versions confirmed working against a live IMPS
+# install.
+#
+# Deliberately == rather than >= : reproducible installs matter more
+# here than automatically picking up newer majors. To move to a newer
+# version deliberately: bump the pin below, reinstall into a fresh
+# venv, and do a full manual pass (login, item add/edit with photo,
+# search, DB backup) before trusting it.
+
 # Core web framework
-Flask>=2.2.2
-Werkzeug>=2.2.2
+Flask==3.1.3
+Werkzeug==3.1.8
 
 # Security / auth
-Flask-WTF>=1.2.1      # CSRF protection
-Flask-Limiter>=3.8.0  # login rate limiting
-bcrypt>=4.3.0          # password hashing
+Flask-WTF==1.3.0       # CSRF protection
+Flask-Limiter==4.1.1   # login rate limiting
+bcrypt==5.0.0           # password hashing
 
 # Database
-mysql-connector-python>=8.4.0
+mysql-connector-python==9.7.0
 
 # Pagination for inventory/search/box views
-flask-paginate>=2024.4.12
+flask-paginate==2024.4.12
 
 # Config file parsing (imps_config.toml, reset_credentials.toml, mail_credentials.toml)
-toml>=0.10.2
+toml==0.10.2
 
 # Image upload handling (resize, re-encode, EXIF transpose)
-Pillow>=9.4.0
+Pillow==12.3.0
 
 # QR code generation for box labels
-qrcode>=7.4.2
+qrcode==8.2
 
 # Production WSGI server (per README's recommended run command)
-gunicorn>=20.1.0
+gunicorn==26.0.0

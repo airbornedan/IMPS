@@ -11,7 +11,7 @@
 -- box_user's own grants below are sufficient for.
 --
 -- Usage:
---   sudo mysql -u root < static/backup/setup.sql
+--   sudo mysql -u root < deploy/setup.sql
 
 CREATE USER IF NOT EXISTS 'box_user'@'localhost' IDENTIFIED BY 'box_pass';
 
@@ -38,7 +38,7 @@ FLUSH PRIVILEGES;
 -- by hand instead of via the wizard, run schema.sql right after this
 -- file:
 --
---   sudo mysql -u root < static/backup/setup.sql
---   mysql -u box_user -p box_db < static/backup/schema.sql
+--   sudo mysql -u root < deploy/setup.sql
+--   mysql -u box_user -p box_db < deploy/schema.sql
 
 

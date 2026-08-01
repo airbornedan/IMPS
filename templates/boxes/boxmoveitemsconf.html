@@ -34,8 +34,8 @@
 
 <script>
 // Shared with validateForm()'s submit-time check below.
-const valid_numbers = {{available_boxes}};
-const oldBoxNum = {{old_box_num}};
+const valid_numbers = {{available_boxes|tojson}};
+const oldBoxNum = {{old_box_num|tojson}};
 const newBoxNumInput = document.getElementById("new_box_num");
 
 // LIVE FEEDBACK: red border if the typed number isn't numeric, is the
@@ -72,7 +72,7 @@ function validateForm() {
 
   // Check that the box isn't the box being deleted
 
-  if (num_input == {{old_box_num}}){
+  if (num_input == {{old_box_num|tojson}}){
     showValidationError("You cannot move items into the<br>box you are deleting.");
     return false;
   }

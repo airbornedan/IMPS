@@ -96,7 +96,7 @@
 <!-- Modal dialog and form validation JS -->
 <script>
 // Shared with validateForm()'s submit-time check below.
-const valid_numbers = {{available_boxes}};
+const valid_numbers = {{available_boxes|tojson}};
 const boxNumInput = document.getElementById("box_num");
 
 // LIVE FEEDBACK: red border as soon as the typed number isn't a real,

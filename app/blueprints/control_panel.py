@@ -28,6 +28,7 @@ from app.extensions import (
     MAX_LOCATION_NAME_LENGTH,
     get_or_create_cat_num,
     get_or_create_loc_num,
+    safe_image_path,
 )
 
 bp = Blueprint("control_panel", __name__)
@@ -169,13 +170,14 @@ def cp_server():
 
 ########################################################################
 # SECURITY: POST-only. Runs mysqldump (disk + subprocess cost) and
-# writes a new file every call, no confirmation. As a GET route it was
-# CSRF-able -- any page loaded in a logged-in admin's browser (img
-# tag, link, crawler) could trigger a backup with no token check;
-# CSRFProtect only validates state-changing methods, never GET. Not
-# destructive like boxdeletesuccess, but still an unauthorized-trigger
-# / mild-DoS vector. No confirmation dialog needed -- creating a
-# backup isn't a warn-before-doing action, unlike a delete.
+# writes a new file every call, no confirmation. GET routes are exempt
+# from CSRFProtect's token check, so a GET here would let any page
+# loaded in a logged-in admin's browser (img tag, link, crawler)
+# trigger a backup with no token check -- POST keeps this covered by
+# CSRFProtect. Not destructive like boxdeletesuccess, but still an
+# unauthorized-trigger / mild-DoS vector. No confirmation dialog
+# needed -- creating a backup isn't a warn-before-doing action, unlike
+# a delete.
 @bp.route("/cp_dbbackup", methods=["POST"])
 @login_required
 @db_errors(exec_msg="Database logging error during backup configuration storage lifecycle.")
@@ -224,7 +226,8 @@ def cp_dbbackup():
 ### CREATE PHOTO ARCHIVE AND LOG TO DB
 # SECURITY: POST-only, same reasoning as cp_dbbackup above. Calls
 # shutil.make_archive over the whole item-image directory every hit;
-# as GET it was CSRF-able with no token check.
+# GET routes are exempt from CSRFProtect's token check, so POST is
+# what keeps this covered.
 @bp.route("/cp_photoarchive", methods=["POST"])
 @login_required
 @db_errors(exec_msg="Database logging error during image compression archiving lifecycle.")
@@ -376,10 +379,11 @@ def cp_photofilesdel():
     ### SECURITY: NEVER TRUST CLIENT-SUPPLIED FILENAMES FOR A FILESYSTEM
     ### DELETE. Recompute orphan set server-side (DB photo references
     ### vs. actual image directory contents). Only delete files that
-    ### are a bare filename (no path separators/traversal) and genuinely
-    ### in that orphan set. Closes path-traversal deletes (e.g.
-    ### filename=../../../../etc/passwd): attacker can only select
-    ### files this route already considers orphaned.
+    ### resolve to a real path inside image_dir (see safe_image_path()
+    ### in extensions.py) and are genuinely in that orphan set. Closes
+    ### path-traversal deletes (e.g. filename=../../../../etc/passwd):
+    ### attacker can only select files this route already considers
+    ### orphaned.
     photo_files_query = "SELECT item_pic FROM items;"
     result = run_query(photo_files_query)
 
@@ -400,20 +404,9 @@ def cp_photofilesdel():
     orphans = set(files_in_dir).difference(item_list)
     orphans.discard("none.jpg")
 
-    def is_safe_orphan_filename(name):
-        # Must be a plain filename (no directory components, no traversal),
-        # and must match a real, currently-orphaned file on disk.
-        if not name or name in (".", ".."):
-            return False
-        if os.path.basename(name) != name:
-            return False
-        if name not in orphans:
-            return False
-        # Belt-and-suspenders: resolved path must still live inside image_dir.
-        resolved = os.path.realpath(os.path.join(image_dir, name))
-        return os.path.dirname(resolved) == os.path.realpath(image_dir)
-
-    files_to_del = [f for f in requested_deletions if is_safe_orphan_filename(f)]
+    files_to_del = [
+        f for f in requested_deletions if f in orphans and safe_image_path(f, image_dir)
+    ]
 
     ### DELETE FILES ON DISK
     for filename_to_remove in files_to_del:

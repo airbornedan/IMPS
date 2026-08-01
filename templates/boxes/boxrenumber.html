@@ -36,8 +36,8 @@ need to print a new one for the new number after this change.</p>
 </a>
 
 <script>
-const boxes_in_use = {{box_nums|safe}};
-const oldBoxNum = {{box_num}};
+const boxes_in_use = {{box_nums|tojson}};
+const oldBoxNum = {{box_num|tojson}};
 const newBoxNumInput = document.getElementById("new_box_num");
 
 // LIVE FEEDBACK: red border as soon as the typed number is invalid or

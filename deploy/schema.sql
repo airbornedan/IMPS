@@ -7,7 +7,7 @@
 -- once your database connection tests successfully.
 --
 -- Manual usage (if not using the wizard):
---   mysql -u box_user -p box_db < static/backup/schema.sql
+--   mysql -u box_user -p box_db < deploy/schema.sql
 --
 -- MIGRATING AN EXISTING INSTALL: this file is for FRESH installs
 -- only (it DROPs and recreates every table). Do not run this

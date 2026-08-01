@@ -852,6 +852,15 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 # script from filling the disk. Checked in items.py before each save.
 MAX_IMAGE_DIR_BYTES = 500 * 1024 * 1024  # 500 MB
 
+# Serializes the MAX_IMAGE_DIR_BYTES check with the save that follows
+# it in items.py, so concurrent uploads check and save atomically with
+# respect to each other rather than racing past the cap together.
+# In-memory, single-process scope -- same as _login_backoff_lock/
+# _pool_rebuild_lock above: each worker process serializes its own
+# uploads, not against other workers. A soft anti-fill-the-disk
+# measure, not a hard guarantee.
+IMAGE_UPLOAD_LOCK = threading.Lock()
+
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS

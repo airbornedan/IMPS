@@ -14,33 +14,109 @@ IMPs is designed to be used on desktop computers and mobile devices. To facilita
 IMPS is designed for use on your home network. It has only a single password and is not intended to be exposed to the public internet. To install IMPS, you will need a working python environment and a SQL-compatible database. Ideally, this would be a dedicated computer with a web server. IMPS was written and tested on Linux. It may work on macOS and Windows, but we hadn't tested it. We have a Raspberry Pi running Apache and mariadb to serve IMPS on our internal network. If none of that makes sense to you, we also have a Docker-based version available at getimps.com/downloads. 
 ### For Linux
 If you are installing IMPS on your own Linux server, the steps are:
-1. Install and configure Apache. 
-       `sudo apt get install apache2`
-2. Install mysql or mariadb-server.
-       `sudo apt get install mariadb-server`
-       At the end of this step, ensure you know the mariadb root password
-3. Install python3.
-       `sudo apt get install python3`
-4. Install pip.
-       `sudo apt get install python3-pip`
-5. Create a virtual environment.
-   `python3 -m venv .venv`
-6. Activate it.
-          `source .venv/bin/activate`
-7. Place the IMPS files.
-        `cd /var/www`
-        `unzip imps.zip`
-8. Install all required packages.
-        `pip install -r requirements.txt`
-9. Edit imps_config.toml to match your environment.
-10. Run the sql setup
-        `mysql -u root -p < deploy/schema.sql`
-11. Test IMPS
-      Stop Apache (it is currently running on Port 80)
-        `service apache2 stop`
-       Run IMPS using Python directly.
-        `python3 run.py`
-12. Follow the on-scree directions to finish setting up IMPS.
-13. Once you have IMPS configured and running, use your friendly search engine to set up the app to run under wsgi.
-       Some instructions (for the Apache specific case) are included in `deploy/apache/APACHE.md`
-14. Start using the Inventory Management Photo System.
+
+1. Update and upgrade
+
+   ```
+   sudo apt-get update
+   sudo apt-get upgrade
+   ```
+
+2. Install and configure Apache.
+
+   ```
+   sudo apt-get install apache2
+   ```
+
+3. Install mysql or mariadb-server.
+
+   ```
+   sudo apt-get install mariadb-server
+   ```
+
+4. Install python3.
+
+   ```
+   sudo apt-get install python3
+   ```
+
+5. Install venv
+
+   ```
+   sudo apt-get install python3-venv
+   ```
+
+6. Install pip.
+
+   ```
+   sudo apt-get install python3-pip
+   ```
+
+7. Install unzip if not on your system
+
+   ```
+   apt install unzip
+   ```
+
+8. Move to the Apache root directory
+
+   ```
+   cd /var/www
+   ```
+
+9. Create a virtual environment.
+
+   ```
+   python3 -m venv .venv
+   ```
+
+10. Activate it.
+
+    ```
+    source .venv/bin/activate
+    ```
+
+11. If you do not have IMPS on your server, download it
+
+    ```
+    wget --no-check-certificate https://www.getimps.com/downloads/imps.zip
+    ```
+
+12. Unzip the IMPS files.
+
+    ```
+    unzip imps.zip
+    ```
+
+13. Install all required packages.
+
+    ```
+    pip install -r requirements.txt
+    ```
+
+14. Copy the example config file, then edit it to match your environment.
+
+    ```
+    cp imps_config.toml.example imps_config.toml
+    ```
+
+15. Set up the database
+
+    ```
+    cd deploy
+    sudo ../.venv/bin/python3 db_setup.py
+    ```
+
+16. Test IMPS. Run IMPS using Python directly.
+
+    ```
+    python3 run.py
+    ```
+
+17. Browse to `<system ip address>:88`
+
+18. Follow the on-screen directions to finish setting up IMPS.
+
+19. Once you have IMPS configured and running, follow `deploy/apache/APACHE.md` to set it up under Apache/mod_wsgi (the recommended way to run IMPS long-term).
+
+20. Start using the Inventory Management Photo System.

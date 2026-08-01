@@ -21,6 +21,7 @@ from app.extensions import (
     verify_and_reencode_image,
     image_dir_size_bytes,
     MAX_IMAGE_DIR_BYTES,
+    IMAGE_UPLOAD_LOCK,
     safe_relative_url,
     safe_image_path,
     logger,
@@ -361,24 +362,32 @@ def updateitem(item_num):
 
             ### IF THE FILE IS VALID, PROCESS AND SAVE IT
             if file and file.filename != "" and allowed_file(file.filename):
-                ### REJECT IF THE IMAGE DIRECTORY IS ALREADY AT ITS SIZE CAP
-                if image_dir_size_bytes(ITEM_IMAGE_FS_DIR) >= MAX_IMAGE_DIR_BYTES:
-                    return render_template(
-                        "errorpage.html",
-                        err_message="Storage is full for this demo instance. Please try again after the next scheduled reset.",
-                        err_page_from="/",
-                    )
+                ### SIZE-CAP CHECK + SAVE, SERIALIZED -- see
+                ### IMAGE_UPLOAD_LOCK in extensions.py. Held from the
+                ### size check through the initial save so the two
+                ### steps are atomic with respect to other concurrent
+                ### uploads; verify/re-encode/thumbnail below don't
+                ### grow the directory further, so they run outside
+                ### the lock.
+                with IMAGE_UPLOAD_LOCK:
+                    ### REJECT IF THE IMAGE DIRECTORY IS ALREADY AT ITS SIZE CAP
+                    if image_dir_size_bytes(ITEM_IMAGE_FS_DIR) >= MAX_IMAGE_DIR_BYTES:
+                        return render_template(
+                            "errorpage.html",
+                            err_message="Storage is full for this demo instance. Please try again after the next scheduled reset.",
+                            err_page_from="/",
+                        )
 
-                filename = secure_filename(file.filename)
-                photo_message = "Photo updated."
+                    filename = secure_filename(file.filename)
+                    photo_message = "Photo updated."
 
-                ### ADD TIMESTAMP TO FILE NAME TO HANDLE DUPES
-                pp = pathlib.PurePath(filename)
-                filename = pp.stem + str(time.time()) + pp.suffix
-                save_path = os.path.join(ITEM_IMAGE_FS_DIR, filename)
+                    ### ADD TIMESTAMP TO FILE NAME TO HANDLE DUPES
+                    pp = pathlib.PurePath(filename)
+                    filename = pp.stem + str(time.time()) + pp.suffix
+                    save_path = os.path.join(ITEM_IMAGE_FS_DIR, filename)
 
-                ### SAVE FILE
-                file.save(save_path)
+                    ### SAVE FILE
+                    file.save(save_path)
 
                 ### VERIFY THE UPLOADED BYTES ARE ACTUALLY A DECODABLE
                 ### IMAGE AND RE-ENCODE, DISCARDING THE ORIGINAL BYTES.
@@ -477,6 +486,12 @@ def iteminsert():
     ### itemadd.html), client-side only -- a direct POST bypasses it,
     ### so it's checked here too.
     item_name = request.form.get("item_name") or ""
+    if not item_name.strip():
+        return render_template(
+            "errorpage.html",
+            err_message="Item name cannot be blank.",
+            err_page_from="/itemadd",
+        )
     if len(item_name) > MAX_ITEM_NAME_LENGTH:
         return render_template(
             "errorpage.html",
@@ -518,24 +533,33 @@ def iteminsert():
                 err_page_from="/itemadd",
             )
 
-        ### REJECT IF THE IMAGE DIRECTORY IS ALREADY AT ITS SIZE CAP
-        if image_dir_size_bytes(ITEM_IMAGE_FS_DIR) >= MAX_IMAGE_DIR_BYTES:
-            return render_template(
-                "errorpage.html",
-                err_message="Storage is full for this demo instance. Please try again after the next scheduled reset.",
-                err_page_from="/itemadd",
-            )
+        ### SIZE-CAP CHECK + SAVE, SERIALIZED -- see IMAGE_UPLOAD_LOCK in
+        ### extensions.py. Held from the size check through the initial
+        ### save so the two steps are atomic with respect to other
+        ### concurrent uploads; verify/re-encode/thumbnail below don't
+        ### grow the directory further, so they run outside the lock.
+        with IMAGE_UPLOAD_LOCK:
+            ### REJECT IF THE IMAGE DIRECTORY IS ALREADY AT ITS SIZE CAP
+            if image_dir_size_bytes(ITEM_IMAGE_FS_DIR) >= MAX_IMAGE_DIR_BYTES:
+                return render_template(
+                    "errorpage.html",
+                    err_message="Storage is full for this demo instance. Please try again after the next scheduled reset.",
+                    err_page_from="/itemadd",
+                )
 
-        ### IF THE FILE IS ALLOWED AND IN THE POST, SAVE IT
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
+            ### IF THE FILE IS ALLOWED AND IN THE POST, SAVE IT
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
 
-            ### TIMESTAMP THE FILENAME TO HANDLE DUPES
-            pp = pathlib.PurePath(filename)
-            filename = pp.stem + str(time.time()) + pp.suffix
-            save_path = os.path.join(ITEM_IMAGE_FS_DIR, filename)
-            file.save(save_path)
+                ### TIMESTAMP THE FILENAME TO HANDLE DUPES
+                pp = pathlib.PurePath(filename)
+                filename = pp.stem + str(time.time()) + pp.suffix
+                save_path = os.path.join(ITEM_IMAGE_FS_DIR, filename)
+                file.save(save_path)
+            else:
+                filename = None
 
+        if filename is not None:
             ### VERIFY THE UPLOADED BYTES ARE ACTUALLY A DECODABLE IMAGE
             ### AND RE-ENCODE, DISCARDING THE ORIGINAL FILE CONTENT. THIS
             ### IS THE REAL CONTENT-LEVEL CHECK -- allowed_file() ABOVE
@@ -644,7 +668,7 @@ def showitemdetail(item_num):
     ### CHECK THAT ROUTE DECORATOR IS AN INT
     try:
         check_int = int(item_num)
-    except:
+    except ValueError:
         return render_template(
             "errorpage.html",
             err_message="Entry is not a number.",

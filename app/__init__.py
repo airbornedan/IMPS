@@ -43,6 +43,17 @@ def create_app():
     app.config["UPLOAD_FOLDER"] = ITEM_IMAGE_DIR
 
     ####################################################################
+    ### MAX REQUEST/UPLOAD BODY SIZE
+    ####################################################################
+    # Bounds every incoming request body, not just the item-image
+    # directory total (see MAX_IMAGE_DIR_BYTES in extensions.py) --
+    # Flask returns 413 for anything over this before route code runs.
+    # 16 MB comfortably covers a real photo; uploads are re-encoded and
+    # thumbnailed to 600x600 immediately after (see
+    # verify_and_reencode_image() in extensions.py).
+    app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
+
+    ####################################################################
     ### OPTIONAL LAN-ONLY ACCESS RESTRICTION
     ####################################################################
     # Off unless explicitly enabled via [access] restrict_to_lan = true

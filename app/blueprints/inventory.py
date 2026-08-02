@@ -68,19 +68,12 @@ def inventory():
         cursor.close()
         item_list = result
 
-    ### DETERMINE IF FROM SEARCH PAGE
-    search = False
-    q = request.args.get("q")
-    if q:
-        search = True
-
     #####################################
     ############# PAGINATION
     page = request.args.get(get_page_parameter(), type=int, default=1)
     pagination = Pagination(
         page=page,
         total=total,
-        search=search,
         per_page=limit,
     )
     ### READ THE COLUMN COOKIES
@@ -309,7 +302,7 @@ def byloc():
     conn_msg="Database error when accessing box content. Could not connect.",
     exec_msg="Database error when retrieving box contents.",
 )
-def box_view_switch(box_num):
+def boxviewswitch(box_num):
     ### VERIFY ROUTE DECORATOR IS AN INT
     try:
         check_int = int(box_num)
@@ -382,7 +375,7 @@ def box_view_switch(box_num):
     conn_msg="Database error when accessing box contents. Could not connect.",
     exec_msg="Database error when retrieving data for the selected box.",
 )
-def showbox(box_num):
+def boxshowcontent(box_num):
     ### VERIFY ROUTE DECORATOR IS AN INT
     try:
         check_int = int(box_num)
@@ -506,12 +499,12 @@ def boxlabel(box_num):
     ### boxprintlabel.html -- deliberately NOT the same as
     ### save_location above; same reasoning as ITEM_IMAGE_DIR vs
     ### ITEM_IMAGE_FS_DIR in extensions.py)
-    box_num_save_loc = [box_num, f"/static/images/qrcodes/qr_code_for_box_{box_num}.png"]
+    qr_image_url = f"/static/images/qrcodes/qr_code_for_box_{box_num}.png"
 
     ### SHOW THE LABEL
     return render_template(
         "boxes/boxprintlabel.html",
         box_num=box_num,
-        box_num_save_loc=box_num_save_loc,
+        qr_image_url=qr_image_url,
         box_name=box_name,
     )

@@ -62,14 +62,14 @@ def attemptlogin():
             err_page_from="/login",
         )
 
-    userPassword = request.form.get("password")
+    user_password = request.form.get("password")
 
     ### A MALFORMED/INCOMPLETE POST (stale cached page, replayed/
     ### bookmarked request) can arrive with no "password" field at all
     ### -- request.form["password"] would raise an unhandled KeyError
     ### (a generic Flask 400) in that case, so use .get() and handle it
     ### explicitly with IMPS's own error page.
-    if not userPassword:
+    if not user_password:
         return render_template(
             "errorpage.html",
             err_message="No password was submitted.",
@@ -81,10 +81,10 @@ def attemptlogin():
     ### password change through the setup wizard -- which calls
     ### extensions.reload_config() -- takes effect immediately, no
     ### process restart needed)
-    userBytes = userPassword.encode("utf-8")
-    pass_match = bcrypt.checkpw(userBytes, extensions.HASHED_IMPS_PASS)
+    user_bytes = user_password.encode("utf-8")
+    pass_match = bcrypt.checkpw(user_bytes, extensions.HASHED_IMPS_PASS)
 
-    if pass_match == True:
+    if pass_match:
         login_backoff_record_success(remote_ip)
         session["loggedin"] = True
         return redirect("/")

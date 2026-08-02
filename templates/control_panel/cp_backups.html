@@ -25,9 +25,9 @@
 			Last backup ({{ image_backups[0][1] }})
 		</a>
 	</div>
-	{% for filename, backup_date in image_backups[1:] %}
+	{% for download_url, backup_date in image_backups[1:] %}
 	<div class="input_div">
-		<a href="{{ filename }}">
+		<a href="{{ download_url }}">
 			<button type="submit" class="imps icon-only download"></button>
 			{{ backup_date }}
 		</a>
@@ -52,9 +52,9 @@
                 <button type="submit" class="imps icon-only download"></button>
 		Last backup ({{ db_backups[0][1] }})</a>
 	</div>
-	{% for filename, backup_date in db_backups[1:] %}
+	{% for download_url, backup_date in db_backups[1:] %}
 	<div class="input_div">
-		<a href="{{ filename }}">
+		<a href="{{ download_url }}">
 			<button type="submit" class="imps icon-only download"></button>
 			{{ backup_date }}
 		</a>

@@ -1,7 +1,7 @@
 ########################################################################
 ### ITEMS BLUEPRINT — CREATE/EDIT/DELETE ITEMS
 ########################################################################
-from flask import Blueprint, request, render_template, session
+from flask import Blueprint, request, render_template, session, redirect, url_for
 import os
 import pathlib
 import time
@@ -54,11 +54,14 @@ ITEMS_WITH_CAT_NAME = """
 """
 
 
-@bp.route("/itemdetails/<item_num>")
+########################################################################
+## ITEM DETAIL PAGE (NOT EDITABLE)
+@bp.route("/itemdetail/<item_num>")
 @login_required
-@db_errors(exec_msg="Database error when fetching item properties.")
-def itemdetails(item_num):
-    ### VERIFY ROUTE DECORATOR IS AN INT
+@db_errors(exec_msg="Database error when fetching item.")
+def itemdetail(item_num):
+
+    ### CHECK THAT ROUTE DECORATOR IS AN INT
     try:
         check_int = int(item_num)
     except ValueError:
@@ -68,10 +71,11 @@ def itemdetails(item_num):
             err_page_from="/",
         )
 
-    # Fetch an active, thread-safe connection from the pool
-    item_query_statement = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
-    result = run_query(item_query_statement, (item_num,), fetch="one", as_dict=True)
+    item_query = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
+    ### DB QUERY -- use the connection pool, same as every other route
+    result = run_query(item_query, (item_num,), fetch="one", as_dict=True)
 
+    ### CHECK THAT QUERY SUCCEEDED
     if not result:
         return render_template(
             "errorpage.html",
@@ -79,7 +83,7 @@ def itemdetails(item_num):
             err_page_from="/",
         )
 
-    # Deconstruct properties out of the result dict by column name
+    ### SET UP VARIABLES TO SHOW ITEM DETAIL PAGE
     item_num = result["item_num"]
     item_name = result["item_name"]
     box_num = result["box_num"]
@@ -88,16 +92,21 @@ def itemdetails(item_num):
     item_cat = result["item_cat"]
     item_desc = result["item_desc"]
 
+    ### "ADD ANOTHER" BUTTON -- shown only when ?from_add=1 is present.
+    from_add = request.args.get("from_add") == "1"
+
+    ### RETURN RESULTS PAGE
     return render_template(
         "items/itemdetail.html",
-        item_num=item_num,
         item_name=item_name,
-        box_num=box_num,
+        item_num=item_num,
         item_pic=item_pic,
+        box_num=box_num,
         item_date=item_date,
         item_cat=item_cat,
         item_desc=item_desc,
         ITEM_IMAGE_DIR=ITEM_IMAGE_DIR,
+        from_add=from_add,
     )
 
 ########################################################################
@@ -221,11 +230,11 @@ def itemedit(item_num):
 
 ########################################################################
 ### SUBMIT EDITED ITEM DETAILS
-@bp.route("/updateitem/<item_num>", methods=["GET", "POST"])
+@bp.route("/itemupdate/<item_num>", methods=["GET", "POST"])
 @login_required
 @limiter.limit("30 per minute; 300 per hour")
 @db_errors(exec_msg="Database write execution error. Changes could not be processed fully.")
-def updateitem(item_num):
+def itemupdate(item_num):
     ### VERIFY ROUTE DECORATOR IS AN INT
     try:
         check_int = int(item_num)
@@ -455,19 +464,8 @@ def updateitem(item_num):
             if result:
                 item_pic = result[0]
 
-    ### SHOW ITEM PAGE
-    return render_template(
-        "items/itemdetail.html",
-        item_name=ud_item_name,
-        item_num=ud_item_num,
-        box_num=ud_box_num,
-        item_date=ud_item_date,
-        item_cat=ud_item_cat,
-        item_desc=ud_item_desc,
-        item_pic=item_pic,
-        photo_message=photo_message,
-        ITEM_IMAGE_DIR=ITEM_IMAGE_DIR,
-    )
+    ### REDIRECT TO THE ITEM DETAIL PAGE
+    return redirect(url_for("items.itemdetail", item_num=ud_item_num))
 
 ########################################################################
 ### ADD ITEM TO DB AND UPLOAD AND SAVE PHOTO
@@ -513,9 +511,10 @@ def iteminsert():
             err_page_from="/itemadd",
         )
 
-    photoincluded = request.form.get("photo_yes_no")
+    ### photo_yes_no IS A "yes"/"no" RADIO GROUP (see itemadd.html)
+    photo_included = request.form.get("photo_yes_no") == "yes"
 
-    if photoincluded == "yes":
+    if photo_included:
         ### CHECK THAT THE POST CONTAINS FILE DATA
         if "file" not in request.files:
             return render_template(
@@ -556,34 +555,31 @@ def iteminsert():
                 filename = pp.stem + str(time.time()) + pp.suffix
                 save_path = os.path.join(ITEM_IMAGE_FS_DIR, filename)
                 file.save(save_path)
-            else:
-                filename = None
 
-        if filename is not None:
-            ### VERIFY THE UPLOADED BYTES ARE ACTUALLY A DECODABLE IMAGE
-            ### AND RE-ENCODE, DISCARDING THE ORIGINAL FILE CONTENT. THIS
-            ### IS THE REAL CONTENT-LEVEL CHECK -- allowed_file() ABOVE
-            ### ONLY LOOKED AT THE FILENAME, NOT THE BYTES.
-            if not verify_and_reencode_image(save_path):
+            ### IF THE FILE IS PROHIBITED SHOW ERROR PAGE
+            else:
                 return render_template(
                     "errorpage.html",
-                    err_message="That file could not be processed as a valid image.",
+                    err_message="That file type is not allowed.",
                     err_page_from="/itemadd",
                 )
 
-            # SHRINK IMAGE
-            image = Image.open(save_path)
-            image = ImageOps.exif_transpose(image)
-            image.thumbnail((600, 600))
-            image.save(save_path)
-
-        ### IF THE FILE IS PROHIBITED SHOW ERROR PAGE
-        else:
+        ### VERIFY THE UPLOADED BYTES ARE ACTUALLY A DECODABLE IMAGE
+        ### AND RE-ENCODE, DISCARDING THE ORIGINAL FILE CONTENT. THIS
+        ### IS THE REAL CONTENT-LEVEL CHECK -- allowed_file() ABOVE
+        ### ONLY LOOKED AT THE FILENAME, NOT THE BYTES.
+        if not verify_and_reencode_image(save_path):
             return render_template(
                 "errorpage.html",
-                err_message="That file type is not allowed.",
+                err_message="That file could not be processed as a valid image.",
                 err_page_from="/itemadd",
             )
+
+        # SHRINK IMAGE
+        image = Image.open(save_path)
+        image = ImageOps.exif_transpose(image)
+        image.thumbnail((600, 600))
+        image.save(save_path)
     ### IF NO FILE WAS INCLUDED USE THE DEFAULT PHOTO
     else:
         filename = ""
@@ -650,66 +646,12 @@ def iteminsert():
             )
         item_num = result[0]
 
-    ### SHOW THE RESULTS PAGE
-    return showitemdetail(str(item_num))
+    ### REDIRECT TO THE ITEM DETAIL PAGE
+    return redirect(url_for("items.itemdetail", item_num=item_num, from_add="1"))
 
 
 
 
-
-
-########################################################################
-## ITEM DETAIL PAGE (NOT EDITABLE)
-@bp.route("/showitemdetail/<item_num>")
-@login_required
-@db_errors(exec_msg="Database error when fetching item.")
-def showitemdetail(item_num):
-
-    ### CHECK THAT ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(item_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
-
-    item_query = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
-    ### DB QUERY -- use the connection pool, same as every other route
-    result = run_query(item_query, (item_num,), fetch="one", as_dict=True)
-
-    ### CHECK THAT QUERY SUCCEEDED
-    if not result:
-        return render_template(
-            "errorpage.html",
-            err_message="Database error. Could not access item.",
-            err_page_from="/",
-        )
-    item_result = result
-
-    ### SET UP VARIABLES TO SHOW ITEM DETAIL PAGE
-    item_num = item_result["item_num"]
-    item_name = item_result["item_name"]
-    box_num = item_result["box_num"]
-    item_pic = item_result["item_pic"]
-    item_date = item_result["item_date"]
-    item_cat = item_result["item_cat"]
-    item_desc = item_result["item_desc"]
-
-    ### RETURN RESULTS PAGE
-    return render_template(
-        "items/itemdetail.html",
-        item_name=item_name,
-        item_num=item_num,
-        item_pic=item_pic,
-        box_num=box_num,
-        item_date=item_date,
-        item_cat=item_cat,
-        item_desc=item_desc,
-        ITEM_IMAGE_DIR=ITEM_IMAGE_DIR,
-        from_add=True,
-    )
 
 
 
@@ -718,7 +660,7 @@ def showitemdetail(item_num):
 @bp.route("/itemsbycategory/<category>")
 @login_required
 @db_errors(exec_msg="Database error when fetching categorized item grids.")
-def itembycategory(category):
+def itemsbycategory(category):
     #####################################
     ############# PAGINATION
     limit = get_items_per_page()
@@ -772,16 +714,10 @@ def itembycategory(category):
 
     #####################################
     ############# PAGINATION
-    search = False
-    q = request.args.get("q")
-    if q:
-        search = True
-
     page = request.args.get(get_page_parameter(), type=int, default=1)
     pagination = Pagination(
         page=page,
         total=total,
-        search=search,
         per_page=limit,
     )
 
@@ -876,10 +812,10 @@ def itemdel(item_num):
 @login_required
 @db_errors(exec_msg="Database write execution error. Could not delete item safely.")
 def itemdeleted(item_to_del):
-    ### RE-VALIDATE THE BACK URL HERE TOO -- IT ARRIVED AS A QUERY PARAM
-    ### FROM THE CLIENT, SO TREAT IT AS UNTRUSTED EVEN THOUGH itemdel()
-    ### ALREADY SANITIZED IT ONCE.
-    back_url = safe_relative_url(request.args.get("back_url"))
+    ### RE-VALIDATE THE BACK URL HERE TOO -- IT ARRIVED AS A POST BODY
+    ### FIELD FROM THE CLIENT, SO TREAT IT AS UNTRUSTED EVEN THOUGH
+    ### itemdel() ALREADY SANITIZED IT ONCE.
+    back_url = safe_relative_url(request.form.get("back_url"))
 
     ### CHECK THAT ROUTE DECORATOR IS AN INT
     try:
@@ -952,11 +888,9 @@ def itemdeleted(item_to_del):
 
     if has_real_photo:
         ### photo_filename comes from the DB, not the request, but
-        ### treat it as untrusted anyway and run it through
-        ### safe_image_path() -- same as every other photo-delete path
-        ### (updateitem() above, cp_photofilesdel() in control_panel.py).
-        ### Keeps this route safe even if item_pic holds something
-        ### unexpected (hand-edited data, a restored backup).
+        ### treat it as untrusted: run it through safe_image_path()
+        ### (itemupdate() above, cp_photofilesdel() in
+        ### control_panel.py).
         photo_file = safe_image_path(photo_filename, photo_dir)
         if photo_file is None:
             logger.error(

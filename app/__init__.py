@@ -2,12 +2,11 @@
 ### APPLICATION FACTORY
 ########################################################################
 import os
-import re
 import ipaddress
 
 from flask import Flask, request, session
 
-from app.extensions import ITEM_IMAGE_DIR, FLASK_SECRET_KEY, csrf, limiter
+from app.extensions import ITEM_IMAGE_DIR, FLASK_SECRET_KEY, csrf, limiter, route_to_help_topic
 from app import extensions
 
 ########################################################################
@@ -24,10 +23,10 @@ from app import extensions
 LIST_VIEW_ENDPOINTS = {
     "main.search_result",
     "inventory.inventory",
-    "inventory.showbox",
-    "items.itembycategory",
-    "control_panel.cp_orphan_list",
-    "control_panel.orphan_vs",
+    "inventory.boxshowcontent",
+    "items.itemsbycategory",
+    "control_panel.cp_orphaneditemscleanup",
+    "control_panel.orphan_view_switch",
 }
 
 
@@ -137,8 +136,7 @@ def create_app():
     def inject_help_topic():
         topic = "home"
         if request.url_rule:
-            rule = re.sub(r"<[^>]+>", "", request.url_rule.rule)
-            topic = rule.strip("/").replace("/", "_") or "home"
+            topic = route_to_help_topic(request.url_rule.rule)
         return {"help_topic": topic}
 
     ####################################################################
@@ -146,8 +144,8 @@ def create_app():
     ####################################################################
     @app.after_request
     def remember_list_view(response):
-        # Not restricted to GET: showbox (and potentially other list
-        # views) is registered for both GET and POST, and box_num etc.
+        # Not restricted to GET: boxshowcontent (and potentially other
+        # list views) is registered for both GET and POST, and box_num etc.
         # live in the URL path rather than the POST body, so
         # request.path is a complete, safe representation of the view
         # either way.
@@ -178,5 +176,16 @@ def create_app():
     app.register_blueprint(items_bp)
     app.register_blueprint(control_panel_bp)
     app.register_blueprint(help_bp)
+
+    ####################################################################
+    ### DEV-MODE STARTUP CHECKS (see app/dev_checks.py)
+    ####################################################################
+    # Runs after every blueprint is registered, so app.url_map is
+    # complete. Gated on FLASK_DEBUG rather than app.debug, which
+    # isn't set yet at this point in the factory.
+    if os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true", "yes"):
+        from app.dev_checks import run_dev_checks
+
+        run_dev_checks(app)
 
     return app

@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="page_title">Unlinked Photo Cleanup</p>
+{% set sub_title = "Unlinked photo cleanup" %}
+{% set active_tab = 'Cleanup' %}
+{% set tab_label = "Cleanup" %}
+{% set back_url = "/cp_cleanup" %}
+{% include "includes/cp_tab_subheader.html" %}
 <div class="container-flex">
 <form name="del_item_form" method="POST" action="/cp_photofilesdel">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

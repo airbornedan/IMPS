@@ -5,6 +5,7 @@
 # imported by every blueprint.
 
 import os
+import re
 import logging
 import threading
 import time
@@ -682,10 +683,8 @@ def get_or_create_cat_num(cursor, cat_name):
     cursor.execute("SELECT cat_num FROM categories WHERE cat_name = %s", (cat_name,))
     row = cursor.fetchone()
     # Falls back to 0 (Uncategorized) only if something has gone
-    # seriously wrong (e.g. the SELECT right after a successful INSERT
-    # finds nothing) -- Uncategorized is guaranteed to exist and never
-    # be deleted (see cp_delcat in control_panel.py), so this is a
-    # safe floor, not a silent data-loss path.
+    # seriously wrong -- Uncategorized always exists (see cp_catdel in
+    # control_panel.py).
     return row[0] if row else 0
 
 
@@ -708,11 +707,9 @@ def get_or_create_loc_num(cursor, loc_name):
 ########################################################################
 # Tracks physical/contents changes, not every edit: item added, moved,
 # or deleted counts; box name/location edited counts; editing an
-# item's name/description/category/photo/date in place does NOT. One
-# helper, one place writes this column, so every call site agrees on
-# what "touched" means. Call sites: iteminsert()/itemdeleted()/
-# updateitem() in items.py; boxmoveitemssuccess()/boxeditsuccess() in
-# boxes.py.
+# item's name/description/category/photo/date in place does NOT. Call
+# sites: iteminsert()/itemdeleted()/itemupdate() in items.py;
+# boxmoveitemssuccess() in boxes.py.
 #
 # No-ops on a falsy/None box_num (an orphaned item has no box to
 # touch) rather than gating each call site with its own if-check.
@@ -728,7 +725,7 @@ def touch_box_last_changed(cursor, box_num):
 ########################################################################
 ### LIST-VIEW PAGE SIZE
 ########################################################################
-# Shared by every paginated list route (inventory, itembycategory,
+# Shared by every paginated list route (inventory, itemsbycategory,
 # search_result). A per-visitor preference, not a fixed value: IMPS
 # has no per-user account system (see HASHED_IMPS_PASS above -- a
 # single shared password), so it's stored the same way as the
@@ -761,7 +758,7 @@ def get_items_per_page():
 # ?page= is client-supplied (typed in the URL, bookmarked, or shared),
 # so it can't be trusted to be a valid positive integer. Centralizes
 # int(page_req) parsing for main.search_result(), inventory.inventory(),
-# and items.itembycategory(). Raises a specific, catchable error
+# and items.itemsbycategory(). Raises a specific, catchable error
 # instead of a bare ValueError, so each route can show an accurate
 # "that page doesn't exist" message rather than a misleading
 # "database error".
@@ -973,3 +970,13 @@ def login_required(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+########################################################################
+### ROUTE -> HELP TOPIC
+########################################################################
+# Converts a Flask route rule to a help topic name. Used by
+# app/__init__.py's inject_help_topic() and app/dev_checks.py.
+def route_to_help_topic(rule):
+    rule = re.sub(r"<[^>]+>", "", rule)
+    return rule.strip("/").replace("/", "_") or "home"

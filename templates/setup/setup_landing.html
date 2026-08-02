@@ -55,7 +55,7 @@ you're ready to finish and start using IMPS.</p>
 			<b>Item image directory:</b>
 		</div>
 		<div class="inline_div">
-			<span class="dot" {% if item_image_config %}style="background-color: green;"
+			<span class="dot" {% if item_image_dir_exists %}style="background-color: green;"
 			{% else %}style="background-color: red;"{% endif %}></span>
 		</div>
 	</div>
@@ -64,7 +64,7 @@ you're ready to finish and start using IMPS.</p>
 			<b>Backup directory:</b>
 		</div>
 		<div class="inline_div">
-			<span class="dot" {% if backup_config %}style="background-color: green;"
+			<span class="dot" {% if backup_dir_exists %}style="background-color: green;"
 			{% else %}style="background-color: red;"{% endif %}></span>
 		</div>
 	</div>

@@ -233,13 +233,10 @@ def search_result(query_term):
 
     #####################################
     ############# PAGINATION
-    search = False
-
     page = request.args.get(get_page_parameter(), type=int, default=1)
     pagination = Pagination(
         page=page,
         total=total,
-        search=search,
         per_page=limit,
     )
 

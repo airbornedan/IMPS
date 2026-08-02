@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="page_title">View</p>
+{% set sub_title = "View settings" %}
+{% set active_tab = 'BoxItem' %}
+{% set tab_label = "Settings" %}
+{% set back_url = "/control_panel" %}
+{% include "includes/cp_tab_subheader.html" %}
 <p>Select columns to show / hide </p>
 
 <div style="background-color: #fafafa; padding-top:4px; border:3px solid #ddd;">
@@ -9,7 +13,7 @@
 <div class="item_display_table" id="itemdisplaytable">
 <span class="table_head">
 	<span class="table_label">Item</span>
-	<span class="table_label" id="info_column_h"
+	<span class="table_label table_label-nosort" id="info_column_h"
 		style="text-align: center; {% if info_column == 'False' %}display:none{%endif%}";>
 		<div class="tooltip">
 			<img src="/static/images/infodot.png">

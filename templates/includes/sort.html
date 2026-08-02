@@ -14,6 +14,11 @@ tableHead.addEventListener('click',function(e){
         while (tableHeader.nodeName!=='SPAN') {
             tableHeader = tableHeader.parentNode;
         }
+        // table_label-nosort headers stay in the tableHeaders index
+        // but do not sort.
+        if (tableHeader.classList.contains('table_label-nosort')) {
+            return;
+        }
         tableHeaderIndex = Array.prototype.indexOf.call(tableHeaders,tableHeader);
         isAscending = tableHeader.getAttribute('data-order')==='asc';
         order = isAscending?'desc':'asc';

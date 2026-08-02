@@ -99,7 +99,7 @@ def boxadd():
     conn_msg="Database error when accessing box numbers. Could not connect.",
     exec_msg="Database error when retrieving global box configuration structures.",
 )
-def boxmoveitems():
+def boxmoveitemsconf():
     ### GET FORM DATA. Use .get() with a "" default (rather than
     ### request.form["box_to_del"]) so a malformed/incomplete POST (stale
     ### cached page, bookmarked/replayed request) falls through to the
@@ -146,9 +146,9 @@ def boxmoveitems():
     conn_msg="Database error when accessing box info. Could not connect.",
     exec_msg="Database error when parsing item dependencies.",
 )
-def boxorphanitems():
+def boxorphanitemsconf():
     ### GET FORM DATA. Use .get() with a "" default -- see
-    ### boxmoveitems() above for why.
+    ### boxmoveitemsconf() above for why.
     box_to_del = request.form.get("box_to_del", "")
 
     ### VERIFY FORM ENTRY IS AN INT
@@ -187,7 +187,7 @@ def boxorphanitems():
 )
 def boxorphanitemssuccess():
     ### GET FORM DATA. Use .get() with a "" default -- see
-    ### boxmoveitems() above for why.
+    ### boxmoveitemsconf() above for why.
     box_to_del = request.form.get("box_to_del", "")
 
     ### VERIFY VARIABLE IS AN INT
@@ -223,7 +223,7 @@ def boxorphanitemssuccess():
 )
 def boxmoveitemssuccess():
     ### GET FORM DATA. Use .get() with "" defaults -- see
-    ### boxmoveitems() above for why.
+    ### boxmoveitemsconf() above for why.
     box_to_del = request.form.get("box_to_del", "")
     new_box_num = request.form.get("new_box_num", "")
 
@@ -283,9 +283,9 @@ def boxmoveitemssuccess():
 )
 def boxadded():
     ### GET FORM DATA AND CHECK BOX NUMBER TYPE SELECTION
-    box_type = request.form.get("box_type")
+    box_num_mode = request.form.get("box_num_mode")
     
-    if box_type == "next_available":
+    if box_num_mode == "next_available":
         box_num = request.form.get("next_num")
     else:
         box_num = request.form.get("box_num")
@@ -332,7 +332,7 @@ def boxadded():
         )
 
     ### IF NEXT AVAILABLE IS SET, USE THAT BOX
-    if box_type == "next_available":
+    if box_num_mode == "next_available":
         box_num = next_available_box_num
 
     ### RE-VALIDATE THE FINAL box_num -- next_available_box_num comes
@@ -463,14 +463,14 @@ def boxdel():
 
 
 ########################################################################
-### DELETE BOX CONFIRM PAGE
-@bp.route("/delboxconf", methods=["POST"])
+### DELETE BOX (AND ALL ITS ITEMS) CONFIRM PAGE
+@bp.route("/boxdeleteitemsconf", methods=["POST"])
 @login_required
 @db_errors(exec_msg="Database error. Could not access box list.")
-def delboxconf():
+def boxdeleteitemsconf():
 
     ### GET FORM DATA. Use .get() with a "" default -- see
-    ### boxmoveitems() above for why.
+    ### boxmoveitemsconf() above for why.
     box_to_del = request.form.get("box_to_del", "")
 
     ### VERIFY VARIABLE IS AN INT
@@ -496,16 +496,16 @@ def delboxconf():
 
     ### SHOW THE BOX DELETE CONFIRMATION PAGE
     return render_template(
-        "boxes/boxdelconfirm.html", box_state=box_state, box_to_del=box_to_del
+        "boxes/boxdeleteitemsconf.html", box_state=box_state, box_to_del=box_to_del
     )
 
 
 ########################################################################
 ### EDIT BOX FORM
-@bp.route("/boxedit")
+@bp.route("/boxeditselect")
 @login_required
 @db_errors(exec_msg="Database error. Could not access box list.")
-def boxedit():
+def boxeditselect():
 
     ### SETUP AVAILABLE BOX NUMERS QUERY
     available_box_nums_query = "SELECT boxes.box_num FROM boxes;"
@@ -528,17 +528,17 @@ def boxedit():
     available_boxes = [row[0] for row in result]
 
     ### RETURN BOX SELECTION PAGE
-    return render_template("boxes/boxedit.html", available_boxes=available_boxes)
+    return render_template("boxes/boxeditselect.html", available_boxes=available_boxes)
 
 
 ########################################################################
-### SHOW BOX DETAILS
-@bp.route("/boxdetails", methods=["POST"])
+### SHOW BOX EDIT FORM
+@bp.route("/boxedit", methods=["POST"])
 @login_required
 @db_errors(exec_msg="Database error. Could not access box configuration records.")
-def boxdetails():
+def boxedit():
     ### SET UP BOX DETAILS QUERY
-    box_num = request.form.get("box-num")
+    box_num = request.form.get("box_num")
 
     ### VERIFY VARIABLE IS AN INT
     try:
@@ -564,7 +564,7 @@ def boxdetails():
             return render_template(
                 "errorpage.html",
                 err_message="The selected box no longer exists in the database.",
-                err_page_from="/boxedit",
+                err_page_from="/boxeditselect",
             )
 
         ### QUERY ALL LOCATIONS
@@ -581,7 +581,7 @@ def boxdetails():
 
     ### SHOW BOX DETAILS
     return render_template(
-        "boxes/boxdetails.html",
+        "boxes/boxedit.html",
         box_num=box_num,
         box_name=box_name,
         box_loc=box_loc,
@@ -593,7 +593,7 @@ def boxdetails():
 @bp.route("/boxedited", methods=["GET", "POST"])
 @login_required
 @db_errors(exec_msg="Database error. Could not successfully complete updating box metrics.")
-def boxeditsuccess():
+def boxedited():
     ### GET FORM DATA
     box_name = request.form.get("box_name") or ""
     box_loc = request.form.get("box_loc")
@@ -606,7 +606,7 @@ def boxeditsuccess():
         return render_template(
             "errorpage.html",
             err_message=f"Box names are limited to {MAX_BOX_NAME_LENGTH} characters.",
-            err_page_from="/boxedit",
+            err_page_from="/boxeditselect",
         )
 
     ### VALIDATE LOCATION NAME LENGTH -- box_loc == "" means "keep the
@@ -620,7 +620,7 @@ def boxeditsuccess():
         return render_template(
             "errorpage.html",
             err_message=f"Location names are limited to {MAX_LOCATION_NAME_LENGTH} characters.",
-            err_page_from="/boxedit",
+            err_page_from="/boxeditselect",
         )
 
     # Fetch an active, thread-safe connection from the pool

@@ -4,58 +4,59 @@
 
 <!-- Page content -->
 
-<p class="page_title">Manage Locations</p>
-<div class="grid-cat-container">
-	<div class="grid-item-left">
-		<b>Location</b>
-	</div>
-        <div class="grid-item">
-                <b>Boxes</b>
-        </div>
-        <div class="grid-item">
-                <b>Edit loc</b>
-        </div>
-
-        <div class="grid-item">
-                <b>List boxes</b>
-	</div>
-        <div class="grid-item">
-		<b>Delete</b>
-        </div>
-        {% set ns = namespace(counter=-1) %}
+{% set sub_title = "Manage locations" %}
+{% set active_tab = 'BoxItem' %}
+{% set tab_label = "Settings" %}
+{% set back_url = "/control_panel" %}
+{% include "includes/cp_tab_subheader.html" %}
+<div class="container-flex">
+<div class="item_display_table">
+	<span class="table_head">
+		<span class="table_label">Location</span>
+		<span class="table_label">Boxes</span>
+		<span class="table_label">Edit loc</span>
+		<span class="table_label">List boxes</span>
+		<span class="table_label">Delete</span>
+	</span>
+	<span class="table_body">
+	{% set ns = namespace(counter=-1) %}
 	{% for loc_name in locations %}
-        {% set ns.counter = ns.counter+1 %}
-	<div class="grid-item-left">
-		<div class="tooltip">
-			{{ loc_name | truncate(25) }}
-			<span class="tooltiptext">{{ loc_name }}</span>
+	{% set ns.counter = ns.counter+1 %}
+	<div class="table_row">
+		<div class="table_cell">
+			<div class="tooltip">
+				{{ loc_name | truncate(25) }}
+				<span class="tooltiptext">{{ loc_name }}</span>
+			</div>
+		</div>
+		<div class="table_cell">{{loc_count[ns.counter]}}</div>
+		<div class="table_cell">
+			{% if loc_name=="Unspecified" %}
+				<button type="submit" class="imps icon-only edit" disabled></button>
+			{% else %}
+				<a href="/cp_editloc/{{loc_name}}">
+					<button type="submit" class="imps icon-only edit"></button>
+				</a>
+			{% endif%}
+		</div>
+		<div class="table_cell">
+			{% if loc_count[ns.counter] != 0 %}
+				<a href="/boxlistbyloc/{{loc_name}}"><button class="imps icon-only box_closed"></button></a>
+			{% else %}
+				<button class="imps icon-only box_closed" disabled></button>
+			{% endif %}
+		</div>
+		<div class="table_cell">
+			{% if loc_name=="Unspecified" %}
+				<button type="submit" class="imps icon-only trash" disabled></button>
+			{% else %}
+				<a href="/cp_locdel/{{loc_name}}"><button type="submit" class="imps icon-only trash"></button></a>
+			{% endif%}       
 		</div>
 	</div>
-        <div class="grid-item">{{loc_count[ns.counter]}}</div>
-        <div class="grid-item">
-                {% if loc_name=="Unspecified" %}
-                        <button type="submit" class="imps icon-only edit" disabled></button>
-                {% else %}
-                        <a href="/cp_editloc/{{loc_name}}">
-				<button type="submit" class="imps icon-only edit"></button>
-			</a>
-                {% endif%}
-        </div>
-        <div class="grid-item">
-		{% if loc_count[ns.counter] != 0 %}
-			<a href="/boxlistbyloc/{{loc_name}}"><button class="imps icon-only box_closed"></button></a>
-		{% else %}
-			<button class="imps icon-only box_closed" disabled></button>
-		{% endif %}
-	</div>
-        <div class="grid-item">
-	        {% if loc_name=="Unspecified" %}
-                	<button type="submit" class="imps icon-only trash" disabled></button>
-        	{% else %}
-			<a href="/cp_delloc/{{loc_name}}"><button type="submit" class="imps icon-only trash"></button></a>
-	        {% endif%}       
-	</div>
 	{% endfor %}
+	</span>
+</div>
 </div>
 <div>
 	<div>

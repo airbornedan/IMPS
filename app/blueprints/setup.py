@@ -91,17 +91,17 @@ def setup_landing():
     ### Showing a light for it here would be meaningless -- it'd always
     ### be green, or you'd never see this page to find out it wasn't.)
 
-    item_image_config = os.path.exists(ITEM_IMAGE_FS_DIR)
-    backup_config = os.path.exists(BACKUP_DIR)
+    item_image_dir_exists = os.path.exists(ITEM_IMAGE_FS_DIR)
+    backup_dir_exists = os.path.exists(BACKUP_DIR)
 
-    all_green = db_conn and db_tables and item_image_config and backup_config
+    all_green = db_conn and db_tables and item_image_dir_exists and backup_dir_exists
 
     return render_template(
         "setup/setup_landing.html",
         db_conn=db_conn,
         db_tables=db_tables,
-        item_image_config=item_image_config,
-        backup_config=backup_config,
+        item_image_dir_exists=item_image_dir_exists,
+        backup_dir_exists=backup_dir_exists,
         all_green=all_green,
     )
 

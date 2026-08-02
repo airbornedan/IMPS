@@ -6,8 +6,8 @@
 <form action="/boxshowcontent/" method = "POST" name="select_box" id="select_box" onsubmit="return validateForm(event);">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 	<div>
-		<input type="text" id="box-num" name="box-num" size="5" autofocus
-			list="box-num-suggestions" autocomplete="off"
+		<input type="text" id="box_num" name="box_num" size="5" autofocus
+			list="box_num_suggestions" autocomplete="off"
 			placeholder="Box #">
 		<!--
 			datalist gives native, filter-as-you-type autocomplete
@@ -23,7 +23,7 @@
 			validateForm() check against valid_numbers below is still
 			the actual enforcement and stays in place unchanged.
 		-->
-		<datalist id="box-num-suggestions">
+		<datalist id="box_num_suggestions">
 			{% for box_num in available_boxes %}
 			<option value="{{ box_num }}"></option>
 			{% endfor %}
@@ -38,7 +38,7 @@
 // Hoisted out of validateForm() so both the live-typing check below and
 // the on-submit check can both use it without duplicating the data.
 const valid_numbers = {{available_boxes|tojson}};
-const boxNumInput = document.getElementById("box-num");
+const boxNumInput = document.getElementById("box_num");
 
 // LIVE FEEDBACK: as the user types, flag the input red as soon as the
 // value doesn't match a real box number. Purely visual -- this does not
@@ -59,7 +59,7 @@ boxNumInput.addEventListener("input", function() {
 
 function validateForm() {
 const numForm = document.forms.select_box;
-let num_input = document.forms["select_box"]["box-num"].value;
+let num_input = document.forms["select_box"]["box_num"].value;
 var num_to_check = Number(num_input) ;
 
 if (num_input == ""){

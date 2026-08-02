@@ -4,65 +4,64 @@
 
 <!-- Page content -->
 
-<p class="page_title">Manage Categories </p>
-	<div class="grid-cat-container">
-		<div class="grid-item-left">
-			<b>Cat name</b>
-		</div>
-		 <div class="grid-item">
-			<b>Toal items</b>
-		</div>
-		<div class="grid-item">
-			<b>Edit cat</b>
-		</div>
-		<div class="grid-item">
-			<b>List items</b>
-		</div>
-		<div class="grid-item">
-			<b>Delete</b>
-		</div>
-
+{% set sub_title = "Manage categories" %}
+{% set active_tab = 'BoxItem' %}
+{% set tab_label = "Settings" %}
+{% set back_url = "/control_panel" %}
+{% include "includes/cp_tab_subheader.html" %}
+<div class="container-flex">
+	<div class="item_display_table">
+		<span class="table_head">
+			<span class="table_label">Cat name</span>
+			<span class="table_label">Total items</span>
+			<span class="table_label">Edit cat</span>
+			<span class="table_label">List items</span>
+			<span class="table_label">Delete</span>
+		</span>
+		<span class="table_body">
 		{% for category in items_per_category %}
-
-		<div class="grid-item-left">
-			<div class="tooltip">
-				{{ category[0] | truncate(25) }}
-				<span class="tooltiptext">{{ category[0] }}</span>
+		<div class="table_row">
+			<div class="table_cell">
+				<div class="tooltip">
+					{{ category[0] | truncate(25) }}
+					<span class="tooltiptext">{{ category[0] }}</span>
+				</div>
+			</div>
+			<div class="table_cell">
+				{{category[1]}}
+			</div>
+			<div class="table_cell">
+				{% if category[0] == "Uncategorized" %}
+					<button class="imps icon-only edit" disabled></button>	
+				{% else %}
+				<a href="/cp_editcat/{{category[2]}}">
+					<button class="imps icon-only edit"></button>
+				</a>
+				{% endif %}
+			</div>
+			<div class="table_cell">
+				{% if category[1] == 0 %}
+					<button class="imps icon-only list" disabled></button>
+				{% else %}
+				<a href="/itemsbycategory/{{category[0]}}">
+					<button type="submit" class="imps icon-only list"></button>
+				</a>
+				{% endif %}
+			</div>
+			<div class="table_cell">
+				{% if category[0] == "Uncategorized" %}
+					<button class="imps icon-only trash" disabled></button>
+				{% else %}
+				<a href="/cp_catdel/{{category[2]}}">
+					<button class="imps icon-only trash"></button>
+				</a>
+				{% endif %}
 			</div>
 		</div>
-		<div class="grid-item">
-			{{category[1]}}
-		</div>
-		<div class="grid-item">
-			{% if category[0] == "Uncategorized" %}
-				<button class="imps icon-only edit" disabled></button>	
-			{% else %}
-			<a href="/cp_editcat/{{category[2]}}">
-				<button class="imps icon-only edit"></button>
-			</a>
-			{% endif %}
-		</div>
-		<div class="grid-item">
-			{% if category[1] == 0 %}
-				<button class="imps icon-only list" disabled></button>
-			{% else %}
-			<a href="/itemsbycategory/{{category[0]}}">
-				<button type="submit" class="imps icon-only list"></button>
-			</a>
-			{% endif %}
-		</div>
-		<div class="grid-item">
-			{% if category[0] == "Uncategorized" %}
-				<button class="imps icon-only trash" disabled></button>
-			{% else %}
-			<a href="/cp_delcat/{{category[2]}}">
-				<button class="imps icon-only trash"></button>
-			</a>
-			{% endif %}
-		</div>
-
 		{% endfor %}
+		</span>
 	</div>
+</div>
 	<div>
 		<form action="/cp_addcat" name="add_cat" id="add_cat" method="POST" onsubmit="return validateForm(event);" >
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

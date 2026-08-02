@@ -6,7 +6,7 @@
 <p class="page_title">Delete a box</p>
 <br>
 </div>
-<form name="del_box_form" id="del_box_form" action="/delboxconf" method = "POST" onsubmit="return validateForm();">
+<form name="del_box_form" id="del_box_form" action="/boxdeleteitemsconf" method = "POST" onsubmit="return validateForm();">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <input type="hidden" name="box_del_from" value="/boxdel">
 <div class="container-flex">
@@ -140,7 +140,7 @@ function validateForm() {
     // handling choice of its own.
     if (isKnownEmptyBox(box_num)) {
         document.forms["del_box_form"]["item_handling"].value = "delete";
-        document.getElementById('del_box_form').action = "/delboxconf";
+        document.getElementById('del_box_form').action = "/boxdeleteitemsconf";
         document.getElementById('del_box_form').submit();
         return;
     }
@@ -160,7 +160,7 @@ function validateForm() {
         document.getElementById('del_box_form').submit();
     }
     else if (item_handling == "delete"){
-        document.getElementById('del_box_form').action = "/delboxconf";
+        document.getElementById('del_box_form').action = "/boxdeleteitemsconf";
         document.getElementById('del_box_form').submit();
     }
     

@@ -64,9 +64,9 @@ Control panel to veiw the available locations. </p>
                         </div>
 
         		<div class="table_cell">
-				<form action="/boxdetails" method="POST">
+				<form action="/boxedit" method="POST">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-				   <input type="hidden" id="box-num" name="box-num" value="{{box_num}}">
+				   <input type="hidden" id="box_num" name="box_num" value="{{box_num}}">
 		                   <button type="submit" id="edit_submit_button" class="imps icon-only edit">
                 		   </button>
 			        </form>

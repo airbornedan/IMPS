@@ -2,7 +2,7 @@
 ### CONTROL PANEL BLUEPRINT — ADMIN: CATEGORIES, LOCATIONS, BACKUPS,
 ### ORPHANED PHOTO CLEANUP, VIEW/COLUMN PREFERENCES
 ########################################################################
-from flask import Blueprint, request, render_template, redirect, url_for, make_response
+from flask import Blueprint, request, render_template, redirect, url_for, make_response, send_from_directory
 import os
 import shutil
 import subprocess
@@ -14,7 +14,6 @@ from app import extensions
 from app.extensions import (
     get_db_connection,
     login_required,
-    IMPS_DIR,
     BACKUP_DIR,
     ITEM_IMAGE_DIR,
     ITEM_IMAGE_FS_DIR,
@@ -81,6 +80,16 @@ def _record_backup_and_prune(mydb, backup_type, filename, backup_date):
         cursor.close()
 
 
+def _backup_rows_for_template(rows):
+    """Converts (filesystem_path, backup_date) rows from
+    backup_history into (download_url, backup_date) pairs for the
+    template. See cp_downloadbackup() below."""
+    return [
+        (url_for("control_panel.cp_downloadbackup", filename=os.path.basename(filename)), backup_date)
+        for filename, backup_date in rows
+    ]
+
+
 ########################################################################
 ### CONTROL PANEL -- SETTINGS/BOX-ITEM TAB (default landing page)
 # Four separate routes, one per tab, each a real bookmarkable page
@@ -89,7 +98,7 @@ def _record_backup_and_prune(mydb, backup_type, filename, backup_date):
 # highlighting.
 @bp.route("/control_panel")
 @login_required
-def controlpanel():
+def cp_landing():
     return render_template("control_panel/control_panel.html")
 
 
@@ -131,6 +140,10 @@ def cp_backups():
         image_backups = cursor.fetchall()
         cursor.close()
 
+    ### CONVERT STORED PATHS TO DOWNLOAD URLS
+    db_backups = _backup_rows_for_template(db_backups)
+    image_backups = _backup_rows_for_template(image_backups)
+
     return render_template(
         "control_panel/cp_backups.html",
         db_backups=db_backups,
@@ -169,15 +182,8 @@ def cp_server():
 
 
 ########################################################################
-# SECURITY: POST-only. Runs mysqldump (disk + subprocess cost) and
-# writes a new file every call, no confirmation. GET routes are exempt
-# from CSRFProtect's token check, so a GET here would let any page
-# loaded in a logged-in admin's browser (img tag, link, crawler)
-# trigger a backup with no token check -- POST keeps this covered by
-# CSRFProtect. Not destructive like boxdeletesuccess, but still an
-# unauthorized-trigger / mild-DoS vector. No confirmation dialog
-# needed -- creating a backup isn't a warn-before-doing action, unlike
-# a delete.
+# SECURITY: POST-only. GET routes are exempt from CSRFProtect, and
+# mysqldump has real cost -- POST keeps this behind the CSRF token.
 @bp.route("/cp_dbbackup", methods=["POST"])
 @login_required
 @db_errors(exec_msg="Database logging error during backup configuration storage lifecycle.")
@@ -218,16 +224,13 @@ def cp_dbbackup():
         ### BACKUP_HISTORY_KEEP, PRUNES OLDER: DB ROW AND FILE)
         _record_backup_and_prune(mydb, "db", backup_file, today)
 
-    ### RENDER PAGE
-    return render_template("control_panel/cp_dbbackup.html", backup_file=backup_file)
+    ### REDIRECT TO THE BACKUPS TAB
+    return redirect(url_for("control_panel.cp_backups"))
 
 
 ########################################################################
 ### CREATE PHOTO ARCHIVE AND LOG TO DB
-# SECURITY: POST-only, same reasoning as cp_dbbackup above. Calls
-# shutil.make_archive over the whole item-image directory every hit;
-# GET routes are exempt from CSRFProtect's token check, so POST is
-# what keeps this covered.
+# SECURITY: POST-only, same reasoning as cp_dbbackup above.
 @bp.route("/cp_photoarchive", methods=["POST"])
 @login_required
 @db_errors(exec_msg="Database logging error during image compression archiving lifecycle.")
@@ -250,10 +253,41 @@ def cp_photoarchive():
         ### BACKUP_HISTORY_KEEP, PRUNES OLDER: DB ROW AND FILE)
         _record_backup_and_prune(mydb, "image", archive_file, today)
 
-    ### RETURN PAGE
-    return render_template(
-        "control_panel/cp_photoarchive.html", archive_file=archive_file
-    )
+    ### REDIRECT TO THE BACKUPS TAB
+    return redirect(url_for("control_panel.cp_backups"))
+
+
+########################################################################
+### DOWNLOAD A BACKUP FILE
+# SECURITY: filename is client-supplied. Never joined onto BACKUP_DIR
+# without the os.path.basename() check below, and must match a row in
+# backup_history.
+@bp.route("/cp_downloadbackup/<filename>")
+@login_required
+@db_errors(exec_msg="Database error when verifying backup file.")
+def cp_downloadbackup(filename):
+    if os.path.basename(filename) != filename:
+        return render_template(
+            "errorpage.html",
+            err_message="Invalid backup filename.",
+            err_page_from="/cp_backups",
+        )
+
+    with get_db_connection() as mydb:
+        cursor = mydb.cursor()
+        cursor.execute("SELECT filename FROM backup_history")
+        all_paths = cursor.fetchall()
+        cursor.close()
+
+    known_basenames = {os.path.basename(path) for (path,) in all_paths}
+    if filename not in known_basenames:
+        return render_template(
+            "errorpage.html",
+            err_message="That backup no longer exists.",
+            err_page_from="/cp_backups",
+        )
+
+    return send_from_directory(BACKUP_DIR, filename, as_attachment=True)
 
 
 ########################################################################
@@ -333,8 +367,8 @@ def cp_photofilescleanup():
 
     ### EXTRACT NAMES FROM RESULT ROWS
     num_items = len(result)
-    item_list = [row[0] for row in result if row[0]]
-    item_list.sort()
+    photo_filenames_in_db = [row[0] for row in result if row[0]]
+    photo_filenames_in_db.sort()
 
     ### READ ALL FILES IN PHYSICAL DIRECTORY
     # Filtered to recognized image extensions (see allowed_file() in
@@ -344,7 +378,7 @@ def cp_photofilescleanup():
     files_in_dir.sort()
 
     ### FIND ORPHAN ENTRIES USING SET DIFFERENCING
-    orphans = list(set(files_in_dir).difference(item_list))
+    orphans = list(set(files_in_dir).difference(photo_filenames_in_db))
     
     # Remove placeholder image if present
     if "none.jpg" in orphans:
@@ -352,10 +386,9 @@ def cp_photofilescleanup():
 
     return render_template(
         "control_panel/cp_photofilescleanup.html",
-        file_names_in_db=item_list,
+        file_names_in_db=photo_filenames_in_db,
         orphans=orphans,
         num_items=num_items,
-        from_cp=True,
         ITEM_IMAGE_DIR=ITEM_IMAGE_DIR,
     )
 
@@ -394,14 +427,14 @@ def cp_photofilesdel():
             err_page_from="/",
         )
 
-    item_list = [row[0] for row in result if row[0]]
-    item_list.sort()
+    photo_filenames_in_db = [row[0] for row in result if row[0]]
+    photo_filenames_in_db.sort()
 
     image_dir = ITEM_IMAGE_FS_DIR
     files_in_dir = [f for f in os.listdir(image_dir) if allowed_file(f)]
     files_in_dir.sort()
 
-    orphans = set(files_in_dir).difference(item_list)
+    orphans = set(files_in_dir).difference(photo_filenames_in_db)
     orphans.discard("none.jpg")
 
     files_to_del = [
@@ -433,23 +466,22 @@ def cp_photofilesdel():
         )
 
     ### RE-QUERY AFTER DELETION
-    item_list = [row[0] for row in result if row[0]]
-    item_list.sort()
+    photo_filenames_in_db = [row[0] for row in result if row[0]]
+    photo_filenames_in_db.sort()
 
     ### RE-READ STORAGE FILE DIRECTORY AND RECALCULATE RE-INDEXED ORPHANS
     files_in_dir = [f for f in os.listdir(ITEM_IMAGE_FS_DIR) if allowed_file(f)]
     files_in_dir.sort()
 
-    orphans = list(set(files_in_dir).difference(item_list))
+    orphans = list(set(files_in_dir).difference(photo_filenames_in_db))
     if "none.jpg" in orphans:
         orphans.remove("none.jpg")
 
     ### SHOW THE REFRESHED CLEANUP PAGE
     return render_template(
         "control_panel/cp_photofilescleanup.html",
-        file_names_in_db=item_list,
+        file_names_in_db=photo_filenames_in_db,
         orphans=orphans,
-        from_cp=True,
         ITEM_IMAGE_DIR=ITEM_IMAGE_DIR,
     )
 
@@ -473,8 +505,8 @@ def cp_delallorphanphotos():
         )
 
     ### EXTRACT NAMES FROM RESULT ROWS
-    item_list = [row[0] for row in result if row[0]]
-    item_list.sort()
+    photo_filenames_in_db = [row[0] for row in result if row[0]]
+    photo_filenames_in_db.sort()
 
     ### READ ALL FILES IN PHYSICAL DIRECTORY
     # Same image-extension filter as cp_photofilescleanup() above.
@@ -484,7 +516,7 @@ def cp_delallorphanphotos():
     files_in_dir.sort()
 
     ### CREATE A LIST OF IMAGES IN DIR BUT NOT IN DB
-    orphans = list(set(files_in_dir).difference(item_list))
+    orphans = list(set(files_in_dir).difference(photo_filenames_in_db))
 
     ### EXCLUDE DEFAULT PLACEHOLDER IMAGE
     if "none.jpg" in orphans:
@@ -575,10 +607,10 @@ def cp_editcat(cat_num):
 
 ########################################################################
 ### SAVE CATEGORY NAME MODIFICATIONS AND PROPAGATE DEPENDENCIES
-@bp.route("/cp_cateditsuccess/<cat_num>", methods=["POST"])
+@bp.route("/cp_catedited/<cat_num>", methods=["POST"])
 @login_required
 @db_errors(exec_msg="Database error. Changes could not be processed fully across inventory assets.")
-def cp_cateditsuccess(cat_num):
+def cp_catedited(cat_num):
     ### CHECK THAT ROUTE DECORATOR IS AN INT
     try:
         check_int = int(cat_num)
@@ -648,7 +680,7 @@ def cp_cateditsuccess(cat_num):
         try:
             cursor.execute(update_cat_query, (cat_name, form_cat_num))
         except IntegrityError as e:
-            logger.error(f"Duplicate category name in cp_cateditsuccess: {e}")
+            logger.error(f"Duplicate category name in cp_catedited: {e}")
             return render_template(
                 "errorpage.html",
                 err_message=f'A category named "{cat_name}" already exists. Please choose a different name.',
@@ -661,7 +693,7 @@ def cp_cateditsuccess(cat_num):
 
 ########################################################################
 ### DISPATCH CATEGORY DELETION CONFIRMATION DIALOG
-@bp.route("/cp_delcat/<cat_num>")
+@bp.route("/cp_catdel/<cat_num>")
 @login_required
 @db_errors(exec_msg="Database error when fetching category details.")
 def cp_catdel(cat_num):
@@ -837,7 +869,7 @@ def cp_addcat():
 @bp.route("/cp_orphaneditemscleanup")
 @login_required
 @db_errors(exec_msg="Database error when fetching unassigned inventory assets.")
-def cp_orphan_list():
+def cp_orphaneditemscleanup():
     # Fetch an active, thread-safe connection from the pool
     find_orphans_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
                                      c.cat_name AS item_cat, i.item_desc
@@ -875,7 +907,7 @@ def cp_orphan_list():
 @bp.route("/orphan_view_switch")
 @login_required
 @db_errors(exec_msg="Database error when filtering inventory views.")
-def orphan_vs():
+def orphan_view_switch():
     # Fetch an active, thread-safe connection from the pool
     find_orphans_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
                                      c.cat_name AS item_cat, i.item_desc
@@ -903,7 +935,6 @@ def orphan_vs():
             current_view=new_view,
             item_list=result,
             ITEM_IMAGE_DIR=ITEM_IMAGE_DIR,
-            IMPS_DIR=IMPS_DIR,
             cookies=request.cookies,
             info_column=info_column,
             photo_column=photo_column,
@@ -1151,11 +1182,9 @@ def cp_locedited():
             )
 
         ### 2. EXECUTE QUERY TO UPDATE LOCATION NAME
-        # Caught here, not the @db_errors decorator's generic handler:
-        # UNIQUE constraint on locations.loc_name can raise
-        # IntegrityError, and the message needs the request-specific
-        # new_loc_name/loc_num values a decorator argument can't
-        # provide. Mirrors cp_cateditsuccess()'s handling for categories.
+        # Caught here, not the @db_errors decorator: needs the
+        # request-specific new_loc_name/loc_num values. Mirrors
+        # cp_catedited().
         loc_update_query = """ UPDATE locations SET loc_name = %s WHERE loc_num = %s; """
         cursor = mydb.cursor()
         try:
@@ -1175,13 +1204,13 @@ def cp_locedited():
 
 ########################################################################
 ### DISPATCH LOCATION DELETION CONFIRMATION DIALOG
-@bp.route("/cp_delloc/<loc_name>")
+@bp.route("/cp_locdel/<loc_name>")
 @login_required
 @db_errors(
     conn_msg="Database error accessing locations. Could not connect.",
     exec_msg="Database error when fetching location details.",
 )
-def cp_delloc(loc_name):
+def cp_locdel(loc_name):
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### 1. PULL MASTER DEFINITIONS TO VERIFY ROUTE DECORATOR PARAMETERS
@@ -1374,7 +1403,7 @@ def cp_passwordedited():
     ### and avoids rewriting imps_config.toml (and rehashing
     ### HASHED_IMPS_PASS) for a change that isn't one.
     if new_password == current_password:
-        return redirect(url_for("control_panel.controlpanel"))
+        return redirect(url_for("control_panel.cp_landing"))
 
     ### SERVER-SIDE MINIMUM LENGTH CHECK -- already enforced client-side
     ### in cp_password.html's JS; re-checked here since this route can
@@ -1389,6 +1418,6 @@ def cp_passwordedited():
     extensions.write_config_values("password", {"password": new_password})
     extensions.reload_config()
 
-    return redirect(url_for("control_panel.controlpanel"))
+    return redirect(url_for("control_panel.cp_landing"))
 
 

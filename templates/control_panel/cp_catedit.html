@@ -6,10 +6,10 @@
 
 <p class="page_title">Edit category</p>
 
-<form action="/cp_cateditsuccess/{{cat_num}}" method = "POST" name="edit_cat" onsubmit="return validateForm(event);">
+<form action="/cp_catedited/{{cat_num}}" method = "POST" name="edit_cat" onsubmit="return validateForm(event);">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 	<div>
-		<input type="hidden" id="can_num" name="cat_num" value="{{cat_num}}">
+		<input type="hidden" id="cat_num" name="cat_num" value="{{cat_num}}">
 		<input id="cat_name" type="text" name="cat_name" size="12" maxlength="64" value="{{cat_name}}">
 	</div>
 	<div>

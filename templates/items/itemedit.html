@@ -7,7 +7,7 @@
 	<div>
 		<p class="page_title">Edit: <i>{{item_name}}</i></p>
 	</div>
-	<form action="/updateitem/{{item_num}}"  
+	<form action="/itemupdate/{{item_num}}"  
                name="update_item" id="update_item" method="POST" enctype="multipart/form-data"
                onsubmit="return validateForm(event);">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -53,16 +53,13 @@
 			<div style="border: 2px solid black; width: 400px;">
 	        	                <img src="{{ITEM_IMAGE_DIR}}{{ item_pic }}" height="300px;">
 			</div>
-                        	<!-- This hidden field passes the item_num back so we can 
-	                         query and load the updated item page -->
-        	                <input type="hidden" name="item_num" id="item_num" value="{{item_num}}">
                                <!-- This hidden field passes the item_pic back so we can 
                                  query and load the updated item page -->
                                 <input type="hidden" name="item_pic" id="item_pic" value="{{item_pic}}">  
                         <div style="border: 2px solid black; width: 380px; margin-top:10px; padding:10px;">
 				<div>
 					<input class="imps icon-left photo" type="button" id="click-input" value="Change" onclick="document.getElementById('file').click();" />
-					<label for="click-input" id="file-name" style="display: inline-block; width: 200px;padding-bottom:2px; padding-top:4px; border:2px solid black;background-color: #eee; overflow: hidden;">...</label>
+					<label for="click-input" id="file-name" style="display: inline-block; width: 200px; vertical-align: middle; padding-bottom:2px; padding-top:4px; border:2px solid black;background-color: #eee; overflow: hidden;">...</label>
 					<input type="file" style="display:none;" id="file" name="file">
 						<script>
 						    inputElement = document.getElementById('file')
@@ -88,7 +85,7 @@
 			<button type="submit" name="update_button" id="update_button" value="update" class="imps icon-left update">
 			UPDATE</button></form>
 		</div>
-                   <a href="/itemdetails/{{item_num}}">
+                   <a href="/itemdetail/{{item_num}}">
                         <button type="button" class="imps icon-left cancel" method="GET">
                         CANCEL</button></a>
 

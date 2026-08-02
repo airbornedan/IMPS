@@ -1,0 +1,12 @@
+<!-- Requires sub_title, active_tab, back_url, tab_label from the
+     including template. Shows the Control Panel shell (title + tab
+     bar) on pages nested under a tab. The button and the active tab
+     both link to back_url. tab_label is the destination tab's
+     display name; active_tab is an internal code that doesn't match
+     it (see cp_tabs.html). -->
+<p class="page_title">Control Panel</p>
+{% include "includes/cp_tabs.html" %}
+<h3>{{ sub_title }}</h3>
+<div>
+	<a href="{{ back_url }}"><button type="button" class="imps icon-left back">{{ tab_label }}</button></a>
+</div>

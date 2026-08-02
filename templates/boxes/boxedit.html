@@ -1,67 +1,74 @@
 {% extends "base.html" %}
 {% block content %}
 {% include 'includes/warning.html' %}
-<!-- Page content -->
-<p class="page_title">Select box number to edit</p>
-<form action="/boxdetails" method = "POST" name="select_box" onsubmit="return validateForm(event);">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <div><br>
-  <div>
-    <div style="padding-left: 8px;">
-     <input autofocus id="box-num" type="text" name="box-num" size="5">
-    </div>
-    <div>
-      <button type="submit" class="imps icon-left box_closed">
-       Box
-      </button>
-    </div>
-  </div>
-</div>
-</form>
+<div class="container-flex">
+	<div class="row">
+		<p class="page_title">Edit box {{box_num}}</p>
+	</div>
+	<div class="row">
+		<p><a href="/boxrenumber/{{box_num}}"><button type="button" class="imps icon-left edit">Change #</button></a></p>
+	</div>
 
+	<form name="update_box" action="/boxedited" method="POST" onsubmit="return validateForm(event);">
+	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<input type="hidden" name="box_num" id="box_num" value="{{box_num}}">
+
+	<div>
+		<div>
+			<div class="row">
+				Location:
+			</div>
+			<div>
+				<input list="box_loc" name="box_loc" placeholder="{{box_loc}}" maxlength="255" autocomplete="off">
+				<datalist id="box_loc">
+					{% for loc_name , loc_num in locations %}
+						<option value="{{loc_name}}">{{loc_name}}</option>
+					{% endfor %}
+				</datalist>
+			</div>
+		</div>
+		<div>
+			<div>
+				Box name
+			</div>
+			<div>
+				<input type="text" id="box_name" name="box_name" size="25" maxlength="64" value="{{- box_name -}}">
+			</div>
+		</div>
+	</div>
+
+	<div>
+		<div class="btn-pair">
+			<div>
+				<button type="submit" id="submit_button" class="imps icon-left update">
+					Update
+				</button>
+			</div>
+			<div>
+				<a href="boxshowcontent/{{box_num}}">
+					<button class="imps icon-left list">Show contents</button>
+				</a>
+			</div>
+		</div>
+	</div>
+	</form>
+</div>
 
 <script>
-// Shared with validateForm()'s submit-time check below.
-const valid_numbers = {{available_boxes|tojson}};
-const boxNumInput = document.getElementById("box-num");
-
-// LIVE FEEDBACK: red border as soon as the typed number isn't a real,
-// in-use box -- same behavior as bybox.html/boxadd.html. Purely
-// visual; validateForm() below still does the actual submit-time
-// enforcement.
-boxNumInput.addEventListener("input", function() {
-	const typed = boxNumInput.value;
-	if (typed === "") {
-		boxNumInput.classList.remove("input-invalid");
-		return;
-	}
-	const typed_num = Number(typed);
-	const is_valid = !isNaN(typed) && valid_numbers.includes(typed_num);
-	boxNumInput.classList.toggle("input-invalid", !is_valid);
-});
-
 function validateForm() {
-  let num_input = document.forms["select_box"]["box-num"].value;
+  let box_loc = document.forms["update_box"]["box_loc"].value;
 
-  var num_to_check = Number(num_input) ;
-
-  if (num_input == ""){
-    //alert("Box number is required");
-    showValidationError("You must enter a <br>box number.");
+  if (box_loc.length > 255){
+    showValidationError("Location names are limited to 255 characters.");
     return false;
   }
 
-  if (isNaN(num_input)){
-    showValidationError("Box numbers must <br>be numerals.");
-    return false;
-  }
+  let box_name = document.forms["update_box"]["box_name"].value;
 
-  if (valid_numbers.includes(num_to_check)!=1) {
-    showValidationError("Box "+num_to_check+" is not in use. <br>Please select a different<br> box number.");
-
+  if (box_name.length > 64){
+    showValidationError("Box names are limited to 64 characters.");
     return false;
   }
 }
-
 </script>
 {% endblock %}

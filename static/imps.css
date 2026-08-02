@@ -1,12 +1,8 @@
 /* ================================================================
-   IMPS — CONSOLIDATED STYLESHEET
+   IMPS STYLESHEET
    ================================================================
-   One stylesheet, loaded once, covering base layout/typography,
-   forms/inputs, buttons, tooltips, toggles, and warning/alert styles.
-
-   Rule order matters in places -- e.g. input.input-invalid in the
-   FORMS / INPUTS section depends on coming after another rule within
-   the same cascade position; see the comment there for why.
+   Rule order matters in the FORMS / INPUTS section -- see the note
+   there.
    ================================================================ */
 
 
@@ -14,9 +10,7 @@
    1. BASE / LAYOUT / TYPOGRAPHY
    ================================================================ */
 
-/*********************************************
 /* standard styles */
-/********************************************* */
 body {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 18px;
@@ -245,18 +239,9 @@ p.note {
 /* image hover */
 
 .thumbnail {
-  /* Deliberately NOT position/z-index'd in the base (non-hover) state.
-     This markup uses display:table-row/table-cell, and a persistently-
-     positioned child gets trapped inside its own row's isolated paint
-     layer in table layouts, so a zoomed thumbnail couldn't cover rows
-     BELOW it, only content within its own row.
-
-     Instead this relies on a browser behavior: `transform` alone --
-     with no position/z-index set at all -- still creates a new
-     stacking context on hover, as if position were relative. That's
-     what lets the zoomed thumbnail cover other rows correctly. See
-     .thumbnail:hover below for how this is preserved while the icon
-     issue is fixed explicitly. */
+  /* No position/z-index set here -- table layout traps a positioned
+   child inside its own row's paint layer, blocking cross-row cover.
+   transform alone creates a stacking context on hover without it. */
   top: 0;
   left: 0;
   width: 50px;
@@ -268,13 +253,8 @@ p.note {
 }
 
 /* change the number below to scale to the appropriate size */
-/* Scoped to (hover: hover) -- i.e. pointers that can genuinely hover,
-   like a mouse or trackpad. Touch has no such thing; browsers only
-   simulate a "sticky hover" on tap, which clears on tapping elsewhere
-   but can't be toggled off by tapping the same element again. Keeping
-   this rule mouse/trackpad-only avoids fighting with that simulated
-   state, and touch gets its own explicit, independent .zoomed class
-   below (toggled by static/thumbnail_zoom.js) instead. */
+/* hover:hover excludes touch, which only simulates a sticky hover.
+   Touch gets .zoomed below instead (static/thumbnail_zoom.js). */
 @media (hover: hover) {
   .thumbnail:hover {
     transform: scale(5);
@@ -283,26 +263,17 @@ p.note {
   }
 }
 
-/* Tap-to-zoom / tap-again-to-shrink for touch (and click, for anyone
-   using a mouse without hovering first) -- mirrors .thumbnail:hover
-   above exactly, just driven by a toggled class instead of :hover so
-   it works the same regardless of whether the device can hover. See
-   static/thumbnail_zoom.js. */
+/* Mirrors .thumbnail:hover for touch/click, via a toggled class
+   instead of :hover. See static/thumbnail_zoom.js. */
 .thumbnail.zoomed {
   transform: scale(5);
   position: relative;
   z-index: 999;
 }
 
-/* Unlinked Photo Cleanup: the checkbox column sits directly to the
-   left of the thumbnail (unlike includeitemlist.html, where the
-   thumbnail column has empty space on both sides). scale()'s default
-   transform-origin is the image's own center, so the zoom would grow
-   evenly in all four directions -- including left, straight over the
-   checkbox. Anchoring the origin to the image's left edge keeps the
-   same zoomed-detail/cross-row-cover behavior while growing right/down
-   instead, so it doesn't sweep over the checkbox to its left. Covers
-   both the hover (mouse) and zoomed (tap-toggle) cases. */
+/* Unlinked Photo Cleanup: checkbox sits left of the thumbnail.
+   transform-origin: left keeps zoom growth off the checkbox. Covers
+   both hover and .zoomed. */
 .thumbnail.cp-orphan-thumbnail:hover,
 .thumbnail.cp-orphan-thumbnail.zoomed {
   transform-origin: left center;
@@ -350,23 +321,13 @@ p.note {
   text-align: left;
 }
 
-/* item_display_table has no table-layout set (defaults to `auto`)
-   and no column has an explicit width, so the browser recomputes
-   every column's width fresh from whatever's actually rendered --
-   and since pagination only renders each page's own handful of rows,
-   the Item column's width shifted from page to page depending on
-   how long that page's (already-truncated, up to 25 char) item names
-   happened to be, even though the max length never actually changed.
-   Item is always the table's first column regardless of which
-   optional columns (Photo/Date/Category/Box) are enabled for a given
-   page, so :first-child reliably targets it everywhere this table is
-   used (inventory, category view, search results, box view) without
-   needing template changes. Width is sized to comfortably fit the
-   25-char truncation cap.
+/* item_display_table has no fixed column widths, so width
+   recalculates per page from that page's rendered rows. :first-child
+   targets Item (always first) across every use of this table. Width
+   fits the 25-char truncation cap.
 
-   boxlist.html reuses the same table_label/table_cell classes, but
-   its first column is Box # (a 4-digit number), not Item -- excluded
-   below via :not() so it gets its own narrow width instead. */
+   boxlist.html reuses these classes but its first column is Box #,
+   excluded via :not(). */
 .table_label:first-child:not(.table_label-boxnum),
 .table_cell:first-child:not(.table_cell-boxnum) {
   width: 220px;
@@ -384,30 +345,18 @@ p.note {
   width: 190px;
 }
 
-/* Category has the same per-page width-shift problem the Item column
-   had, but worse: item_cat is stored as varchar(64) and rendered
-   completely untruncated ({{ item_cat }}, no truncate filter, and no
-   maxlength on the add/edit form), so a single long category name
-   can push the column far wider than typical short ones like
-   "Kitchen" or "Decorating". Unlike Item, Category isn't always in
-   the same column position -- it comes after whichever of
-   Info/Photo/Date are enabled for a given page -- so :nth-child can't
-   reliably target it the way :first-child does for Item. Added an
-   explicit table_label-cat/table_cell-cat class in
-   includeitemlist.html instead (only place item_cat is shown as a
-   table column -- the mobile grid view doesn't display category at
-   all). Width is sized to comfortably fit the 20-char truncation cap
-   applied in the template. */
+/* Category isn't truncated (varchar(64), no truncate filter or
+   maxlength) and isn't always in the same column position, so
+   :nth-child can't target it. table_label-cat/table_cell-cat in
+   includeitemlist.html target it explicitly. Width fits the 20-char
+   truncation cap. */
 .table_label-cat,
 .table_cell-cat {
   width: 140px;
 }
 
-/* Only category cells that actually got truncated get wrapped in
-   .tooltip in the template (see includeitemlist.html) -- this just
-   gives that wrapped, hoverable case a pointer cursor so it reads as
-   interactive; short category names that render in full stay plain
-   text with the default cursor. */
+/* Only truncated category cells get wrapped in .tooltip (see
+   includeitemlist.html); this gives that case a pointer cursor. */
 .table_cell-cat .tooltip {
   cursor: pointer;
 }
@@ -433,17 +382,8 @@ p.note {
   align-self: start;
 }
 
-/* .imps only sets min-width: 90px -- a floor, not a fixed size.
-   Previous/Next carry .icon-left/.icon-right, which reserve 56px of
-   icon padding; combined with each label's own text width, that
-   exceeds the 90px floor for both, so each button sizes to its own
-   content-driven width -- "Previous" (8 characters) renders wider
-   than "Next" (4 characters).
-
-   Left at natural, content-driven sizing -- same as any other
-   .icon-left/.icon-right button elsewhere in the app -- rather than
-   forced to a shared fixed width, since matching an 8-letter and a
-   4-letter label to the same box reads as slightly off either way. */
+/* .imps sets only a min-width floor. Previous/Next size to their own
+   content (8 vs 4 characters) rather than a shared fixed width. */
 
 /* ******************************************** */
 /* Grid stuff */
@@ -541,7 +481,6 @@ p.note {
   width: 100%; /* Full width */
   height: 100%; /* Full height */
   overflow: auto; /* Enable scroll if needed */
-  background-color: rgb(0,0,0); /* Fallback color */
   background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
 }  
 
@@ -606,11 +545,8 @@ p.note {
 	background-image: url("images/icons/back_icon.png");
 }
 
-/* "Next" pagination icon. Uses a distinct mirrored image asset rather
-   than reusing back_icon.png with a CSS flip, so no transform is
-   applied to the button itself: .icon-right's right-anchored icon and
-   left-anchored text apply exactly as they do for every other
-   icon+text button. */
+/* Distinct mirrored asset instead of a CSS-flipped back_icon.png, so
+   .icon-right's anchoring applies unmodified. */
 .forward {
 	background-image: url("images/icons/forward_icon.png");
 }
@@ -641,14 +577,9 @@ p.note {
 	width: 90px;
 }
 
-/* Lays out exactly two buttons side by side (e.g. Yes/Cancel,
-   Save/Cancel, Back/Next, Download/Back), each sized to its own
-   content rather than stretched to fill the page or forced to match
-   its sibling's width. Wrap the pair's two buttons/links in a
-   container with this class.
-
-   flex: 0 0 auto sizes each button to its own content, so a shorter
-   button doesn't get stretched past a longer sibling or vice versa. */
+/* Two buttons side by side, each sized to its own content (e.g.
+   Yes/Cancel, Back/Next). Wrap the pair in a container with this
+   class. */
 .btn-pair {
 	display: flex;
 	gap: 10px;
@@ -709,15 +640,9 @@ p.note {
 	background-image: url("images/icons/show_hide_icon.png");
 }
 
-/* Single base button class for every rectangular action button in the
-   app -- icon+text (Search, Cancel, Categories...), icon-only
-   (edit/trash/download/qr...), and plain text (Change, Continue,
-   Finish setup...).
-
-   Default state here (no modifier) is a plain text button, no icon:
-   centered text, no left padding reserved for an icon image. "No
-   icon" is the default you get by just using .imps alone, not a
-   special case bolted on top of an icon-first default. */
+/* Base class for every rectangular action button: icon+text,
+   icon-only, and plain text. No modifier means plain text, no icon
+   padding. */
 .imps {
 	background-color: #a40000;
 	background-position: 8px center;
@@ -753,11 +678,8 @@ p.note {
 	text-align: right;
 }
 
-/* Mirror of .icon-left -- reserves room on the RIGHT for the icon
-   image instead (e.g. .forward below, for "Next" pagination buttons)
-   and left-aligns the text next to it. Overrides .imps's base
-   background-position (which anchors to the left by default) to
-   anchor right instead. */
+/* Mirror of .icon-left: reserves room on the right for the icon and
+   anchors it there instead of the left. */
 .imps.icon-right {
 	padding-right: 56px;
 	background-position: right 8px center;
@@ -773,6 +695,22 @@ p.note {
 	width: 46px;
 	min-width: 0;
 	padding: 8px;
+}
+
+/* Settings tab button layout. 160px fits the longest label
+   ("Categories"). auto-fit collapses empty tracks. */
+.cp-nav-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, 160px);
+	gap: 10px;
+	margin-top: 12px;
+}
+.cp-nav-grid a {
+	text-decoration: none;
+}
+.cp-nav-grid .imps {
+	width: 100%;
+	box-sizing: border-box;
 }
 
 .imps_tab_off {
@@ -843,11 +781,8 @@ p.note {
 .tooltip {
   position: relative;
   display: inline-block;
-  /* Explicit and deliberately low, so the info icon always stacks
-     BELOW the hover-zoomed thumbnail's z-index:999 (see .thumbnail
-     above) with no ambiguity -- relying on the default (z-index:auto)
-     here is what let table-cell stacking quirks put this icon on top
-     of the zoomed image instead. */
+  /* Low and explicit so the info icon stacks below the zoomed
+     thumbnail's z-index:999 (see .thumbnail above). */
   z-index: 1;
 }
 
@@ -895,9 +830,22 @@ p.note {
 .switch{
   position:absolute; 
   top:20px; 
-  left:70%;
-  z-index:1000; 
+  /* Anchored from the same edge as .help-button (right: 12px) so the
+     two never overlap, at any width. */
+  right:56px; 
+  z-index:1; 
   width: 150px; 
+}
+
+/* Below 480px, .switch drops into normal document flow above the
+   content instead of floating in the top-right corner. */
+@media (max-width: 480px) {
+  .switch {
+    position: static;
+    width: auto;
+    margin: 8px 0 12px;
+    text-align: center;
+  }
 }
 
 /* VIEW SWITCH BUTTON CONTAINER */
@@ -917,7 +865,14 @@ button.view{
     background-size: 38px 38px;
     background-repeat: no-repeat;
     border: none;
+    box-shadow: none;
+    -webkit-appearance: none;
+    appearance: none;
     -webkit-tap-highlight-color: transparent;
+}
+
+button.view:focus{
+    outline: none;
 }
 
 
@@ -945,21 +900,16 @@ button.desktop_set_view{
 /* ================================================================
    6. FORMS / INPUTS
 
-   NOTE: input.input-invalid below deliberately sits right after
-   input[type="text"] within this same section. They have IDENTICAL
-   CSS specificity (0,1,1) -- an attribute selector like [type="text"]
-   carries the same weight as a class -- so input.input-invalid only
-   wins because it comes LATER in source order. If you ever reorganize
-   this section, keep that relationship intact or the red
-   invalid-input border (used on the box-number fields) will silently
-   stop working again, the way it did twice during development.
+   input.input-invalid must stay after input[type="text"] in this
+   file -- both have specificity (0,1,1), so source order decides
+   which wins.
    ================================================================ */
 
 /* ******************************************** */
 /* Input styles                                  */
 /* ******************************************** */
 
-button:focus{
+button:focus, input:focus, textarea:focus, input[type="date"]:focus {
   outline: 1px solid black;
 }
 
@@ -967,10 +917,6 @@ input {
   font-size:18px;
   border:2px solid #000;
   background-color : #eee; 
-}
-
-input:focus {
-  outline: 1px solid black;
 }
 
 datalist{
@@ -989,41 +935,19 @@ input[type="text"], input[type="password"], textarea {
   margin-bottom: 10px;
 }
 
-/* Fixed width instead of the size="N" attribute, whose rendered width
-   is computed per-character and differs between type="password"
-   (bullet glyphs) and type="text" (real glyphs) -- so a field that
-   toggles between the two via JS (see cp_password.html) would
-   visibly resize on every toggle if left to size="N" alone. */
-/* Fixed width for the password show/hide toggle -- "Show" and "Hide"
-   are both 4 letters, but their natural content-driven widths differ
-   slightly (narrow glyphs like "i" vs wider ones like "o"), which
-   otherwise made the button visibly resize on every toggle. Same
-   fix pattern as the paginate Previous/Next button spacing above. */
+/* Fixed width: type="password"/type="text" render size="N" at
+   different widths (bullets vs glyphs), which resizes the field on
+   toggle (see cp_password.html). */
+/* Fixed width: "Show"/"Hide" have different natural glyph widths,
+   which resizes the button on toggle. */
 #toggle_password {
   width: 110px;
 }
 
-/* Generic invalid-input state -- red border matching the site's
-   existing red (#a40000, used for link-hover and the h1 text-stroke).
-   Toggle by adding/removing this class via JS on any text input.
-
-   Deliberately placed here, in imps_input.css, right after the rule it
-   needs to override (input[type="text"]) rather than in a different
-   stylesheet with an ID-scoped selector. input.input-invalid and
-   input[type="text"] have IDENTICAL specificity (0,1,1) -- an
-   attribute selector like [type="text"] carries the same weight as a
-   class, so this rule only wins because it comes LATER in the same
-   file, not because it "out-specifies" the other rule. Keeping it
-   physically after its rival here (rather than relying on which
-   stylesheet loads second, or reaching for a higher-specificity
-   ID selector per-field) makes that relationship visible and
-   reusable across any text input on the site. */
+/* Red border, toggled via JS on any text input. Must stay after
+   input[type="text"] -- see the FORMS/INPUTS note above. */
 input.input-invalid {
   border: 2px solid #a40000;
-}
-
-textarea:focus {
-  outline: 1px solid black;
 }
 
 input[type="date"] {
@@ -1031,9 +955,6 @@ input[type="date"] {
   font-size:18px;
   border:2px solid #000;
   background-color : #eee; 
-}
-input[type="date"]:focus {
-  outline: 1px solid black;
 }
 
 input[role="textbox"] {
@@ -1074,13 +995,8 @@ input[name="file"] {
   padding-left:8px;
 }
 
-/* Control Panel > Backups tab: each backup list (photos, database)
-   has at most BACKUP_HISTORY_KEEP (4) entries -- exactly a clean 2x2
-   grid at 2 columns. Defaults to 2 columns for wider screens; drops
-   to a single column under 480px (this codebase's established
-   phone-portrait breakpoint -- see the other @media (max-width: 480px)
-   rules) so a phone in portrait gets a plain stacked list instead of
-   two cramped columns. */
+/* Backups tab: each list has at most 4 entries, a clean 2x2 grid.
+   Single column under 480px. */
 .backup-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1100,15 +1016,8 @@ input[name="file"] {
 /* ================================================================
    BOOTSTRAP-LITE UTILITY CLASSES
    ================================================================
-   Bootstrap itself isn't linked anywhere in this app (dropped
-   deliberately -- not worth the transfer size for the small handful
-   of utility classes actually used). These are real, working rules
-   for just those specific classes, written to match how each is
-   actually used across the templates -- not a full reimplementation
-   of Bootstrap's grid/spacing system. Bootstrap's own naming and
-   standard spacing scale are kept (0.25rem/0.5rem/1rem/1.5rem/3rem
-   for 1/2/3/4/5) so the class names still mean what they look like
-   they mean, for anyone used to Bootstrap.
+   Bootstrap isn't linked. These rules match Bootstrap's naming and
+   spacing scale for the handful of classes actually used.
    ================================================================ */
 
 /* Layout containers -- simple flex wrappers, not Bootstrap's full
@@ -1175,11 +1084,8 @@ input[name="file"] {
 /* ******************************************** */
 /* Control Panel > Unlinked Photo Cleanup        */
 /* ******************************************** */
-/* The default browser checkbox (~13px) was easy to miss/mistap next
-   to a photo thumbnail and filename, especially on a phone. Sized up
-   and given the site's accent color so it's obviously present and
-   obviously "on" once checked, rather than a small, easy-to-miss
-   gray square. */
+/* Sized up from the default ~13px checkbox and given the accent
+   color so it's not easy to miss next to a thumbnail. */
 .cp-orphan-checkbox {
 	width: 26px;
 	height: 26px;
@@ -1187,11 +1093,8 @@ input[name="file"] {
 	cursor: pointer;
 }
 
-/* Wrap the checkbox in a padded, clickable label -- this both gives
-   it visual room to breathe next to the thumbnail/filename, and
-   (more importantly on a touchscreen) makes the actual tap target
-   noticeably bigger than just the 26px checkbox graphic itself,
-   without needing extra JS to forward taps to the input. */
+/* Padded clickable label: bigger tap target than the 26px checkbox
+   alone. */
 .cp-checkbox-wrap {
 	display: inline-flex;
 	align-items: center;
@@ -1202,32 +1105,17 @@ input[name="file"] {
 /* ******************************************** */
 /* Control Panel > Server tab -- config display  */
 /* ******************************************** */
-/* dbhost/dbname/dbuser/dbpass are short, read-only display values
-   (typically "localhost", a short db name, etc) but were left at the
-   browser's default input width (~20 characters) -- far wider than
-   needed. Combined with .row's fixed-width .col-2 label, that default
-   width was enough to push the input past the available row width on
-   a phone in portrait mode, wrapping it onto its own line below the
-   label instead of sitting next to it. Narrowing these four to a
-   size that comfortably fits their typical values keeps label+value
-   on one line at normal phone widths.
-
-   Not applied to #imagedir/#bud (Image/Backup directory) -- those
-   hold real filesystem paths that can run 40+ characters, so a fixed
-   narrow width would just force horizontal scrolling inside the box
-   instead of helping; the stacking fallback below covers those two
-   rows instead. */
+/* dbhost/dbname/dbuser/dbpass are short values but default to
+   ~20-character width, wrapping onto their own line on a phone.
+   Narrowed to fit. Not applied to #imagedir/#bud, which hold long
+   paths -- the stacking fallback below covers those instead. */
 #dbhost, #dbname, #dbuser, #dbpass {
 	width: 12ch;
 }
 
-/* Fallback for any row that still doesn't fit on one line at narrow
-   widths -- either the two long-path fields above, or a short field
-   holding an unusually long value (e.g. a full managed-DB hostname).
-   Rather than let flex-wrap silently drop the input onto its own
-   line as an overflow artifact, stack label above value on purpose
-   so it always reads as a clean two-line field instead of a
-   half-wrapped row. */
+/* Fallback for any row that still doesn't fit on one line: stacks
+   label above value instead of letting flex-wrap drop it onto its
+   own line. */
 @media (max-width: 480px) {
 	#Server .row {
 		flex-direction: column;
@@ -1242,10 +1130,8 @@ input[name="file"] {
 /* ******************************************** */
 /* Context-sensitive help: button + slide-in panel */
 /* ******************************************** */
-/* Markup/JS: templates/includes/header.html + static/help_panel.js.
-   Fixed to the viewport (not the #container flex layout) so it sits
-   top-right consistently regardless of how tall/short a given page's
-   content is. */
+/* templates/includes/header.html + static/help_panel.js. Fixed to
+   the viewport, not #container. */
 .help-button {
 	position: fixed;
 	top: 12px;

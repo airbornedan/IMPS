@@ -12,7 +12,7 @@ function initTextDisable() {
 }
 window.onload = initTextDisable;
 
-function textDisablerBN(){
+function disableChosenBoxNumberField(){
    document.getElementById("box_num").readonly = true;
    document.getElementById("box_num").style.color="gray";
    document.getElementById("box_num").classList.remove("input-invalid");
@@ -21,7 +21,7 @@ function textDisablerBN(){
 
 }
 
-function textDisablerNA(){
+function disableNextAvailableField(){
    document.getElementById("next_available_box_num").readonly = true;
    document.getElementById("next_available_box_num").style.color = "gray";
    document.getElementById("box_num").readonly = false;
@@ -29,24 +29,24 @@ function textDisablerNA(){
 
 }
 
-function radioButtonSwitchNA(){
+function selectChosenBoxNumberRadio(){
    radiobtn = document.getElementById("choose_box_num");
    radiobtn.checked = true;
 }
 
-function radioButtonSwitchBN(){
+function selectNextAvailableRadio(){
    radiobtn = document.getElementById("next_available_box");
    radiobtn.checked = true;
 }
 
-function chooseNumberCaller(){
-   radioButtonSwitchNA();
-   textDisablerNA();
+function activateChosenBoxNumberMode(){
+   selectChosenBoxNumberRadio();
+   disableNextAvailableField();
 }
 
-function faNumberCaller(){
-   radioButtonSwitchBN();
-   textDisablerBN();
+function activateNextAvailableMode(){
+   selectNextAvailableRadio();
+   disableChosenBoxNumberField();
 }
 
 </script>
@@ -60,23 +60,23 @@ function faNumberCaller(){
 		<div>
 			<div>
 				<input type="radio" id="next_available_box" 
-                        	       name="box_type" value="next_available" checked onchange="textDisablerBN()">
+                        	       name="box_num_mode" value="next_available" checked onchange="disableChosenBoxNumberField()">
 				First available unused number: 
 			</div>
 			<div class="input_div">
 				<input type="hidden" name="next_num" id="next_num" value="{{first_available_box}}">
 				<input type="text" name="next_available_box_num" 
-        	                       id="next_available_box_num" readonly size="5" value="{{first_available_box}}" onfocus="faNumberCaller()">
+        	                       id="next_available_box_num" readonly size="5" value="{{first_available_box}}" onfocus="activateNextAvailableMode()">
 			</div>
 		</div>
 		<div>
 			<div>
 				<input type="radio" id="choose_box_num" 
-        	                       name="box_type" value="choose_number" onchange="textDisablerNA()" >
+        	                       name="box_num_mode" value="choose_number" onchange="disableNextAvailableField()" >
 			Choose number:
 			</div>
 			<div class="input_div">
-				<input id="box_num" name="box_num" type="text"  size="5" maxlength="4" onfocus="chooseNumberCaller()">
+				<input id="box_num" name="box_num" type="text"  size="5" maxlength="4" onfocus="activateChosenBoxNumberMode()">
 			</div>
 		</div>
 	</div>
@@ -158,10 +158,10 @@ boxNumInput.addEventListener("focus", function() {
 // Validate form fields
 function validateForm() {
     let box_num = document.forms["add_box_form"]["box_num"].value;
-    let box_type = document.forms["add_box_form"]["box_type"].value;
+    let box_num_mode = document.forms["add_box_form"]["box_num_mode"].value;
 
 
-    if (box_num == "" && box_type != "next_available"){
+    if (box_num == "" && box_num_mode != "next_available"){
         //alert ("A box number is required.");
         modal.style.display = "block";
        document.getElementById('err_message').innerHTML="You must enter a <br>box number.";
@@ -173,7 +173,7 @@ function validateForm() {
 
      // Check the the number is a number not string
 
-     if ((isNaN(box_num)) && (box_type=="choose_number")){
+     if ((isNaN(box_num)) && (box_num_mode=="choose_number")){
         modal.style.display = "block";
         document.getElementById('err_message').innerHTML="Box numbers must<br> be numerals.";
         span.onclick = function() {
@@ -186,7 +186,7 @@ function validateForm() {
 
     intcheck = Math.round(box_num);
 
-    if ((intcheck != box_num) && (box_type == "choose_number")){
+    if ((intcheck != box_num) && (box_num_mode == "choose_number")){
         modal.style.display = "block";
         document.getElementById('err_message').innerHTML="Box numbers must <br>be integers.";
         span.onclick = function() {
@@ -208,7 +208,7 @@ function validateForm() {
 
     // Check that the number is under the box-number cap
 
-    if ((box_num >= 10000) && (box_type == "choose_number")){
+    if ((box_num >= 10000) && (box_num_mode == "choose_number")){
         modal.style.display = "block";
         document.getElementById('err_message').innerHTML="Box numbers must be <br>less than 10000.";
         span.onclick = function() {
@@ -221,7 +221,7 @@ function validateForm() {
 
     // Check the box number is not in use
 
-    if (box_type=="choose_number"){
+    if (box_num_mode=="choose_number"){
         let i=0;
         const boxes_in_use = {{box_nums|tojson}}
         while (i < boxes_in_use.length){

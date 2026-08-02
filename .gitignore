@@ -69,3 +69,4 @@ __pycache__/
 # Virtual environments
 .venv/
 certificates/
+git_token

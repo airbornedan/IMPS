@@ -107,9 +107,10 @@ If you are installing IMPS on your own Linux server, the steps are:
     sudo ../.venv/bin/python3 db_setup.py
     ```
 
-16. Test IMPS. Run IMPS using Python directly.
+16. Test IMPS. Move back up to the IMPS root directory (step 15 left you in `deploy/`), then run IMPS using Python directly.
 
     ```
+    cd ..
     python3 run.py
     ```
 

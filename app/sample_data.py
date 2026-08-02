@@ -17,7 +17,12 @@ import os
 import shutil
 from datetime import date
 
-from app.extensions import get_db_connection, ITEM_IMAGE_FS_DIR
+from app.extensions import (
+    get_db_connection,
+    get_or_create_cat_num,
+    get_or_create_loc_num,
+    ITEM_IMAGE_FS_DIR,
+)
 
 # Bundled placeholder photos, tracked in the repo (unlike the live
 # item-image directory, which is per-install/gitignored). Path is
@@ -78,20 +83,16 @@ def install_sample_data():
     item_image_dir_abs = ITEM_IMAGE_FS_DIR
 
     with get_db_connection() as mydb:
+        ### RESOLVE SAMPLE LOCATION/CATEGORY NAMES TO THEIR NUMERIC IDS
+        ### -- boxes.loc_num and items.cat_num are real foreign keys
+        ### (see deploy/schema.sql), not plain name strings, so every
+        ### write path (including this one) has to go through
+        ### get_or_create_cat_num()/get_or_create_loc_num() the same
+        ### way boxes.py/items.py do, rather than inserting the name
+        ### directly into a column that no longer exists.
         cursor = mydb.cursor()
-        for loc_name in SAMPLE_LOCATIONS:
-            try:
-                cursor.execute("INSERT INTO locations (loc_name) VALUES (%s)", (loc_name,))
-            except Exception:
-                pass  # already exists -- fine, this is best-effort sample data
-        cursor.close()
-
-        cursor = mydb.cursor()
-        for cat_name in SAMPLE_CATEGORIES:
-            try:
-                cursor.execute("INSERT INTO categories (cat_name) VALUES (%s)", (cat_name,))
-            except Exception:
-                pass
+        loc_nums = {loc_name: get_or_create_loc_num(cursor, loc_name) for loc_name in SAMPLE_LOCATIONS}
+        cat_nums = {cat_name: get_or_create_cat_num(cursor, cat_name) for cat_name in SAMPLE_CATEGORIES}
         cursor.close()
 
         ### FIND FREE BOX NUMBERS (same gap-finding approach as boxes.boxadd())
@@ -113,9 +114,9 @@ def install_sample_data():
         cursor = mydb.cursor()
         for box_num, box in zip(box_nums, SAMPLE_BOXES):
             cursor.execute(
-                """INSERT INTO boxes (box_num, box_loc, box_name, box_date, box_last_changed)
+                """INSERT INTO boxes (box_num, loc_num, box_name, box_date, box_last_changed)
                    VALUES (%s, %s, %s, %s, %s)""",
-                (box_num, box["box_loc"], box["box_name"], today, today),
+                (box_num, loc_nums[box["box_loc"]], box["box_name"], today, today),
             )
         cursor.close()
 
@@ -123,14 +124,14 @@ def install_sample_data():
         for item in SAMPLE_ITEMS:
             dest_filename = _copy_sample_image(item["image"], item_image_dir_abs)
             cursor.execute(
-                """INSERT INTO items (item_name, box_num, item_pic, item_date, item_cat, item_desc)
+                """INSERT INTO items (item_name, box_num, item_pic, item_date, cat_num, item_desc)
                    VALUES (%s, %s, %s, %s, %s, %s)""",
                 (
                     item["item_name"],
                     box_nums[item["box_index"]],
                     dest_filename,
                     today,
-                    item["item_cat"],
+                    cat_nums[item["item_cat"]],
                     item["item_desc"],
                 ),
             )

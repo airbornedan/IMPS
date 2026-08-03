@@ -10,6 +10,7 @@ from flask_paginate import Pagination, get_page_parameter
 from app.extensions import (
     get_db_connection,
     login_required,
+    validate_int,
     ITEM_IMAGE_DIR,
     IMPS_DIR,
     IMPS_IP,
@@ -298,21 +299,12 @@ def byloc():
 ### SWITCH BOX VIEW
 @bp.route("/boxviewswitch/<box_num>")
 @login_required
+@validate_int("box_num")
 @db_errors(
     conn_msg="Database error when accessing box content. Could not connect.",
     exec_msg="Database error when retrieving box contents.",
 )
 def boxviewswitch(box_num):
-    ### VERIFY ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(box_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
-
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### BOX CONTENT QUERY
@@ -371,21 +363,12 @@ def boxviewswitch(box_num):
 ### DISPLAY BOX CONTENTS OF SELECTED BOX
 @bp.route("/boxshowcontent/<box_num>", methods=["POST", "GET"])
 @login_required
+@validate_int("box_num", err_message="Invalid page access. Box number must be an int.")
 @db_errors(
     conn_msg="Database error when accessing box contents. Could not connect.",
     exec_msg="Database error when retrieving data for the selected box.",
 )
 def boxshowcontent(box_num):
-    ### VERIFY ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(box_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Invalid page access. Box number must be an int.",
-            err_page_from="/",
-        )
-
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### BOX NAME QUERY -- also doubles as the existence check: a
@@ -450,21 +433,12 @@ def boxshowcontent(box_num):
 ### CREATE AND SHOW BOX LABEL / QR CODE
 @bp.route("/boxlabel/<box_num>")
 @login_required
+@validate_int("box_num", err_message="Invalid page access. Box number must be an integer.")
 @db_errors(
     conn_msg="Database error when accessing box QR. Could not connect.",
     exec_msg="Database error when retrieving label naming metrics.",
 )
 def boxlabel(box_num):
-    ### VERIFY ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(box_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Invalid page access. Box number must be an integer.",
-            err_page_from="/",
-        )
-
     # Fetch an active, thread-safe connection from the pool
     box_name_query = """ SELECT box_name FROM boxes WHERE box_num = %s """
     result = run_query(box_name_query, (box_num,), fetch="one")

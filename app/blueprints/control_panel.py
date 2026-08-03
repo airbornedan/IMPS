@@ -14,6 +14,7 @@ from app import extensions
 from app.extensions import (
     get_db_connection,
     login_required,
+    validate_int,
     BACKUP_DIR,
     ITEM_IMAGE_DIR,
     ITEM_IMAGE_FS_DIR,
@@ -445,7 +446,7 @@ def cp_photofilesdel():
     for filename_to_remove in files_to_del:
         try:
             os.remove(os.path.join(image_dir, filename_to_remove))
-        except Exception as file_error:
+        except OSError as file_error:
             logger.error(f"System File deletion error: {file_error}")
             return render_template(
                 "errorpage.html",
@@ -527,7 +528,7 @@ def cp_delallorphanphotos():
     for orphan_file in orphans:
         try:
             os.remove(os.path.join(ITEM_IMAGE_FS_DIR, orphan_file))
-        except Exception as file_error:
+        except OSError as file_error:
             logger.error(f"System File deletion error during mass purge: {file_error}")
             return render_template(
                 "errorpage.html",
@@ -543,18 +544,9 @@ def cp_delallorphanphotos():
 ### DISPATCH SINGLE CATEGORY EDIT PAGE
 @bp.route("/cp_editcat/<cat_num>")
 @login_required
+@validate_int("cat_num", err_message="Category entry is not a number.")
 @db_errors(exec_msg="Database error when fetching category details.")
 def cp_editcat(cat_num):
-    ### CHECK THAT ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(cat_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Category entry is not a number.",
-            err_page_from="/",
-        )
-
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### SET UP CATEGORY QUERY
@@ -609,18 +601,9 @@ def cp_editcat(cat_num):
 ### SAVE CATEGORY NAME MODIFICATIONS AND PROPAGATE DEPENDENCIES
 @bp.route("/cp_catedited/<cat_num>", methods=["POST"])
 @login_required
+@validate_int("cat_num", err_message="Category entry is not a number.")
 @db_errors(exec_msg="Database error. Changes could not be processed fully across inventory assets.")
 def cp_catedited(cat_num):
-    ### CHECK THAT ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(cat_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Category entry is not a number.",
-            err_page_from="/",
-        )
-
     # GET VALUES FROM FORM
     form_cat_num = request.form.get("cat_num")
     cat_name = request.form.get("cat_name") or ""
@@ -695,18 +678,9 @@ def cp_catedited(cat_num):
 ### DISPATCH CATEGORY DELETION CONFIRMATION DIALOG
 @bp.route("/cp_catdel/<cat_num>")
 @login_required
+@validate_int("cat_num", err_message="Category entry is not a number.")
 @db_errors(exec_msg="Database error when fetching category details.")
 def cp_catdel(cat_num):
-    ### CHECK THAT ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(cat_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Category entry is not a number.",
-            err_page_from="/",
-        )
-
     # Fetch an active, thread-safe connection from the pool
     category_query = """ SELECT cat_name FROM categories WHERE cat_num = %s """
     result = run_query(category_query, (cat_num,), fetch="one")
@@ -739,18 +713,9 @@ def cp_catdel(cat_num):
 ### EXECUTE CATEGORY DELETION AND REASSIGN DEPENDENCIES
 @bp.route("/cp_catdelsuccess/<cat_num>", methods=["POST"])
 @login_required
+@validate_int("cat_num")
 @db_errors(exec_msg="Database error. Could not safely remove category or reassign inventory contents.")
 def cp_catdelsuccess(cat_num):
-    ### CHECK THAT ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(cat_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
-
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### 1. QUERY TO GET THE CATEGORY NAME BEFORE REMOVING IT

@@ -4,9 +4,9 @@
 import os
 import ipaddress
 
-from flask import Flask, request, session
+from flask import Flask, request, session, render_template
 
-from app.extensions import ITEM_IMAGE_DIR, FLASK_SECRET_KEY, csrf, limiter, route_to_help_topic
+from app.extensions import ITEM_IMAGE_DIR, FLASK_SECRET_KEY, csrf, limiter, route_to_help_topic, logger
 from app import extensions
 
 ########################################################################
@@ -176,6 +176,30 @@ def create_app():
     app.register_blueprint(items_bp)
     app.register_blueprint(control_panel_bp)
     app.register_blueprint(help_bp)
+
+    ####################################################################
+    ### CUSTOM ERROR PAGES
+    ####################################################################
+    # Routes every unmatched URL and unhandled server error through
+    # IMPS's own errorpage.html instead of Flask/Werkzeug's default
+    # page, matching every other failure path in the app (bad login,
+    # bad DB connection, bad int in a URL).
+    @app.errorhandler(404)
+    def not_found(e):
+        return render_template(
+            "errorpage.html",
+            err_message="That page does not exist.",
+            err_page_from="/",
+        ), 404
+
+    @app.errorhandler(500)
+    def server_error(e):
+        logger.error(f"Unhandled server error on {request.path}: {e}")
+        return render_template(
+            "errorpage.html",
+            err_message="Something went wrong on the server.",
+            err_page_from="/",
+        ), 500
 
     ####################################################################
     ### DEV-MODE STARTUP CHECKS (see app/dev_checks.py)

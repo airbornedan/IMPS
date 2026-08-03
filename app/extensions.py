@@ -610,6 +610,66 @@ def db_errors(conn_msg=None, exec_msg=None, integrity_msg=None, err_page_from="/
 
 
 ########################################################################
+### URL ROUTE INT VALIDATION
+########################################################################
+# Converts named URL route arguments to int, or returns errorpage.html
+# for a non-numeric value. Runs after Flask has already matched the
+# route, so it replaces the try/except int() block that would
+# otherwise open every view function taking a numeric route segment.
+#
+# Usage:
+#   @bp.route("/itemdetail/<item_num>")
+#   @login_required
+#   @validate_int("item_num")
+#   def itemdetail(item_num):
+#       # item_num is already an int here
+#       ...
+
+
+def validate_int(*names, err_message="Entry is not a number.", err_page_from="/"):
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            for name in names:
+                try:
+                    kwargs[name] = int(kwargs[name])
+                except (KeyError, ValueError):
+                    return render_template(
+                        "errorpage.html",
+                        err_message=err_message,
+                        err_page_from=err_page_from,
+                    )
+            return f(*args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
+########################################################################
+### FORM FIELD INT VALIDATION
+########################################################################
+# Converts a submitted form value to int, or returns (None, response)
+# with response already set to errorpage.html. Callers unpack both and
+# return early on a non-None response:
+#
+#   box_to_del, err = parse_int(request.form.get("box_to_del", ""))
+#   if err:
+#       return err
+
+
+def parse_int(value, err_message="Entry is not a number.", err_page_from="/"):
+    try:
+        return int(value), None
+    except ValueError:
+        return None, render_template(
+            "errorpage.html",
+            err_message=err_message,
+            err_page_from=err_page_from,
+        )
+
+
+########################################################################
 ### SINGLE-QUERY HELPER
 ########################################################################
 # For the common case of "one query, one connection, done" -- collapses

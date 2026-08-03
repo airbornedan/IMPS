@@ -4,6 +4,7 @@
 from flask import Blueprint, request, render_template, session, redirect, url_for
 import os
 import pathlib
+import tempfile
 import time
 from datetime import date
 
@@ -14,6 +15,7 @@ from werkzeug.utils import secure_filename
 from app.extensions import (
     get_db_connection,
     login_required,
+    validate_int,
     allowed_file,
     ITEM_IMAGE_DIR,
     ITEM_IMAGE_FS_DIR,
@@ -58,18 +60,9 @@ ITEMS_WITH_CAT_NAME = """
 ## ITEM DETAIL PAGE (NOT EDITABLE)
 @bp.route("/itemdetail/<item_num>")
 @login_required
+@validate_int("item_num")
 @db_errors(exec_msg="Database error when fetching item.")
 def itemdetail(item_num):
-
-    ### CHECK THAT ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(item_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
 
     item_query = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
     ### DB QUERY -- use the connection pool, same as every other route
@@ -155,18 +148,9 @@ def itemadd():
 ### EDIT ITEM FORM
 @bp.route("/itemedit/<item_num>")
 @login_required
+@validate_int("item_num")
 @db_errors(exec_msg="Database error when retrieving data fields.")
 def itemedit(item_num):
-    ### VERIFY ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(item_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
-
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### QUERY MAIN ITEM DETAILS
@@ -232,19 +216,10 @@ def itemedit(item_num):
 ### SUBMIT EDITED ITEM DETAILS
 @bp.route("/itemupdate/<item_num>", methods=["GET", "POST"])
 @login_required
+@validate_int("item_num")
 @limiter.limit("30 per minute; 300 per hour")
 @db_errors(exec_msg="Database write execution error. Changes could not be processed fully.")
 def itemupdate(item_num):
-    ### VERIFY ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(item_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
-
     # Initialize response fallback values
     ud_item_name = ""
     ud_item_num = item_num
@@ -252,7 +227,6 @@ def itemupdate(item_num):
     ud_item_date = ""
     ud_item_cat = ""
     ud_item_desc = ""
-    photo_message = "Original photo retained."
     item_pic = "none.jpg"
 
     ### IF A FORM HAS BEEN SUBMITTED, UPDATE ITEM INFO
@@ -388,19 +362,24 @@ def itemupdate(item_num):
                         )
 
                     filename = secure_filename(file.filename)
-                    photo_message = "Photo updated."
 
                     ### ADD TIMESTAMP TO FILE NAME TO HANDLE DUPES
                     pp = pathlib.PurePath(filename)
                     filename = pp.stem + str(time.time()) + pp.suffix
                     save_path = os.path.join(ITEM_IMAGE_FS_DIR, filename)
 
-                    ### SAVE FILE
-                    file.save(save_path)
+                    ### SAVE THE UPLOAD TO A TEMP FILE, NOT THE FINAL PATH
+                    ### -- an unverified upload never lands in the
+                    ### directory IMPS serves images from, even briefly.
+                    temp_fd, temp_path = tempfile.mkstemp(
+                        dir=ITEM_IMAGE_FS_DIR, prefix=".upload_", suffix=pp.suffix
+                    )
+                    os.close(temp_fd)
+                    file.save(temp_path)
 
                 ### VERIFY THE UPLOADED BYTES ARE ACTUALLY A DECODABLE
                 ### IMAGE AND RE-ENCODE, DISCARDING THE ORIGINAL BYTES.
-                if not verify_and_reencode_image(save_path):
+                if not verify_and_reencode_image(temp_path):
                     return render_template(
                         "errorpage.html",
                         err_message="That file could not be processed as a valid image.",
@@ -408,10 +387,13 @@ def itemupdate(item_num):
                     )
 
                 ### SHRINK IMAGE TO A REASONABLE SIZE AND SAVE
-                image = Image.open(save_path)
+                image = Image.open(temp_path)
                 image = ImageOps.exif_transpose(image)
                 image.thumbnail((600, 600))
-                image.save(save_path)
+                image.save(temp_path)
+
+                ### MOVE THE FULLY VERIFIED AND PROCESSED IMAGE INTO PLACE
+                os.replace(temp_path, save_path)
 
                 ### DELETE FORMER PHOTO UNLESS IT IS THE PLACEHOLDER
                 # ud_passed_in_pic comes from a hidden form field, so
@@ -426,15 +408,16 @@ def itemupdate(item_num):
                     if photo_to_delete:
                         try:
                             os.remove(photo_to_delete)
-                        except Exception:
+                        except FileNotFoundError:
                             pass
+                        except Exception as e:
+                            logger.warning(f"itemupdate(): could not delete old photo {photo_to_delete!r}: {e}")
 
                 item_pic = filename
 
             ### IF NO PHOTO CHECKBOX IS SELECTED RESET IMAGE TO DEFAULT
             if no_photo:
                 item_pic = "none.jpg"
-                photo_message = "Photo removed."
 
                 ### ATTEMPT TO DELETE OLD PHOTO
                 # Same reasoning as above -- sanitize before removing.
@@ -445,8 +428,10 @@ def itemupdate(item_num):
                     if photo_to_delete:
                         try:
                             os.remove(photo_to_delete)
-                        except Exception:
+                        except FileNotFoundError:
                             pass
+                        except Exception as e:
+                            logger.warning(f"itemupdate(): could not delete old photo {photo_to_delete!r}: {e}")
 
             ### 3. UPDATE FINAL FILENAME ENTRY IN DATABASE
             pic_query = """ UPDATE items SET item_pic = %s WHERE item_num = %s """
@@ -554,7 +539,15 @@ def iteminsert():
                 pp = pathlib.PurePath(filename)
                 filename = pp.stem + str(time.time()) + pp.suffix
                 save_path = os.path.join(ITEM_IMAGE_FS_DIR, filename)
-                file.save(save_path)
+
+                ### SAVE THE UPLOAD TO A TEMP FILE, NOT THE FINAL PATH
+                ### -- an unverified upload never lands in the
+                ### directory IMPS serves images from, even briefly.
+                temp_fd, temp_path = tempfile.mkstemp(
+                    dir=ITEM_IMAGE_FS_DIR, prefix=".upload_", suffix=pp.suffix
+                )
+                os.close(temp_fd)
+                file.save(temp_path)
 
             ### IF THE FILE IS PROHIBITED SHOW ERROR PAGE
             else:
@@ -568,7 +561,7 @@ def iteminsert():
         ### AND RE-ENCODE, DISCARDING THE ORIGINAL FILE CONTENT. THIS
         ### IS THE REAL CONTENT-LEVEL CHECK -- allowed_file() ABOVE
         ### ONLY LOOKED AT THE FILENAME, NOT THE BYTES.
-        if not verify_and_reencode_image(save_path):
+        if not verify_and_reencode_image(temp_path):
             return render_template(
                 "errorpage.html",
                 err_message="That file could not be processed as a valid image.",
@@ -576,10 +569,13 @@ def iteminsert():
             )
 
         # SHRINK IMAGE
-        image = Image.open(save_path)
+        image = Image.open(temp_path)
         image = ImageOps.exif_transpose(image)
         image.thumbnail((600, 600))
-        image.save(save_path)
+        image.save(temp_path)
+
+        ### MOVE THE FULLY VERIFIED AND PROCESSED IMAGE INTO PLACE
+        os.replace(temp_path, save_path)
     ### IF NO FILE WAS INCLUDED USE THE DEFAULT PHOTO
     else:
         filename = ""
@@ -751,18 +747,9 @@ def itemsbycategory(category):
 ## DELETE ITEM CONFIRMATION PAGE
 @bp.route("/itemdel/<item_num>")
 @login_required
+@validate_int("item_num")
 @db_errors(exec_msg="Database error when fetching item deletion metrics.")
 def itemdel(item_num):
-    ### CHECK THAT ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(item_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
-
     # Fetch an active, thread-safe connection from the pool
     del_query = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
     result = run_query(del_query, (item_num,), fetch="one", as_dict=True)
@@ -810,22 +797,13 @@ def itemdel(item_num):
 ########################################################################
 @bp.route("/itemdeleted/<item_to_del>", methods=["POST"])
 @login_required
+@validate_int("item_to_del")
 @db_errors(exec_msg="Database write execution error. Could not delete item safely.")
 def itemdeleted(item_to_del):
     ### RE-VALIDATE THE BACK URL HERE TOO -- IT ARRIVED AS A POST BODY
     ### FIELD FROM THE CLIENT, SO TREAT IT AS UNTRUSTED EVEN THOUGH
     ### itemdel() ALREADY SANITIZED IT ONCE.
     back_url = safe_relative_url(request.form.get("back_url"))
-
-    ### CHECK THAT ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(item_to_del)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
@@ -906,7 +884,8 @@ def itemdeleted(item_to_del):
             # the end state we wanted is already true. Not a real
             # failure; only genuine errors (permissions, I/O) below.
             pass
-        except Exception:
+        except OSError as file_error:
+            logger.error(f"System File deletion error: {file_error}")
             delete_failed = True
 
     ### RETURN SUCCESS OR WARN ABOUT ORPHANED IMAGE FILE

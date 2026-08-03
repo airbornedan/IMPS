@@ -7,6 +7,8 @@ from datetime import date
 from app.extensions import (
     get_db_connection,
     login_required,
+    validate_int,
+    parse_int,
     limiter,
     db_errors,
     run_query,
@@ -108,14 +110,9 @@ def boxmoveitemsconf():
     old_box_num = request.form.get("box_to_del", "")
 
     ### VERIFY FORM ENTRY IS AN INT
-    try:
-        check_int = int(old_box_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Invalid entry. Box number must be an int.",
-            err_page_from="/",
-        )
+    old_box_num, err = parse_int(old_box_num, err_message="Invalid entry. Box number must be an int.")
+    if err:
+        return err
 
     # Fetch an active, thread-safe connection from the pool
     available_box_nums_query = "SELECT box_num FROM boxes ORDER BY box_num;"
@@ -152,14 +149,9 @@ def boxorphanitemsconf():
     box_to_del = request.form.get("box_to_del", "")
 
     ### VERIFY FORM ENTRY IS AN INT
-    try:
-        check_int = int(box_to_del)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
+    box_to_del, err = parse_int(box_to_del)
+    if err:
+        return err
 
     # Fetch an active, thread-safe connection from the pool
     box_state_query = """ SELECT * FROM items WHERE box_num = %s """
@@ -191,14 +183,9 @@ def boxorphanitemssuccess():
     box_to_del = request.form.get("box_to_del", "")
 
     ### VERIFY VARIABLE IS AN INT
-    try:
-        check_int = int(box_to_del)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
+    box_to_del, err = parse_int(box_to_del)
+    if err:
+        return err
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
@@ -228,14 +215,12 @@ def boxmoveitemssuccess():
     new_box_num = request.form.get("new_box_num", "")
 
     ### VERIFY VARIABLES ARE INTS
-    try:
-        check_int = int(box_to_del) + int(new_box_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Invalid entry. Box number must be an int.",
-            err_page_from="/",
-        )
+    box_to_del, err = parse_int(box_to_del, err_message="Invalid entry. Box number must be an int.")
+    if err:
+        return err
+    new_box_num, err = parse_int(new_box_num, err_message="Invalid entry. Box number must be an int.")
+    if err:
+        return err
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
@@ -291,14 +276,9 @@ def boxadded():
         box_num = request.form.get("box_num")
 
     ### VERIFY VARIABLE IS AN INT
-    try:
-        check_int = int(box_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Invalid entry. Box number must be an int.",
-            err_page_from="/",
-        )
+    box_num, err = parse_int(box_num, err_message="Invalid entry. Box number must be an int.")
+    if err:
+        return err
 
     ### GET ADDITIONAL FORM DATA
     next_available_box_num = request.form.get("next_available_box_num")
@@ -408,14 +388,9 @@ def boxdel():
         box_to_del = request.form.get("box_to_del", "")
 
         ### VERIFY VARIABLE IS AN INT
-        try:
-            check_int = int(box_to_del)
-        except ValueError:
-            return render_template(
-                "errorpage.html",
-                err_message="Entry is not a number.",
-                err_page_from="/",
-            )
+        box_to_del, err = parse_int(box_to_del)
+        if err:
+            return err
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
@@ -474,14 +449,9 @@ def boxdeleteitemsconf():
     box_to_del = request.form.get("box_to_del", "")
 
     ### VERIFY VARIABLE IS AN INT
-    try:
-        check_int = int(box_to_del)
-    except (ValueError, TypeError):
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
+    box_to_del, err = parse_int(box_to_del)
+    if err:
+        return err
 
     ### CHECK IF BOX HAS CONTENTS
     box_state_query = """ SELECT * FROM items WHERE box_num = %s """
@@ -541,14 +511,9 @@ def boxedit():
     box_num = request.form.get("box_num")
 
     ### VERIFY VARIABLE IS AN INT
-    try:
-        check_int = int(box_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
+    box_num, err = parse_int(box_num)
+    if err:
+        return err
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
@@ -681,21 +646,16 @@ def boxedited():
 
 @bp.route("/boxrenumber/<box_num>")
 @login_required
+@validate_int(
+    "box_num",
+    err_message="Invalid page access. Box number must be an integer.",
+    err_page_from="/boxlist",
+)
 @db_errors(
     conn_msg="Database error when accessing box info. Could not connect.",
     exec_msg="Database error when retrieving box renumbering data.",
 )
 def boxrenumber(box_num):
-    ### VERIFY ROUTE PARAMETER IS AN INT
-    try:
-        check_int = int(box_num)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Invalid page access. Box number must be an integer.",
-            err_page_from="/boxlist",
-        )
-
     with get_db_connection() as mydb:
         ### CONFIRM THE BOX EXISTS
         box_query = """ SELECT box_num FROM boxes WHERE box_num = %s """
@@ -849,18 +809,9 @@ def boxrenumbersuccess():
 ### DELETE BOX FROM DB AND SHOW SUCCESS PAGE
 @bp.route("/boxdeletesuccess/<box_to_del>", methods=["POST"])
 @login_required
+@validate_int("box_to_del")
 @db_errors(exec_msg="Database error. Could not successfully delete box or associated inventory items.")
 def boxdeletesuccess(box_to_del):
-    ### VERIFY ROUTE DECORATOR IS AN INT
-    try:
-        check_int = int(box_to_del)
-    except ValueError:
-        return render_template(
-            "errorpage.html",
-            err_message="Entry is not a number.",
-            err_page_from="/",
-        )
-
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### QUERY TO DELETE ITEMS IN THAT BOX -- MUST run before the box

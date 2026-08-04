@@ -1,11 +1,8 @@
-# .github/workflows/apply-claude-changes.yml
-name: Apply Claude changes
-
 on:
   workflow_dispatch:
     inputs:
-      patch_url:
-        description: "Raw URL of the patch/diff to apply"
+      patch_content:
+        description: "The diff, as text"
         required: true
       target_branch:
         description: "Branch to push the change to (never main)"
@@ -27,9 +24,11 @@ jobs:
       - name: Create/reset target branch
         run: git checkout -B "${{ github.event.inputs.target_branch }}"
 
-      - name: Fetch and apply patch
+      - name: Write and apply patch
         run: |
-          curl -sL "${{ github.event.inputs.patch_url }}" -o change.patch
+          cat <<'EOF' > change.patch
+          ${{ github.event.inputs.patch_content }}
+          EOF
           git apply change.patch
 
       - name: Commit and push

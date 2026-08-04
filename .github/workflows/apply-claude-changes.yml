@@ -1,40 +1,16 @@
-on:
-  workflow_dispatch:
-    inputs:
-      patch_content:
-        description: "The diff, as text"
-        required: true
-      target_branch:
-        description: "Branch to push the change to (never main)"
-        required: true
-        default: "claude-updates"
-      commit_message:
-        description: "Commit message"
-        required: true
+steps:
+      - name: Check secret is actually set
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::DEPLOY_TOKEN is empty or not visible to this job"
+            exit 1
+          else
+            echo "DEPLOY_TOKEN is present, length ${#TOKEN}"
+          fi
+        env:
+          TOKEN: ${{ secrets.DEPLOY_TOKEN }}
 
-jobs:
-  apply-patch:
-    runs-on: ubuntu-latest
-    steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.DEPLOY_TOKEN }}
           fetch-depth: 0
-
-      - name: Create/reset target branch
-        run: git checkout -B "${{ github.event.inputs.target_branch }}"
-
-      - name: Write and apply patch
-        run: |
-          cat <<'EOF' > change.patch
-          ${{ github.event.inputs.patch_content }}
-          EOF
-          git apply change.patch
-
-      - name: Commit and push
-        run: |
-          git config user.name "claude-bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add -A
-          git commit -m "${{ github.event.inputs.commit_message }}"
-          git push origin "${{ github.event.inputs.target_branch }}" --force-with-lease

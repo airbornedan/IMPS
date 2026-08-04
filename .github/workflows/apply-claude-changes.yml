@@ -1,0 +1,41 @@
+# .github/workflows/apply-claude-changes.yml
+name: Apply Claude changes
+
+on:
+  workflow_dispatch:
+    inputs:
+      patch_url:
+        description: "Raw URL of the patch/diff to apply"
+        required: true
+      target_branch:
+        description: "Branch to push the change to (never main)"
+        required: true
+        default: "claude-updates"
+      commit_message:
+        description: "Commit message"
+        required: true
+
+jobs:
+  apply-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.DEPLOY_TOKEN }}
+          fetch-depth: 0
+
+      - name: Create/reset target branch
+        run: git checkout -B "${{ github.event.inputs.target_branch }}"
+
+      - name: Fetch and apply patch
+        run: |
+          curl -sL "${{ github.event.inputs.patch_url }}" -o change.patch
+          git apply change.patch
+
+      - name: Commit and push
+        run: |
+          git config user.name "claude-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "${{ github.event.inputs.commit_message }}"
+          git push origin "${{ github.event.inputs.target_branch }}" --force-with-lease

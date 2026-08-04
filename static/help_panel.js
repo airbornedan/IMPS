@@ -28,6 +28,7 @@
 	var frame = document.getElementById("helpFrame");
 	var openBtn = document.getElementById("helpButton");
 	var closeBtn = document.getElementById("helpPanelClose");
+	var tocBtn = document.getElementById("helpTocButton");
 	var searchBox = document.getElementById("helpSearchBox");
 	var searchResults = document.getElementById("helpSearchResults");
 
@@ -37,6 +38,7 @@
 
 	var topic = document.body.getAttribute("data-help-topic") || "home";
 	var helpUrl = "/static/help/imps_" + topic + "_help.html";
+	var tocUrl = "/static/help/toc.html";
 
 	function openHelp() {
 		// Only (re)load the iframe if it isn't already showing this
@@ -75,6 +77,23 @@
 		closeBtn.addEventListener("click", closeHelp);
 	}
 	overlay.addEventListener("click", closeHelp);
+	if (tocBtn) {
+		// "Contents" always jumps to the general table of contents,
+		// regardless of which topic page is currently showing. There's
+		// no explicit "back to this page's help" control -- closing and
+		// reopening the panel (or navigating within toc.html's own
+		// links) gets you back to context-specific help.
+		tocBtn.addEventListener("click", function () {
+			frame.setAttribute("src", tocUrl);
+			panel.classList.add("open");
+			overlay.classList.add("open");
+			try {
+				sessionStorage.setItem(STORAGE_KEY, "1");
+			} catch (e) {
+				// see openHelp()
+			}
+		});
+	}
 
 	var wasOpen = false;
 	try {

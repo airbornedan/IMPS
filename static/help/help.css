@@ -1,22 +1,23 @@
 body{
-  font-size: 12;
+  font-size: 12px;
   font-family: arial;
 }
 p{
-  font-size: 12;
-  font-family: arial;
   line-height: 14pt;
-
 }
 
-h1 {
-  font-size: 18;
+h1, h2, h3, .help-heading {
   font-weight: bold;
+}
+h1 {
+  font-size: 20px;
 }
 h2 {
-  font-size: 16;
-  font-weight: bold;
-} 
+  font-size: 18px;
+}
+h3 {
+  font-size: 14px;
+}
 
 p.note{
    background-image: url('icons/note.png');
@@ -26,6 +27,5 @@ p.note{
    display: block;  /* may not need this, but I've found I do */
 }
 .help-heading {
-  font-size: 24;
-  font-weight: bold;
+  font-size: 24px;
 }

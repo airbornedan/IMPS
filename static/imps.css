@@ -1193,7 +1193,7 @@ input[name="file"] {
 .help-panel-header {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
+	gap: 10px;
 	padding: 10px 14px;
 	border-bottom: 1px solid #ccc;
 	flex: 0 0 auto;
@@ -1202,6 +1202,22 @@ input[name="file"] {
 .help-panel-title {
 	font-size: 18px;
 	font-weight: bold;
+	flex: 1 1 auto;
+}
+
+.help-toc-button {
+	cursor: pointer;
+	font-size: 13px;
+	color: #333;
+	background: #f2f2f2;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	padding: 4px 10px;
+	flex: 0 0 auto;
+}
+
+.help-toc-button:hover {
+	background: #e6e6e6;
 }
 
 .help-panel-close {
@@ -1209,6 +1225,7 @@ input[name="file"] {
 	font-size: 26px;
 	line-height: 1;
 	color: #888;
+	flex: 0 0 auto;
 }
 
 .help-panel-close:hover {

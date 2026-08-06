@@ -1197,6 +1197,7 @@ input[name="file"] {
 	padding: 10px 14px;
 	border-bottom: 1px solid #ccc;
 	flex: 0 0 auto;
+	position: relative;
 }
 
 .help-panel-title {
@@ -1214,6 +1215,13 @@ input[name="file"] {
 	border-radius: 4px;
 	padding: 4px 10px;
 	flex: 0 0 auto;
+	/* Centered in the header regardless of title length or the
+	   close button's width -- taken out of flex flow and centered
+	   against the header itself rather than sharing leftover
+	   flex space with its siblings. */
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
 }
 
 .help-toc-button:hover {

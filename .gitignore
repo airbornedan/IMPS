@@ -70,3 +70,6 @@ __pycache__/
 .venv/
 certificates/
 git_token
+
+# Claude Code local settings (per-session permission allowlist, etc.)
+.claude/

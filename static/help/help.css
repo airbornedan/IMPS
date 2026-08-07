@@ -5,6 +5,9 @@ body{
 p{
   line-height: 14pt;
 }
+li{
+  margin-bottom: 8px;
+}
 
 h1, h2, h3, .help-heading {
   font-weight: bold;

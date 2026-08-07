@@ -7,6 +7,10 @@ p{
 }
 li{
   margin-bottom: 8px;
+  line-height: 14pt;
+}
+li > ul, li > ol{
+  margin-top: 8px;
 }
 
 h1, h2, h3, .help-heading {

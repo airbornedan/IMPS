@@ -70,15 +70,15 @@ def boxadd():
 
     ### FIND THE FIRST AVAILABLE BOX NUMBER (GAP FINDING LOGIC)
     first_available_box = None
-    
+
     # Check if box #1 is missing altogether
     if not box_nums or box_nums[0] > 1:
         first_available_box = 1
     else:
         # Find structural numerical gaps between elements
-        for i in range(len(box_nums) - 1):
-            if box_nums[i + 1] - box_nums[i] > 1:
-                first_available_box = box_nums[i] + 1
+        for current, nxt in zip(box_nums, box_nums[1:], strict=False):
+            if nxt - current > 1:
+                first_available_box = current + 1
                 break
 
     ### IF NO GAP, ADD NEW BOX AT THE SEQUENTIAL END
@@ -158,15 +158,12 @@ def boxorphanitemsconf():
     result = run_query(box_state_query, (box_to_del,))
 
     # Use simple array length verification instead of volatile rowcounts
-    if len(result) == 0:
-        box_state = "empty"
-    else:
-        box_state = "not_empty"
+    box_state = "empty" if len(result) == 0 else "not_empty"
 
     ### SHOW ORPHAN ITEMS PAGE
     return render_template(
-        "boxes/boxorphanitemsconf.html", 
-        box_to_del=box_to_del, 
+        "boxes/boxorphanitemsconf.html",
+        box_to_del=box_to_del,
         box_state=box_state
     )
 
@@ -257,7 +254,6 @@ def boxmoveitemssuccess():
     )
 
 
-
 ########################################################################
 ### ADD BOX TO DB AND SHOW SUCCESS PAGE
 @bp.route("/boxadded", methods=["POST"])
@@ -269,7 +265,7 @@ def boxmoveitemssuccess():
 def boxadded():
     ### GET FORM DATA AND CHECK BOX NUMBER TYPE SELECTION
     box_num_mode = request.form.get("box_num_mode")
-    
+
     if box_num_mode == "next_available":
         box_num = request.form.get("next_num")
     else:
@@ -359,7 +355,7 @@ def boxadded():
 
         ### INSERT NEW BOX DATA INTO DB
         query_vars = (box_num, loc_num, box_name, current_date, current_date)
-        query_string = """ INSERT INTO boxes (box_num, loc_num, box_name, box_date,\
+        query_string = """ INSERT INTO boxes (box_num, loc_num, box_name, box_date,
             box_last_changed) VALUES (%s,%s,%s,%s,%s) """
 
         cursor = mydb.cursor()
@@ -368,9 +364,9 @@ def boxadded():
 
     ### SHOW SUCCESS PAGE
     return render_template(
-        "boxes/boxadded.html", 
-        box_num=box_num, 
-        box_loc=box_loc, 
+        "boxes/boxadded.html",
+        box_num=box_num,
+        box_loc=box_loc,
         box_name=box_name
     )
 
@@ -422,10 +418,9 @@ def boxdel():
 
     ### EXTRACT BOX NUMBERS
     box_nums = [row[0] for row in available_result]
-    not_empty_box_num_list = [row[0] for row in not_empty_result]
 
     ### ELIMINATE DUPLICATES
-    not_empty_box_num_list = list(set(not_empty_box_num_list))
+    not_empty_box_num_list = list({row[0] for row in not_empty_result})
 
     ### SHOW THE DEL BOX PAGE
     return render_template(
@@ -434,7 +429,6 @@ def boxdel():
         not_empty_box_num_list=not_empty_box_num_list,
         box_to_del=box_to_del,
     )
-
 
 
 ########################################################################

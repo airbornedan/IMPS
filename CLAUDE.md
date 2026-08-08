@@ -11,3 +11,8 @@ Comments describe current-state only. No history ("used to...",
 "previously..."), no speculative future-proofing ("in case we later
 need to...", "added for future use"). Git history covers the past;
 YAGNI covers the future.
+
+SQL query construction and render_template()/return kwargs are kept
+expanded (spelled-out clauses, individual named kwargs) rather than
+collapsed into dicts or other denser forms. Don't simplify these into
+more "pythonic" shapes.

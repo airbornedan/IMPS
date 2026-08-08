@@ -207,13 +207,13 @@ def search_result(query_term):
         # matching row and slicing to the current page in Python --
         # keeps only `limit` rows (including item_desc text) crossing
         # the wire per search, not the entire matching result set.
-        item_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+        item_query = f""" SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
                                   c.cat_name AS item_cat, i.item_desc
                            FROM items i
                            JOIN categories c ON i.cat_num = c.cat_num
                            WHERE {where_sql}
                            ORDER BY ({score_sql}) DESC, i.item_num DESC
-                           LIMIT %s OFFSET %s """.format(where_sql=where_sql, score_sql=score_sql)
+                           LIMIT %s OFFSET %s """
 
         cursor = mydb.cursor(dictionary=True)
         cursor.execute(item_query, tuple(where_params + score_params + [limit, offset]))
@@ -222,9 +222,9 @@ def search_result(query_term):
         cursor.close()
 
         ### GET NUMBER OF RESULTS (same WHERE clause, for pagination)
-        num_item_query = """ SELECT COUNT(*) FROM items i
+        num_item_query = f""" SELECT COUNT(*) FROM items i
                                JOIN categories c ON i.cat_num = c.cat_num
-                               WHERE {where_sql} """.format(where_sql=where_sql)
+                               WHERE {where_sql} """
         cursor = mydb.cursor()
         cursor.execute(num_item_query, tuple(where_params))
         result = cursor.fetchone()

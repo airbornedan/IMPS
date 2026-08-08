@@ -12,13 +12,9 @@ li{
 li > ul, li > ol{
   margin-top: 8px;
 }
-/* Plain black + underline instead of the browser-default blue --
-   red is already spoken for by the .imps button lookalikes below, so
-   links stay visually distinct from "this is literally the button"
-   rather than competing with it for the same color. */
 a, a:visited{
   color: inherit;
-  text-decoration: underline;
+  text-decoration: underline;  /* red is used by .imps buttons below */
 }
 
 h1, h2, h3, .help-heading {
@@ -45,24 +41,9 @@ p.note{
   font-size: 24px;
 }
 
-/* ================================================================
-   NAMED-BUTTON LOOKALIKES
-   ================================================================
-   When a help page mentions a real, labeled IMPS button (Add box,
-   Update, Backup Now, etc.), we show a non-interactive copy of that
-   actual button -- same icon, same red pill shape, same text -- so
-   readers see exactly what to look for on screen instead of just an
-   icon floating near some italicized text.
-
-   Icon-ONLY buttons (edit/trash/qr/download row actions, which have
-   no text on the real button) don't use this -- they stay a plain
-   icon + description, since there's no button label to be faithful
-   to. See imps.css section 3 ("BUTTONS / ICONS") for the real,
-   interactive versions these are copied from -- these rules are
-   intentionally duplicated (not shared/linked) so this page doesn't
-   pull in imps.css's full, unrelated page-layout cascade; keep the
-   two in sync by hand if a button's look changes there.
-   ================================================================ */
+/* Non-interactive copies of real .imps buttons (imps.css section 3).
+   Duplicated, not shared, to avoid pulling in imps.css's page layout --
+   keep in sync by hand. */
 .imps {
   background-color: #a40000;
   background-position: 8px center;
@@ -71,14 +52,12 @@ p.note{
   border-radius: 7px;
   border: 0px;
   color: white;
-  cursor: default;  /* not clickable here -- unlike imps.css's real buttons */
+  cursor: default;
   display: inline-block;
   font-size: 14px;
   font-weight: bold;
   height: 42px;
-  line-height: 42px;  /* vertically centers the text (imps.css uses 0px
-                         because its buttons rely on fixed padding instead;
-                         a help-doc span has no such padding to lean on) */
+  line-height: 42px;  /* centers text; imps.css uses padding instead */
   margin: 0 2px;
   min-width: 90px;
   padding: 0 8px;

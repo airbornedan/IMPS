@@ -376,14 +376,13 @@ def cp_photofilescleanup():
     # extensions.py). Stray non-image files are never treated as
     # deletable "orphaned photos".
     files_in_dir = [f for f in os.listdir(ITEM_IMAGE_FS_DIR) if allowed_file(f)]
-    files_in_dir.sort()
 
     ### FIND ORPHAN ENTRIES USING SET DIFFERENCING
-    orphans = list(set(files_in_dir).difference(photo_filenames_in_db))
-    
+    orphans = set(files_in_dir).difference(photo_filenames_in_db)
+
     # Remove placeholder image if present
-    if "none.jpg" in orphans:
-        orphans.remove("none.jpg")
+    orphans.discard("none.jpg")
+    orphans = sorted(orphans)
 
     return render_template(
         "control_panel/cp_photofilescleanup.html",
@@ -406,9 +405,9 @@ def cp_photofilesdel():
     requested_deletions = []
 
     ### MAP AND RE-ASSEMBLE INDEX POSITION CHECKBOXES TO FILE NAMES
-    for x in range(len(file_list)):
-        if str(x + 1) in checkbox_list:
-            requested_deletions.append(str(file_list[x]))
+    for index, filename in enumerate(file_list, start=1):
+        if str(index) in checkbox_list:
+            requested_deletions.append(str(filename))
 
     ### SECURITY: NEVER TRUST CLIENT-SUPPLIED FILENAMES FOR A FILESYSTEM
     ### DELETE. Recompute orphan set server-side (DB photo references
@@ -433,7 +432,6 @@ def cp_photofilesdel():
 
     image_dir = ITEM_IMAGE_FS_DIR
     files_in_dir = [f for f in os.listdir(image_dir) if allowed_file(f)]
-    files_in_dir.sort()
 
     orphans = set(files_in_dir).difference(photo_filenames_in_db)
     orphans.discard("none.jpg")
@@ -454,29 +452,12 @@ def cp_photofilesdel():
                 err_page_from="/cp_photofilescleanup",
             )
 
-    # Fetch an active, thread-safe connection from the pool
-    photo_files_query = "SELECT item_pic FROM items;"
-    result = run_query(photo_files_query)
-
-    ### CHECK THAT QUERY SUCCEEDED
-    if not result:
-        return render_template(
-            "errorpage.html",
-            err_message="Database error. Could not access files.",
-            err_page_from="/",
-        )
-
-    ### RE-QUERY AFTER DELETION
-    photo_filenames_in_db = [row[0] for row in result if row[0]]
-    photo_filenames_in_db.sort()
-
-    ### RE-READ STORAGE FILE DIRECTORY AND RECALCULATE RE-INDEXED ORPHANS
+    ### RE-READ STORAGE FILE DIRECTORY
     files_in_dir = [f for f in os.listdir(ITEM_IMAGE_FS_DIR) if allowed_file(f)]
-    files_in_dir.sort()
 
-    orphans = list(set(files_in_dir).difference(photo_filenames_in_db))
-    if "none.jpg" in orphans:
-        orphans.remove("none.jpg")
+    orphans = set(files_in_dir).difference(photo_filenames_in_db)
+    orphans.discard("none.jpg")
+    orphans = sorted(orphans)
 
     ### SHOW THE REFRESHED CLEANUP PAGE
     return render_template(
@@ -514,14 +495,12 @@ def cp_delallorphanphotos():
     # Especially important here: this route deletes every file in the
     # orphan set immediately, no per-file confirmation.
     files_in_dir = [f for f in os.listdir(ITEM_IMAGE_FS_DIR) if allowed_file(f)]
-    files_in_dir.sort()
 
     ### CREATE A LIST OF IMAGES IN DIR BUT NOT IN DB
-    orphans = list(set(files_in_dir).difference(photo_filenames_in_db))
+    orphans = set(files_in_dir).difference(photo_filenames_in_db)
 
     ### EXCLUDE DEFAULT PLACEHOLDER IMAGE
-    if "none.jpg" in orphans:
-        orphans.remove("none.jpg")
+    orphans.discard("none.jpg")
 
     ### DELETE FILES OUTSIDE THE DB CONNECTION -- a slow filesystem
     ### shouldn't hold a pooled connection open
@@ -594,7 +573,6 @@ def cp_editcat(cat_num):
         cat_num=cat_num,
         other_categories=other_categories,
     )
-
 
 
 ########################################################################
@@ -703,8 +681,8 @@ def cp_catdel(cat_num):
         )
 
     return render_template(
-        "control_panel/cp_catdelconf.html", 
-        cat_name=cat_name, 
+        "control_panel/cp_catdelconf.html",
+        cat_name=cat_name,
         cat_num=cat_num
     )
 
@@ -826,7 +804,6 @@ def cp_addcat():
 
     ### RETURN TO CATEGORY LIST PAGE
     return redirect(url_for("control_panel.cp_categories"))
-
 
 
 ########################################################################
@@ -965,11 +942,10 @@ def cp_locations():
 
     ### SHOW LOCATION PAGE
     return render_template(
-        "control_panel/cp_locations.html", 
-        locations=locations, 
+        "control_panel/cp_locations.html",
+        locations=locations,
         loc_count=loc_count
     )
-
 
 
 ########################################################################
@@ -1233,7 +1209,6 @@ def cp_locdel(loc_name):
         loc_name=loc_name,
         loc_num=loc_num,
     )
-
 
 
 ########################################################################

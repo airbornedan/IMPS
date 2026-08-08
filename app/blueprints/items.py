@@ -856,3 +856,162 @@ def itemdeleted(item_to_del):
             back_url=back_url,
             had_photo=has_real_photo,
         )
+
+
+########################################################################
+### BATCH DELETE CONFIRMATION PAGE (Ctrl/Cmd-click multiple trash icons
+### on a list view -- see static/multiselect_delete.js)
+@bp.route("/itemsdel", methods=["POST"])
+@login_required
+@db_errors(exec_msg="Database error when fetching item deletion metrics.")
+def itemsdel():
+    ### VALIDATE EVERY item_num -- CLIENT-SUPPLIED, TREAT AS UNTRUSTED
+    raw_item_nums = request.form.getlist("item_nums")
+    item_nums = []
+    for raw in raw_item_nums:
+        try:
+            item_nums.append(int(raw))
+        except (TypeError, ValueError):
+            return render_template(
+                "errorpage.html",
+                err_message="Invalid item selection.",
+                err_page_from="/",
+            )
+
+    back_url = safe_relative_url(session.get("last_list_view"))
+
+    if not item_nums:
+        return redirect(back_url or url_for("main.home"))
+
+    ### FETCH DISPLAY INFO FOR EACH PICKED ITEM. An item_num that no
+    ### longer matches a real row (deleted by someone else since the
+    ### list page loaded) is silently dropped rather than erroring the
+    ### whole batch.
+    placeholders = ", ".join(["%s"] * len(item_nums))
+    items_query = (
+        ITEMS_WITH_CAT_NAME
+        + f" WHERE item_num IN ({placeholders}) ORDER BY item_num "
+    )
+    result = run_query(items_query, tuple(item_nums), as_dict=True)
+
+    if not result:
+        return redirect(back_url or url_for("main.home"))
+
+    ### SHOW THE CONFIRMATION PAGE
+    return render_template(
+        "items/itemsdel.html",
+        items=result,
+        ITEM_IMAGE_DIR=ITEM_IMAGE_DIR,
+        back_url=back_url,
+    )
+
+
+########################################################################
+@bp.route("/itemsdeleted", methods=["POST"])
+@login_required
+@db_errors(
+    exec_msg="Database write execution error. Could not delete items safely."
+)
+def itemsdeleted():
+    ### RE-VALIDATE THE BACK URL AND EVERY item_num HERE TOO -- BOTH
+    ### ARRIVED AS POST BODY FIELDS FROM THE CLIENT, SO TREAT THEM AS
+    ### UNTRUSTED EVEN THOUGH itemsdel() ALREADY VALIDATED THEM ONCE.
+    back_url = safe_relative_url(request.form.get("back_url"))
+
+    raw_item_nums = request.form.getlist("item_nums")
+    item_nums = []
+    for raw in raw_item_nums:
+        try:
+            item_nums.append(int(raw))
+        except (TypeError, ValueError):
+            return render_template(
+                "errorpage.html",
+                err_message="Invalid item selection.",
+                err_page_from="/",
+            )
+
+    if not item_nums:
+        return redirect(back_url or url_for("main.home"))
+
+    placeholders = ", ".join(["%s"] * len(item_nums))
+
+    # Fetch an active, thread-safe connection from the pool
+    with get_db_connection() as mydb:
+        ### 1. GET PHOTO FILENAMES AND BOX NUMBERS BEFORE DELETION --
+        ### box_num is needed to touch each affected box below (step
+        ### 2b); once the rows are deleted, they're gone.
+        info_query = f""" SELECT item_num, item_pic, box_num FROM items
+                           WHERE item_num IN ({placeholders}) """
+        cursor = mydb.cursor()
+        cursor.execute(info_query, tuple(item_nums))
+        rows = cursor.fetchall()
+        cursor.close()
+
+        ### Nothing left to delete -- every item_num here was already
+        ### removed by someone else since the confirm page loaded.
+        if not rows:
+            return redirect(back_url or url_for("main.home"))
+
+        ### 2. EXECUTE DELETION STATEMENT -- ONE QUERY FOR THE WHOLE BATCH
+        del_query = f""" DELETE FROM items
+                          WHERE item_num IN ({placeholders}) """
+        cursor = mydb.cursor()
+        cursor.execute(del_query, tuple(item_nums))
+        cursor.close()
+
+        ### 2b. TOUCH EVERY DISTINCT BOX AFFECTED -- once per box, not
+        ### once per item, since several picked items here can share a
+        ### box. See touch_box_last_changed() in extensions.py.
+        box_nums = {row[2] for row in rows}
+        cursor = mydb.cursor()
+        for box_num in box_nums:
+            touch_box_last_changed(cursor, box_num)
+        cursor.close()
+
+    ### PROCESS FILESYSTEM OPERATIONS OUTSIDE DATABASE LOCKS
+    photo_dir = ITEM_IMAGE_FS_DIR
+    failed_files = []
+
+    for _item_num, photo_filename, _box_num in rows:
+        ### "No real image" covers the placeholder ("none.jpg") and
+        ### NULL/empty item_pic values -- same reasoning as
+        ### itemdeleted() above.
+        if not photo_filename or photo_filename == "none.jpg":
+            continue
+
+        ### photo_filename comes from the DB, not the request, but
+        ### treat it as untrusted -- same reasoning as itemdeleted().
+        photo_file = safe_image_path(photo_filename, photo_dir)
+        if photo_file is None:
+            logger.error(
+                f"itemsdeleted(): refusing to delete unsafe/invalid "
+                f"photo filename from DB: {photo_filename!r}"
+            )
+            continue
+        try:
+            os.remove(photo_file)
+        except FileNotFoundError:
+            # Best effort file removal -- already gone is fine, see
+            # itemdeleted() above.
+            pass
+        except OSError as file_error:
+            logger.error(f"System File deletion error: {file_error}")
+            failed_files.append(photo_filename)
+
+    ### RETURN SUCCESS OR WARN ABOUT ORPHANED IMAGE FILES
+    if failed_files:
+        return render_template(
+            "errorpage.html",
+            err_message=(
+                f"{len(rows)} item(s) were deleted from the database, but "
+                f"{len(failed_files)} image file(s) could not be removed "
+                "from disk."
+            ),
+            err_page_from="/",
+        )
+
+    return render_template(
+        "items/itemsdeleted.html",
+        deleted_count=len(rows),
+        back_url=back_url,
+    )

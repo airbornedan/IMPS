@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">{{ deleted_count }} item{{ "s" if deleted_count != 1 }} deleted.</p>
+<p>These items have been successfully deleted.</p>
+<a href="/"><button class="imps icon-left home">Home</button></a>
+{% if back_url %}
+<a href="{{ back_url }}"><button class="imps icon-left home">Back</button></a>
+{% endif %}
+<br>
+{% endblock %}

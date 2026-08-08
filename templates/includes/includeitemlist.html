@@ -112,7 +112,7 @@
             		<div>
 			<form action="/itemdel/{{item_num}}">
                   		<button type="submit" id="del_submit_button_{{loop.index}}" 
-					class="imps icon-only trash">
+					class="imps icon-only trash" data-item-num="{{item_num}}">
                      		</button>
             		</form>
 			</div>
@@ -121,4 +121,16 @@
  	{%- endfor %}
 	</span>
 </div>
+</div>
+
+<form action="/itemsdel" method="post" id="batchDeleteForm">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+
+<div class="batch-action-bar" id="batchActionBar">
+	<span id="batchActionBarLabel">0 selected</span>
+	<span>
+		<button type="button" class="imps icon-left cancel" id="batchCancelBtn">Cancel</button>
+		<button type="button" class="imps icon-left trash" id="batchDeleteBtn">Delete selected</button>
+	</span>
 </div>

@@ -1014,6 +1014,54 @@ input[name="file"] {
 }
 
 /* ================================================================
+   7. BATCH DELETE (MULTI-SELECT)
+   ================================================================
+   Ctrl/Cmd-click a row's trash icon (includes/includeitemlist.html,
+   see static/multiselect_delete.js) to mark it for batch delete
+   instead of navigating to the single-item confirm page. Ring color
+   matches the button's own red rather than a new accent -- same
+   reasoning applies to the row highlight reusing .table_label's
+   existing border-bottom gray instead of a new color.
+   ================================================================ */
+
+.imps.icon-only.trash.picked {
+	outline: 3px solid #a40000;
+	outline-offset: 3px;
+}
+
+.table_row.picked {
+	background-color: #ccc;
+}
+
+.batch-action-bar {
+	position: fixed;
+	left: 50%;
+	bottom: 24px;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	min-width: 280px;
+	padding: 12px 16px;
+	border-radius: 8px;
+	background: #000;
+	color: #fff;
+	font-size: 14px;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+	opacity: 0;
+	transform: translate(-50%, 10px);
+	transition: opacity 160ms ease, transform 160ms ease;
+	pointer-events: none;
+}
+
+.batch-action-bar.visible {
+	opacity: 1;
+	transform: translate(-50%, 0);
+	pointer-events: auto;
+}
+
+/* ================================================================
    BOOTSTRAP-LITE UTILITY CLASSES
    ================================================================
    Bootstrap isn't linked. These rules match Bootstrap's naming and

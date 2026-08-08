@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="page_title">Delete <span class="item_in_title">{{ items|length }} items</span> from IMPS?</p>
+
+<form action="/itemsdeleted" method="post" id="itemsdel_form" data-back-url="{{ back_url or '' }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="back_url" value="{{ back_url or '' }}">
+
+<button type="submit" class="imps icon-left trash">All</button>
+<a href="{{ back_url or '/' }}"><button type="button" class="imps icon-left cancel">Back</button></a>
+
+<div class="item_display_table" id="itemsdel_table">
+<span class="table_head">
+	<span class="table_label"></span>
+	<span class="table_label">Item</span>
+	<span class="table_label">Category</span>
+	<span class="table_label">Box</span>
+	<span class="table_label"></span>
+</span>
+<span class="table_body" id="itemsdel_body">
+{%- for item in items %}
+	<div class="table_row">
+		<input type="hidden" name="item_nums" value="{{ item.item_num }}">
+		<div class="table_cell">
+			{% if item.item_pic != 'none.jpg' %}
+			<img src="{{ITEM_IMAGE_DIR}}{{item.item_pic}}" alt="item image"
+				style="display:inline-block; max-width:60px; max-height:50px;
+				       width: auto; height: auto;">
+			{% endif %}
+		</div>
+		<div class="table_cell">{{ item.item_name | truncate(25) }}</div>
+		<div class="table_cell">{{ item.item_cat }}</div>
+		<div class="table_cell">{{ item.box_num }}</div>
+		<div class="table_cell">
+			<button type="button" class="imps icon-left cancel" data-dont-delete>Don't delete</button>
+		</div>
+	</div>
+{%- endfor %}
+</span>
+</div>
+
+<p id="itemsdel_empty" style="display:none;">Nothing left to delete &mdash; returning to inventory&hellip;</p>
+
+<button type="submit" class="imps icon-left trash">All</button>
+<a href="{{ back_url or '/' }}"><button type="button" class="imps icon-left cancel">Back</button></a>
+
+<script>
+(function () {
+	var form = document.getElementById("itemsdel_form");
+	var table = document.getElementById("itemsdel_table");
+	var body = document.getElementById("itemsdel_body");
+	var empty = document.getElementById("itemsdel_empty");
+	var backUrl = form.getAttribute("data-back-url") || "/";
+
+	function checkEmpty() {
+		if (body.querySelectorAll(".table_row").length > 0) {
+			return;
+		}
+		table.style.display = "none";
+		document.querySelectorAll(".imps.icon-left.trash").forEach(function (btn) {
+			btn.style.display = "none";
+		});
+		empty.style.display = "block";
+		setTimeout(function () {
+			window.location.href = backUrl;
+		}, 1500);
+	}
+
+	document.querySelectorAll("[data-dont-delete]").forEach(function (btn) {
+		btn.addEventListener("click", function () {
+			btn.closest(".table_row").remove();
+			checkEmpty();
+		});
+	});
+})();
+</script>
+</form>
+{% endblock %}

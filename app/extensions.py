@@ -12,9 +12,10 @@ import time
 import sys
 import stat
 import secrets
+import ipaddress
 import bcrypt
 import toml
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import date
 from functools import wraps
 from flask import session, redirect, url_for, render_template, request
@@ -31,19 +32,19 @@ from flask_limiter.util import get_remote_address
 CONFIG_PATH = "imps_config.toml"
 
 try:
-    with open(CONFIG_PATH, mode="r") as f:
+    with open(CONFIG_PATH) as f:
         imps_config = toml.load(f)
 except Exception:
     os.system("clear")
     print(
-        "IMPS CONFIGURATION ERROR -- IMPS cannot open the \
-             imps_config.toml file which is required. Check that"
+        "IMPS CONFIGURATION ERROR -- IMPS cannot open the "
+        "imps_config.toml file which is required. Check that"
     )
     print(
-        "this file is in the same directory as imps.py and \
-             has the correct ownership and permissions."
+        "this file is in the same directory as imps.py and "
+        "has the correct ownership and permissions."
     )
-    sys.exit()
+    sys.exit(1)
 
 ### DATABASE SETTINGS
 dbhost = imps_config["database"]["host"]
@@ -108,7 +109,7 @@ SECRET_KEY_FILE = os.path.join(IMPS_DIR, ".secret_key")
 def _get_or_create_secret_key():
     # If a key file already exists, use it.
     if os.path.isfile(SECRET_KEY_FILE):
-        with open(SECRET_KEY_FILE, "r") as f:
+        with open(SECRET_KEY_FILE) as f:
             key = f.read().strip()
         if key:
             return key
@@ -123,10 +124,8 @@ def _get_or_create_secret_key():
             f.write(key)
     finally:
         # Force 600 permissions in case the process umask altered the mode above.
-        try:
+        with suppress(OSError):
             os.chmod(SECRET_KEY_FILE, stat.S_IRUSR | stat.S_IWUSR)
-        except OSError:
-            pass
     return key
 
 
@@ -239,7 +238,6 @@ def login_failure_note_for_logging(ip):
     LOGIN_FAILURE_LOG_THRESHOLD failures within the current window."""
     now = time.time()
     should_log = False
-    count = 0
     with _login_failure_log_lock:
         state = _login_failure_log_state.get(ip)
         if state is None or (now - state["window_start"]) >= LOGIN_FAILURE_LOG_WINDOW_SECONDS:
@@ -289,11 +287,6 @@ logger.setLevel(logging.INFO)
 # Not meant to handle VPNs, multiple subnets, reverse proxies, or
 # Docker (see imps_config.toml.example) -- deliberately simple: one IP
 # in, one assumed /24 (or explicit /prefix) out.
-#
-# Placed here, after `logger` is defined, since _load_lan_restriction()
-# below logs through it on misconfiguration -- earlier placement would
-# reference `logger` before it exists at module-import time.
-import ipaddress
 
 
 def _parse_lan_network(lan_ip):
@@ -417,8 +410,6 @@ db_pool = _build_pool_with_retry()
 class DBConnectionError(Exception):
     """Raised when a connection cannot be obtained or verified from the pool."""
 
-    pass
-
 
 # Guards lazy pool-rebuild attempts below. A lock (not just the
 # cooldown timestamp) matters because WSGIDaemonProcess runs multiple
@@ -498,7 +489,7 @@ def read_config():
     unchanged when someone leaves that field blank -- see
     setup_password() in app/blueprints/setup.py.
     """
-    with open(CONFIG_PATH, mode="r") as f:
+    with open(CONFIG_PATH) as f:
         return toml.load(f)
 
 
@@ -510,7 +501,7 @@ def write_config_values(section, values):
     decide whether/when to reload (e.g. only after the values have
     been validated).
     """
-    with open(CONFIG_PATH, mode="r") as f:
+    with open(CONFIG_PATH) as f:
         on_disk = toml.load(f)
 
     on_disk.setdefault(section, {})
@@ -533,7 +524,7 @@ def reload_config():
     global imps_config, dbhost, dbname, dbuser, dbpass, db_pool, HASHED_IMPS_PASS
     global LAN_RESTRICTION_ENABLED, LAN_NETWORK
 
-    with open(CONFIG_PATH, mode="r") as f:
+    with open(CONFIG_PATH) as f:
         imps_config = toml.load(f)
 
     dbhost = imps_config["database"]["host"]
@@ -736,10 +727,8 @@ def run_query(query, params=None, fetch="all", as_dict=False):
 def get_or_create_cat_num(cursor, cat_name):
     if not cat_name:
         cat_name = "Uncategorized"
-    try:
+    with suppress(IntegrityError):
         cursor.execute("INSERT INTO categories (cat_name) VALUES (%s)", (cat_name,))
-    except IntegrityError:
-        pass  # category already exists -- nothing to do
     cursor.execute("SELECT cat_num FROM categories WHERE cat_name = %s", (cat_name,))
     row = cursor.fetchone()
     # Falls back to 0 (Uncategorized) only if something has gone
@@ -751,10 +740,8 @@ def get_or_create_cat_num(cursor, cat_name):
 def get_or_create_loc_num(cursor, loc_name):
     if not loc_name:
         loc_name = "Unspecified"
-    try:
+    with suppress(IntegrityError):
         cursor.execute("INSERT INTO locations (loc_name) VALUES (%s)", (loc_name,))
-    except IntegrityError:
-        pass  # location already exists -- nothing to do
     cursor.execute("SELECT loc_num FROM locations WHERE loc_name = %s", (loc_name,))
     row = cursor.fetchone()
     # Same reasoning as get_or_create_cat_num() above -- Unspecified
@@ -827,8 +814,6 @@ def get_items_per_page():
 class InvalidPageError(Exception):
     """Raised when a ?page= value isn't a valid positive integer."""
 
-    pass
-
 
 def get_offset_for_page(limit):
     """Return the SQL OFFSET for the current request's ?page= value.
@@ -844,8 +829,8 @@ def get_offset_for_page(limit):
 
     try:
         page_num = int(page_req)
-    except (TypeError, ValueError):
-        raise InvalidPageError(f"{page_req!r} is not a valid page number.")
+    except (TypeError, ValueError) as err:
+        raise InvalidPageError(f"{page_req!r} is not a valid page number.") from err
 
     if page_num < 1:
         raise InvalidPageError(f"{page_req!r} is not a valid page number.")
@@ -930,10 +915,8 @@ def image_dir_size_bytes(image_dir_path):
         with os.scandir(image_dir_path) as entries:
             for entry in entries:
                 if entry.is_file():
-                    try:
+                    with suppress(OSError):
                         total += entry.stat().st_size
-                    except OSError:
-                        pass
     except OSError:
         pass
     return total
@@ -960,10 +943,8 @@ def verify_and_reencode_image(save_path):
             img.save(save_path)  # re-encode: strips any non-pixel payload
         return True
     except (UnidentifiedImageError, OSError, ValueError):
-        try:
+        with suppress(OSError):
             os.remove(save_path)
-        except OSError:
-            pass
         return False
 
 

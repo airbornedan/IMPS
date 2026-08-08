@@ -139,16 +139,17 @@ def _connect_as_root(db_host):
     ### that's exactly the identity making the connection, so this
     ### should just work with no prompt at all in the common case.
     ###
-    ### This only applies when db_host is local -- unix_socket auth is
-    ### inherently a same-machine mechanism, so a remote db_host skips
-    ### straight to the password prompt below.
-    if os.geteuid() != 0:
-        sys.exit(
-            "This script needs root privileges to create the database "
-            "and user account.\nRe-run as: sudo python3 db_setup.py"
-        )
+    ### Root is only needed for the socket-auth attempt below. A remote
+    ### db_host, or a local one without the socket, skip straight to
+    ### the password prompt instead, which needs no local privilege.
+    attempting_socket_auth = db_host in ("localhost", "127.0.0.1") and os.path.exists(DEFAULT_SOCKET)
 
-    if db_host in ("localhost", "127.0.0.1") and os.path.exists(DEFAULT_SOCKET):
+    if attempting_socket_auth:
+        if os.geteuid() != 0:
+            sys.exit(
+                "This script needs root privileges to create the database "
+                "and user account.\nRe-run as: sudo python3 db_setup.py"
+            )
         try:
             conn = mysql.connector.connect(unix_socket=DEFAULT_SOCKET, user="root")
             print("Connected as root via passwordless socket auth (sudo).\n")

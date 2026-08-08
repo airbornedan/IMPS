@@ -56,6 +56,58 @@ ITEMS_WITH_CAT_NAME = """
 """
 
 
+def _save_uploaded_photo(file, err_page_from):
+    """Validate, verify, resize, and save an uploaded photo.
+
+    Returns (filename, None) on success, or (None, error_response) if
+    validation/verification failed -- caller should return
+    error_response directly.
+    """
+    with IMAGE_UPLOAD_LOCK:
+        ### REJECT IF THE IMAGE DIRECTORY IS ALREADY AT ITS SIZE CAP
+        if image_dir_size_bytes(ITEM_IMAGE_FS_DIR) >= MAX_IMAGE_DIR_BYTES:
+            return None, render_template(
+                "errorpage.html",
+                err_message="Storage is full for this demo instance. Please try again after the next scheduled reset.",
+                err_page_from=err_page_from,
+            )
+
+        filename = secure_filename(file.filename)
+
+        ### ADD TIMESTAMP TO FILE NAME TO HANDLE DUPES
+        pp = pathlib.PurePath(filename)
+        filename = pp.stem + str(time.time()) + pp.suffix
+        save_path = os.path.join(ITEM_IMAGE_FS_DIR, filename)
+
+        ### SAVE THE UPLOAD TO A TEMP FILE, NOT THE FINAL PATH -- an
+        ### unverified upload never lands in the directory IMPS serves
+        ### images from, even briefly.
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=ITEM_IMAGE_FS_DIR, prefix=".upload_", suffix=pp.suffix
+        )
+        os.close(temp_fd)
+        file.save(temp_path)
+
+    ### VERIFY THE UPLOADED BYTES ARE ACTUALLY A DECODABLE IMAGE AND
+    ### RE-ENCODE, DISCARDING THE ORIGINAL BYTES.
+    if not verify_and_reencode_image(temp_path):
+        return None, render_template(
+            "errorpage.html",
+            err_message="That file could not be processed as a valid image.",
+            err_page_from=err_page_from,
+        )
+
+    ### SHRINK IMAGE TO A REASONABLE SIZE AND SAVE
+    image = Image.open(temp_path)
+    image = ImageOps.exif_transpose(image)
+    image.thumbnail((600, 600))
+    image.save(temp_path)
+
+    ### MOVE THE FULLY VERIFIED AND PROCESSED IMAGE INTO PLACE
+    os.replace(temp_path, save_path)
+    return filename, None
+
+
 ########################################################################
 ## ITEM DETAIL PAGE (NOT EDITABLE)
 @bp.route("/itemdetail/<item_num>")
@@ -191,7 +243,7 @@ def itemedit(item_num):
     item_desc = item_result["item_desc"]
 
     categories = categories_result
-    
+
     ### EXTRACT AND SORT AVAILABLE BOXES
     available_boxes = [row[0] for row in boxes_result]
     available_boxes.sort()
@@ -302,9 +354,9 @@ def itemupdate(item_num):
                 ud_box_num_int = None
 
             ### 2. WRITE CORE ITEM VALUES TO DB
-            item_update_query = """ UPDATE items SET item_name = %s, item_desc = %s, cat_num = %s,\
+            item_update_query = """ UPDATE items SET item_name = %s, item_desc = %s, cat_num = %s,
                 item_date = %s, box_num = %s WHERE item_num = %s """
-            
+
             cursor = mydb.cursor()
             cursor.execute(
                 item_update_query,
@@ -345,55 +397,9 @@ def itemupdate(item_num):
 
             ### IF THE FILE IS VALID, PROCESS AND SAVE IT
             if file and file.filename != "" and allowed_file(file.filename):
-                ### SIZE-CAP CHECK + SAVE, SERIALIZED -- see
-                ### IMAGE_UPLOAD_LOCK in extensions.py. Held from the
-                ### size check through the initial save so the two
-                ### steps are atomic with respect to other concurrent
-                ### uploads; verify/re-encode/thumbnail below don't
-                ### grow the directory further, so they run outside
-                ### the lock.
-                with IMAGE_UPLOAD_LOCK:
-                    ### REJECT IF THE IMAGE DIRECTORY IS ALREADY AT ITS SIZE CAP
-                    if image_dir_size_bytes(ITEM_IMAGE_FS_DIR) >= MAX_IMAGE_DIR_BYTES:
-                        return render_template(
-                            "errorpage.html",
-                            err_message="Storage is full for this demo instance. Please try again after the next scheduled reset.",
-                            err_page_from="/",
-                        )
-
-                    filename = secure_filename(file.filename)
-
-                    ### ADD TIMESTAMP TO FILE NAME TO HANDLE DUPES
-                    pp = pathlib.PurePath(filename)
-                    filename = pp.stem + str(time.time()) + pp.suffix
-                    save_path = os.path.join(ITEM_IMAGE_FS_DIR, filename)
-
-                    ### SAVE THE UPLOAD TO A TEMP FILE, NOT THE FINAL PATH
-                    ### -- an unverified upload never lands in the
-                    ### directory IMPS serves images from, even briefly.
-                    temp_fd, temp_path = tempfile.mkstemp(
-                        dir=ITEM_IMAGE_FS_DIR, prefix=".upload_", suffix=pp.suffix
-                    )
-                    os.close(temp_fd)
-                    file.save(temp_path)
-
-                ### VERIFY THE UPLOADED BYTES ARE ACTUALLY A DECODABLE
-                ### IMAGE AND RE-ENCODE, DISCARDING THE ORIGINAL BYTES.
-                if not verify_and_reencode_image(temp_path):
-                    return render_template(
-                        "errorpage.html",
-                        err_message="That file could not be processed as a valid image.",
-                        err_page_from="/",
-                    )
-
-                ### SHRINK IMAGE TO A REASONABLE SIZE AND SAVE
-                image = Image.open(temp_path)
-                image = ImageOps.exif_transpose(image)
-                image.thumbnail((600, 600))
-                image.save(temp_path)
-
-                ### MOVE THE FULLY VERIFIED AND PROCESSED IMAGE INTO PLACE
-                os.replace(temp_path, save_path)
+                filename, err = _save_uploaded_photo(file, err_page_from="/")
+                if err:
+                    return err
 
                 ### DELETE FORMER PHOTO UNLESS IT IS THE PLACEHOLDER
                 # ud_passed_in_pic comes from a hidden form field, so
@@ -517,65 +523,18 @@ def iteminsert():
                 err_page_from="/itemadd",
             )
 
-        ### SIZE-CAP CHECK + SAVE, SERIALIZED -- see IMAGE_UPLOAD_LOCK in
-        ### extensions.py. Held from the size check through the initial
-        ### save so the two steps are atomic with respect to other
-        ### concurrent uploads; verify/re-encode/thumbnail below don't
-        ### grow the directory further, so they run outside the lock.
-        with IMAGE_UPLOAD_LOCK:
-            ### REJECT IF THE IMAGE DIRECTORY IS ALREADY AT ITS SIZE CAP
-            if image_dir_size_bytes(ITEM_IMAGE_FS_DIR) >= MAX_IMAGE_DIR_BYTES:
-                return render_template(
-                    "errorpage.html",
-                    err_message="Storage is full for this demo instance. Please try again after the next scheduled reset.",
-                    err_page_from="/itemadd",
-                )
-
-            ### IF THE FILE IS ALLOWED AND IN THE POST, SAVE IT
-            if file and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-
-                ### TIMESTAMP THE FILENAME TO HANDLE DUPES
-                pp = pathlib.PurePath(filename)
-                filename = pp.stem + str(time.time()) + pp.suffix
-                save_path = os.path.join(ITEM_IMAGE_FS_DIR, filename)
-
-                ### SAVE THE UPLOAD TO A TEMP FILE, NOT THE FINAL PATH
-                ### -- an unverified upload never lands in the
-                ### directory IMPS serves images from, even briefly.
-                temp_fd, temp_path = tempfile.mkstemp(
-                    dir=ITEM_IMAGE_FS_DIR, prefix=".upload_", suffix=pp.suffix
-                )
-                os.close(temp_fd)
-                file.save(temp_path)
-
-            ### IF THE FILE IS PROHIBITED SHOW ERROR PAGE
-            else:
-                return render_template(
-                    "errorpage.html",
-                    err_message="That file type is not allowed.",
-                    err_page_from="/itemadd",
-                )
-
-        ### VERIFY THE UPLOADED BYTES ARE ACTUALLY A DECODABLE IMAGE
-        ### AND RE-ENCODE, DISCARDING THE ORIGINAL FILE CONTENT. THIS
-        ### IS THE REAL CONTENT-LEVEL CHECK -- allowed_file() ABOVE
-        ### ONLY LOOKED AT THE FILENAME, NOT THE BYTES.
-        if not verify_and_reencode_image(temp_path):
+        ### IF THE FILE IS ALLOWED AND IN THE POST, SAVE IT
+        if file and allowed_file(file.filename):
+            filename, err = _save_uploaded_photo(file, err_page_from="/itemadd")
+            if err:
+                return err
+        ### IF THE FILE IS PROHIBITED SHOW ERROR PAGE
+        else:
             return render_template(
                 "errorpage.html",
-                err_message="That file could not be processed as a valid image.",
+                err_message="That file type is not allowed.",
                 err_page_from="/itemadd",
             )
-
-        # SHRINK IMAGE
-        image = Image.open(temp_path)
-        image = ImageOps.exif_transpose(image)
-        image.thumbnail((600, 600))
-        image.save(temp_path)
-
-        ### MOVE THE FULLY VERIFIED AND PROCESSED IMAGE INTO PLACE
-        os.replace(temp_path, save_path)
     ### IF NO FILE WAS INCLUDED USE THE DEFAULT PHOTO
     else:
         filename = ""
@@ -591,7 +550,7 @@ def iteminsert():
     item_desc = request.form.get("item_desc")
 
     ### IF NO CATEGORY SELECTED, USE UNCATEGORIZED
-    if not item_cat or item_cat == "":
+    if not item_cat:
         item_cat = "Uncategorized"
 
     ### IF NO FILE SELECTED, USE DEFAULT "NONE.JPG"
@@ -611,9 +570,9 @@ def iteminsert():
         cursor.close()
 
         ### 2. INSERT NEW ITEM INTO DATABASE
-        insert_query = """ INSERT INTO items (item_name, box_num, item_pic, item_date, cat_num, item_desc) \
+        insert_query = """ INSERT INTO items (item_name, box_num, item_pic, item_date, cat_num, item_desc)
              VALUES (%s, %s, %s, %s, %s, %s) """
-    
+
         cursor = mydb.cursor()
         cursor.execute(
             insert_query,
@@ -644,11 +603,6 @@ def iteminsert():
 
     ### REDIRECT TO THE ITEM DETAIL PAGE
     return redirect(url_for("items.itemdetail", item_num=item_num, from_add="1"))
-
-
-
-
-
 
 
 ########################################################################

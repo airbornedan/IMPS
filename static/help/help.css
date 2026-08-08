@@ -36,3 +36,67 @@ p.note{
 .help-heading {
   font-size: 24px;
 }
+
+/* ================================================================
+   NAMED-BUTTON LOOKALIKES
+   ================================================================
+   When a help page mentions a real, labeled IMPS button (Add box,
+   Update, Backup Now, etc.), we show a non-interactive copy of that
+   actual button -- same icon, same red pill shape, same text -- so
+   readers see exactly what to look for on screen instead of just an
+   icon floating near some italicized text.
+
+   Icon-ONLY buttons (edit/trash/qr/download row actions, which have
+   no text on the real button) don't use this -- they stay a plain
+   icon + description, since there's no button label to be faithful
+   to. See imps.css section 3 ("BUTTONS / ICONS") for the real,
+   interactive versions these are copied from -- these rules are
+   intentionally duplicated (not shared/linked) so this page doesn't
+   pull in imps.css's full, unrelated page-layout cascade; keep the
+   two in sync by hand if a button's look changes there.
+   ================================================================ */
+.imps {
+  background-color: #a40000;
+  background-position: 8px center;
+  background-repeat: no-repeat;
+  background-size: 40px 40px;
+  border-radius: 7px;
+  border: 0px;
+  color: white;
+  cursor: default;  /* not clickable here -- unlike imps.css's real buttons */
+  display: inline-block;
+  font-size: 14px;
+  font-weight: bold;
+  height: 42px;
+  line-height: 42px;  /* vertically centers the text (imps.css uses 0px
+                         because its buttons rely on fixed padding instead;
+                         a help-doc span has no such padding to lean on) */
+  margin: 0 2px;
+  min-width: 90px;
+  padding: 0 8px;
+  text-align: center;
+  vertical-align: middle;
+}
+.imps.icon-left {
+  padding-left: 56px;
+  text-align: right;
+}
+
+.imps.add        { background-image: url("/static/images/icons/add_icon.png"); }
+.imps.backup     { background-image: url("/static/images/icons/backup_icon.png"); }
+.imps.box_closed { background-image: url("/static/images/icons/box_closed_icon.png"); }
+.imps.box_full   { background-image: url("/static/images/icons/box_full_icon.png"); width: 90px; }
+.imps.cancel     { background-image: url("/static/images/icons/cancel.png"); }
+.imps.columns    { background-image: url("/static/images/icons/columns_icon.png"); }
+.imps.edit       { background-image: url("/static/images/icons/edit_icon.png"); }
+.imps.home       { background-image: url("/static/images/icons/home_icon.png"); }
+.imps.list       { background-image: url("/static/images/icons/list_icon.png"); }
+.imps.loc        { background-image: url("/static/images/icons/loc_icon.png"); }
+.imps.login      { background-image: url("/static/images/icons/login_icon.png"); }
+.imps.orphans    { background-image: url("/static/images/icons/orphans_icon.png"); }
+.imps.photo      { background-image: url("/static/images/icons/photo_icon.png"); }
+.imps.print      { background-image: url("/static/images/icons/print_icon.png"); }
+.imps.search     { background-image: url("/static/images/icons/search_icon.png"); }
+.imps.show_hide  { background-image: url("/static/images/icons/show_hide_icon.png"); }
+.imps.trash      { background-image: url("/static/images/icons/trash_icon.png"); }
+.imps.update     { background-image: url("/static/images/icons/update_icon.png"); }

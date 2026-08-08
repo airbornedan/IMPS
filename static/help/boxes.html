@@ -39,17 +39,21 @@
 </li>
 </ol>
 <h2>Edit a box</h2>
+<p class="note">There's no <i>Edit box</i> tile on the home page --
+edit a box from the <a href="/boxlist" target="_top">box list</a> instead.</p>
 <ol>
-<li>From the home page, select <b>Edit box</b> to begin editing a box.</li>
-<li>Select a box number to edit.</li>
-<li>Enter a <b>location</b>. You may select a location from the dropdown or type a new 
-    location name. You may also delete the current location before submitting 
-    the changes. If you do remove the current location, the box location will be 
+<li>From the <a href="/boxlist" target="_top">box list</a> page, click the
+    <img src="/static/images/icons/edit_icon.png" height="20" style="vertical-align:middle;"> edit icon
+    in that box's row to open its edit form.</li>
+<li>Enter a <b>location</b>. You may select a location from the dropdown or type a new
+    location name. You may also delete the current location before submitting
+    the changes. If you do remove the current location, the box location will be
     automatically set to <i>Unspecified</i>.</li>
 <li>Enter a <b>Box name</b>. Box names are optional, but are printed on box labels and can help
     when searching for items.</li>
-<li>Click <b>Update</b> when done to change the box info in the database.</li>
-<li>To change the box's number instead, select <b>Change box number</b>
+<li>Click <span class="imps icon-left update">Update</span> when done to change the box info in the database.</li>
+<li>To change the box's number instead, select
+    <span class="imps icon-left edit">Change #</span>
     near the top of the page. This is a separate step from editing the
     location/name because it also moves every item currently in the box
     to the new number, and it does <b>not</b> update anything printed
@@ -57,17 +61,22 @@
     to print a new label afterward if you had one.</li>
 </ol>
 <h2>Delete a box</h2>
+<p class="note">There's no <i>Del box</i> tile on the home page either --
+delete a box from the box list, the same way as editing one.</p>
 <ol>
-<li>From the home page, select <b>Del box</b> to begin deleting a box.</li>
-<li>Select a box number to delete.</li>
-<li>Choose the action for any items in the box:
-   <ol><li>Delete the box only, do nothing with the items</li>
-       <li>Delete the box and move all items to another box</li>
-       <li>Delete the box and delete all items assigned to the box</li>
+<li>From the <a href="/boxlist" target="_top">box list</a> page, click the
+    <img src="/static/images/icons/trash_icon.png" height="20" style="vertical-align:middle;"> delete icon
+    in that box's row. This opens the <i>Delete a box</i> page with that
+    box number already filled in.</li>
+<li>If the box currently has items in it, choose what should happen to them:
+   <ol><li>Delete the box only, leave the items (they become orphaned)</li>
+       <li>Delete the box and move all its items to another box</li>
+       <li>Delete the box and delete all items assigned to it</li>
    </ol>
-</li>
-<li>Depending on your selection, you will need to confirm the action or select
-a new box that the items should be assigned to.</li>
+   (If the box is already empty, this choice is skipped automatically --
+   there's nothing to orphan, move, or delete.)</li>
+<li>Click <b>Next</b> (or <b>Delete box</b>, if the box was empty) to
+    continue to a confirmation page matching your choice.</li>
 </ol>
 
 

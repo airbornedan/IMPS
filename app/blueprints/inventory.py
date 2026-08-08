@@ -129,20 +129,15 @@ def boxlist():
         cursor.close()
 
         ### QUERY FOR BOX NUMBERS OF BOXES THAT ARE NOT EMPTY
-        not_empty_box_query = """SELECT box_num FROM items WHERE item_num > 0 \
+        not_empty_box_query = """SELECT box_num FROM items WHERE item_num > 0
                                  ORDER BY box_num;"""
         cursor = mydb.cursor()
         cursor.execute(not_empty_box_query)
         not_empty_list = cursor.fetchall()
         cursor.close()
 
-    ### CREATE A LIST OF IN-USE BOX NUMBERS
-    not_empty_box_num_list = []
-    for i in not_empty_list:
-        not_empty_box_num_list.append(i[0])
-
-    ### ELIMINATE DUPLICATES
-    not_empty_box_num_list = list(set(not_empty_box_num_list))
+    ### CREATE A LIST OF IN-USE BOX NUMBERS, DUPLICATES ELIMINATED
+    not_empty_box_num_list = list({row[0] for row in not_empty_list})
 
     ### SHOW THE LIST OF BOXES PAGE
     return render_template(
@@ -182,13 +177,8 @@ def boxlistbyloc(boxlocation):
         not_empty_list = cursor.fetchall()
         cursor.close()
 
-    ### CREATE A LIST OF IN-USE BOX NUMBERS
-    not_empty_box_num_list = []
-    for i in not_empty_list:
-        not_empty_box_num_list.append(i[0])
-
-    ### ELIMINATE DUPLICATES
-    not_empty_box_num_list = list(set(not_empty_box_num_list))
+    ### CREATE A LIST OF IN-USE BOX NUMBERS, DUPLICATES ELIMINATED
+    not_empty_box_num_list = list({row[0] for row in not_empty_list})
 
     ### SHOW THE LIST OF BOXES PAGE
     return render_template(
@@ -198,7 +188,6 @@ def boxlistbyloc(boxlocation):
         box_list=box_list,
         show_location=boxlocation,
     )
-
 
 
 ########################################################################
@@ -256,10 +245,8 @@ def bycategory():
     all_cats = [row[0] for row in all_cats_result]
     used_cats = [row[0] for row in used_cats_result]
 
-    ### CREATE A LIST OF ONLY THOSE CATS WHICH CONTAIN ITEMS
-    available_cats = list(set(all_cats).intersection(used_cats))
-    ### SORT THE LIST
-    available_cats = sorted(available_cats)
+    ### CREATE A SORTED LIST OF ONLY THOSE CATS WHICH CONTAIN ITEMS
+    available_cats = sorted(set(all_cats).intersection(used_cats))
 
     ### SHOW CATEGORY SELECTION PAGE
     return render_template(
@@ -282,10 +269,8 @@ def byloc():
                            JOIN locations l ON b.loc_num = l.loc_num """
     result = run_query(used_locs_query)
 
-    ### TURN RESULT INTO A CLEAN LIST AND ELIMINATE DUPES
-    used_locs = [row[0] for row in result]
-    used_locs = list(set(used_locs))
-    available_locs = sorted(used_locs)
+    ### DEDUPLICATE AND SORT
+    available_locs = sorted({row[0] for row in result})
 
     ### SHOW LOCATION SELECTION PAGE
     return render_template(
@@ -385,7 +370,7 @@ def boxshowcontent(box_num):
         if not box_result:
             return render_template(
                 "errorpage.html",
-                err_message="Box "+str(box_num)+" does not exist.",
+                err_message=f"Box {box_num} does not exist.",
                 err_page_from="/bybox",
             )
         box_name = box_result[0]

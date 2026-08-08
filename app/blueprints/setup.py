@@ -158,7 +158,7 @@ def _create_tables(mydb):
     Returns (ok: bool, error_detail: str | None).
     """
     try:
-        with open(SCHEMA_SQL_PATH, "r") as f:
+        with open(SCHEMA_SQL_PATH) as f:
             schema_sql = f.read()
 
         ### STRIP COMMENT LINES BEFORE SPLITTING ON ';' -- so a comment
@@ -258,7 +258,7 @@ def setup_database():
                         error_detail = (
                             "Kept the existing tables, but these expected "
                             f"table(s) are missing: {', '.join(sorted(missing))}. "
-                            "Choose \"start fresh\" below to create them."
+                            'Choose "start fresh" below to create them.'
                         )
                     else:
                         tables_ok = True

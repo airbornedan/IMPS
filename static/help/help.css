@@ -12,6 +12,14 @@ li{
 li > ul, li > ol{
   margin-top: 8px;
 }
+/* Plain black + underline instead of the browser-default blue --
+   red is already spoken for by the .imps button lookalikes below, so
+   links stay visually distinct from "this is literally the button"
+   rather than competing with it for the same color. */
+a, a:visited{
+  color: inherit;
+  text-decoration: underline;
+}
 
 h1, h2, h3, .help-heading {
   font-weight: bold;

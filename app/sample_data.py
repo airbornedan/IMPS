@@ -112,7 +112,7 @@ def install_sample_data():
         today = str(date.today())
 
         cursor = mydb.cursor()
-        for box_num, box in zip(box_nums, SAMPLE_BOXES):
+        for box_num, box in zip(box_nums, SAMPLE_BOXES, strict=True):
             cursor.execute(
                 """INSERT INTO boxes (box_num, loc_num, box_name, box_date, box_last_changed)
                    VALUES (%s, %s, %s, %s, %s)""",

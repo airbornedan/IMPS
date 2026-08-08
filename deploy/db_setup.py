@@ -98,7 +98,7 @@ def _load_target_config():
             "from deploy/) and filled in the [database] section."
         )
 
-    with open(CONFIG_PATH, "r") as f:
+    with open(CONFIG_PATH) as f:
         config = toml.load(f)
 
     try:

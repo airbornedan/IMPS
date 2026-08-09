@@ -4,7 +4,7 @@
 import os
 import ipaddress
 
-from flask import Flask, request, session, render_template
+from flask import Flask, request, session, render_template, url_for
 from flask_wtf.csrf import CSRFError
 
 from app.extensions import (
@@ -14,6 +14,7 @@ from app.extensions import (
     csrf,
     limiter,
     route_to_help_topic,
+    safe_relative_url,
     logger,
 )
 from app import extensions
@@ -36,6 +37,25 @@ LIST_VIEW_ENDPOINTS = {
     "items.itemsbycategory",
     "control_panel.cp_orphaneditemscleanup",
     "control_panel.orphan_view_switch",
+}
+
+########################################################################
+### "LAST CP VIEW" TRACKING
+########################################################################
+# Real CP pages only -- excludes restore/upload confirm and other
+# one-shot action routes.
+LAST_CP_VIEW_ENDPOINTS = {
+    "control_panel.cp_landing",
+    "control_panel.cp_backups",
+    "control_panel.cp_cleanup",
+    "control_panel.cp_server",
+    "control_panel.cp_categories",
+    "control_panel.cp_locations",
+    "control_panel.cp_view",
+    "control_panel.cp_password",
+    "control_panel.cp_orphaneditemscleanup",
+    "control_panel.orphan_view_switch",
+    "control_panel.cp_photofilescleanup",
 }
 
 
@@ -186,6 +206,26 @@ def create_app():
                 path += "?" + request.query_string.decode("utf-8")
             session["last_list_view"] = path
         return response
+
+    ####################################################################
+    ### "LAST CP VIEW" TRACKING (see LAST_CP_VIEW_ENDPOINTS above)
+    ####################################################################
+    @app.after_request
+    def remember_cp_view(response):
+        if (
+            request.endpoint in LAST_CP_VIEW_ENDPOINTS
+            and response.status_code == 200
+        ):
+            session["last_cp_view"] = request.path
+        return response
+
+    ####################################################################
+    ### CP ENTRY URL -- where index.html's CP icon links to
+    ####################################################################
+    @app.context_processor
+    def inject_cp_entry_url():
+        url = safe_relative_url(session.get("last_cp_view"))
+        return {"cp_entry_url": url or url_for("control_panel.cp_landing")}
 
     from app.blueprints.auth import bp as auth_bp
     from app.blueprints.main import bp as main_bp

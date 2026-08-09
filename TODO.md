@@ -19,12 +19,26 @@ relevant) when it's resolved -- git history covers the rest.
     over a real full backup, exact item/box match, working FK joins,
     backup_history untouched, and a second restore back to the
     original with no leftover-state collision.
-  - NOT DONE: computing the before/after diff counts from the staged
-    tables for the confirm page; the confirm page itself (real page,
-    not confirm_modal.html -- too much content for that component);
-    wiring cp_backuprestore up to actually call this engine; the
-    upload path; maintenance mode (already built separately, see
-    app/extensions.py) isn't yet wired around the real swap call
+  - DONE: _restore_diff_counts() -- item/box counts, live vs. staged.
+    Verified against the same real backup: 38/9 current, 26/9
+    candidate, exact match.
+  - NOT DONE: the confirm page itself (real page, not
+    confirm_modal.html -- too much content for that component); logging
+    at each step (see below); cleanup for abandoned staging tables (user
+    opens the confirm page, never clicks Cancel or Restore -- nothing
+    currently cleans those up); wiring cp_backuprestore up to actually
+    call this engine; the upload path; maintenance mode (already built
+    separately, see app/extensions.py) isn't yet wired around the real
+    swap call; the safety-backup-before-swap step (reuse cp_backupnow's
+    logic); the image-side restore (extract photos.zip over
+    ITEM_IMAGE_FS_DIR, overlay not wipe-first)
+  - logging: once the real route exists, log at each step (restore
+    initiated + which snapshot/upload, staging counts, safety backup
+    taken + its snapshot_id, entering maintenance mode, swap result,
+    photo extraction result, exiting maintenance mode, and especially
+    failure-recovery attempts + their outcome) -- matches this file's
+    existing logger.error/warning/info conventions, not added to the
+    bare tested functions themselves
   - upload step: uploaded file is the combined zip (database.sql +
     photos.zip) from cp_snapshotdownload -- unzip that outer layer
     first to get back the two separate pieces before anything else

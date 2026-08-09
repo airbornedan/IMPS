@@ -90,6 +90,13 @@ def rewrite_dump_for_staging(sql_text):
     for table in RESTORE_EXCLUDED_TABLES:
         sql_text = _strip_table_block(sql_text, table)
 
+    # FOREIGN KEY constraint names are unique per-database in InnoDB,
+    # not per-table -- without renaming these too, CREATE TABLE for a
+    # staging table collides with the live table's identical
+    # constraint name (errno 121, confirmed against a real dump).
+    for name in set(re.findall(r"CONSTRAINT `(\w+)`", sql_text)):
+        sql_text = re.sub(rf"`{name}`", f"`{RESTORE_STAGING_PREFIX}{name}`", sql_text)
+
     for table in RESTORE_DATA_TABLES:
         staged = f"{RESTORE_STAGING_PREFIX}{table}"
         sql_text = re.sub(rf"`{table}`", f"`{staged}`", sql_text)

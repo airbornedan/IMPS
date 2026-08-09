@@ -227,6 +227,56 @@ def _prune_old_snapshots(mydb):
             cursor.close()
 
 
+def _create_backup_snapshot():
+    """Dumps the DB and archives item photos under a fresh
+    snapshot_id, records both in backup_history, prunes old
+    snapshots. Returns (snapshot_id, None) on success, or
+    (None, "mysqldump"|"photo_archive") on failure -- caller decides
+    what to tell the user. Shared by cp_backupnow and the safety
+    backup cp_backuprestoreconfirm takes before restoring."""
+    snapshot_id = str(time.time())
+
+    # Runs mysqldump directly (no shell), explicit argument list --
+    # shell-metacharacter injection isn't possible. Password passed via
+    # MYSQL_PWD env var, not the command line, since command-line args
+    # are visible to other local processes via `ps`/`/proc`.
+    backup_file = os.path.join(BACKUP_DIR, f"{extensions.dbname}-{snapshot_id}.sql")
+    dump_env = os.environ.copy()
+    dump_env["MYSQL_PWD"] = extensions.dbpass
+
+    try:
+        with open(backup_file, "wb") as outfile:
+            subprocess.run(
+                ["mysqldump", "-u", extensions.dbuser, extensions.dbname],
+                stdout=outfile,
+                stderr=subprocess.PIPE,
+                env=dump_env,
+                check=True,
+            )
+    except (subprocess.CalledProcessError, OSError) as e:
+        logger.error(f"mysqldump failed while creating backup snapshot: {e}")
+        return None, "mysqldump"
+
+    # If this fails, the dump above is orphaned (no image half to pair
+    # it with) -- delete it rather than leave a half-snapshot behind.
+    archive_base = os.path.join(BACKUP_DIR, f"imps_imagearchive.{snapshot_id}")
+    try:
+        shutil.make_archive(archive_base, "zip", ITEM_IMAGE_FS_DIR)
+    except OSError as e:
+        logger.error(f"Photo archive failed while creating backup snapshot: {e}")
+        with suppress(OSError):
+            os.remove(backup_file)
+        return None, "photo_archive"
+    archive_file = f"{archive_base}.zip"
+
+    with get_db_connection() as mydb:
+        _record_backup(mydb, snapshot_id, "db", backup_file)
+        _record_backup(mydb, snapshot_id, "image", archive_file)
+        _prune_old_snapshots(mydb)
+
+    return snapshot_id, None
+
+
 ########################################################################
 ### CONTROL PANEL -- SETTINGS/BOX-ITEM TAB (default landing page)
 # Four separate routes, one per tab, each a real bookmarkable page
@@ -320,17 +370,73 @@ def cp_backuprestore(snapshot_id):
 
 
 ########################################################################
-### RESTORE FROM BACKUP -- CONFIRMED. STUB. The confirm page above is
-### real; this, the actual swap, is not -- maintenance mode, the
-### safety backup, and the image-side restore aren't wired up yet.
+### RESTORE FROM BACKUP -- CONFIRMED. Takes a safety backup, swaps the
+### already-staged tables (see cp_backuprestore above) into place under
+### maintenance mode, then restores photos over the live directory.
 @bp.route("/cp_backuprestoreconfirm/<snapshot_id>", methods=["POST"])
 @login_required
+@db_errors(exec_msg="Database error during restore.")
 def cp_backuprestoreconfirm(snapshot_id):
-    return render_template(
-        "errorpage.html",
-        err_message="Restoring isn't built yet -- this is a placeholder for the Restore button's final destination.",
-        err_page_from="/cp_backups",
-    )
+    with get_db_connection() as mydb:
+        cursor = mydb.cursor()
+        cursor.execute(
+            "SELECT filename FROM backup_history WHERE snapshot_id = %s AND backup_type = 'image'",
+            (snapshot_id,),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+
+        if not row or not os.path.isfile(row[0]):
+            return render_template(
+                "errorpage.html",
+                err_message="That backup's photo archive no longer exists.",
+                err_page_from="/cp_backups",
+            )
+        candidate_image_zip = row[0]
+
+    logger.info(f"Restore confirmed for snapshot {snapshot_id} -- taking safety backup")
+    safety_snapshot_id, failure = _create_backup_snapshot()
+    if failure:
+        logger.error(f"Restore of {snapshot_id} aborted -- safety backup failed ({failure})")
+        return render_template(
+            "errorpage.html",
+            err_message="Restore aborted: could not take a safety backup first.",
+            err_page_from="/cp_backups",
+        )
+    logger.info(f"Safety backup {safety_snapshot_id} taken before restoring {snapshot_id}")
+
+    extensions.enter_maintenance_mode(reason=f"restoring snapshot {snapshot_id}")
+
+    try:
+        with get_db_connection() as mydb:
+            _swap_staging_tables_into_place(mydb)
+        logger.info(f"Restore {snapshot_id}: database swap succeeded")
+    except Exception as e:
+        logger.error(f"Restore {snapshot_id}: database swap failed: {e}")
+        extensions.exit_maintenance_mode()
+        return render_template(
+            "errorpage.html",
+            err_message=f"Restore failed during the database swap. A safety backup was taken first (snapshot {safety_snapshot_id}, see the Backups tab).",
+            err_page_from="/cp_backups",
+        )
+
+    try:
+        with zipfile.ZipFile(candidate_image_zip) as zf:
+            zf.extractall(ITEM_IMAGE_FS_DIR)
+        logger.info(f"Restore {snapshot_id}: photo extraction succeeded")
+    except (OSError, zipfile.BadZipFile) as e:
+        logger.error(f"Restore {snapshot_id}: photo extraction failed: {e}")
+        extensions.exit_maintenance_mode()
+        return render_template(
+            "errorpage.html",
+            err_message=f"The database was restored, but restoring photos failed. A safety backup exists (snapshot {safety_snapshot_id}, see the Backups tab).",
+            err_page_from="/cp_backups",
+        )
+
+    extensions.exit_maintenance_mode()
+    logger.info(f"Restore {snapshot_id}: complete")
+
+    return redirect(url_for("control_panel.cp_backups"))
 
 
 ########################################################################
@@ -371,56 +477,19 @@ def cp_server():
 @login_required
 @db_errors(exec_msg="Database logging error during backup configuration storage lifecycle.")
 def cp_backupnow():
-    snapshot_id = str(time.time())
-
-    ### DUMP THE DATABASE
-    # Runs mysqldump directly (no shell), explicit argument list --
-    # shell-metacharacter injection isn't possible. Password passed via
-    # MYSQL_PWD env var, not the command line, since command-line args
-    # are visible to other local processes via `ps`/`/proc`.
-    backup_file = os.path.join(BACKUP_DIR, f"{extensions.dbname}-{snapshot_id}.sql")
-    dump_env = os.environ.copy()
-    dump_env["MYSQL_PWD"] = extensions.dbpass
-
-    try:
-        with open(backup_file, "wb") as outfile:
-            subprocess.run(
-                ["mysqldump", "-u", extensions.dbuser, extensions.dbname],
-                stdout=outfile,
-                stderr=subprocess.PIPE,
-                env=dump_env,
-                check=True,
-            )
-    except (subprocess.CalledProcessError, OSError) as e:
-        logger.error(f"mysqldump failed in cp_backupnow: {e}")
+    snapshot_id, failure = _create_backup_snapshot()
+    if failure == "mysqldump":
         return render_template(
             "errorpage.html",
             err_message="Backup failed. Could not run mysqldump.",
             err_page_from="/",
         )
-
-    ### ARCHIVE THE PHOTOS. If this fails, the dump above is orphaned
-    ### (no image half to pair it with) -- delete it rather than leave
-    ### a half-snapshot behind.
-    archive_base = os.path.join(BACKUP_DIR, f"imps_imagearchive.{snapshot_id}")
-    try:
-        shutil.make_archive(archive_base, "zip", ITEM_IMAGE_FS_DIR)
-    except OSError as e:
-        logger.error(f"Photo archive failed in cp_backupnow: {e}")
-        with suppress(OSError):
-            os.remove(backup_file)
+    if failure == "photo_archive":
         return render_template(
             "errorpage.html",
             err_message="Backup failed. Could not archive photos.",
             err_page_from="/",
         )
-    archive_file = f"{archive_base}.zip"
-
-    # Fetch an active, thread-safe connection from the pool
-    with get_db_connection() as mydb:
-        _record_backup(mydb, snapshot_id, "db", backup_file)
-        _record_backup(mydb, snapshot_id, "image", archive_file)
-        _prune_old_snapshots(mydb)
 
     ### REDIRECT TO THE BACKUPS TAB
     return redirect(url_for("control_panel.cp_backups"))

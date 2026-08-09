@@ -1,13 +1,13 @@
 body{
-  font-size: 12px;
+  font-size: 15px;
   font-family: arial;
 }
 p{
-  line-height: 14pt;
+  line-height: 17.5pt;
 }
 li{
   margin-bottom: 8px;
-  line-height: 14pt;
+  line-height: 17.5pt;
 }
 li > ul, li > ol{
   margin-top: 8px;
@@ -41,34 +41,54 @@ p.note{
   font-size: 24px;
 }
 
+/* Inline icon glyphs referenced mid-sentence (e.g. "use the [icon]
+   icon to..."). Was height="20" + style="vertical-align:middle;"
+   repeated inline on every <img>, in every help page -- one place to
+   change instead of dozens. Sized to fit inside a paragraph's 17.5pt
+   line-height without overlapping the text around it (see .imps
+   below for the same constraint on the button lookalikes). */
+.help-icon {
+  height: 18px;
+  vertical-align: middle;
+}
+
+/* Larger nav/section glyphs (search.png, inventory.png, etc. --
+   distinct from the icons/ directory above) used the same way, just a
+   bigger size tier. Was height="24" the same inline way. Scaled by
+   the same 15/12 ratio as the body text bump itself. */
+.help-nav-icon {
+  height: 30px;
+  vertical-align: middle;
+}
+
 /* Non-interactive copies of real .imps buttons (imps.css section 3).
    Duplicated, not shared, to avoid pulling in imps.css's page layout --
-   keep in sync by hand. Scaled to 2/3 of the real button's dimensions,
-   matching this page's 12px body text against the main UI's 18px --
-   the real button's full 42px height inside 12px text otherwise blows
-   out the line it's on and can overlap the line below it. */
+   keep in sync by hand. Scaled to fit inside a paragraph's 17.5pt
+   line-height without overlapping the text around it -- these sit
+   inline mid-sentence, unlike the real buttons, which always have a
+   row to themselves. */
 .imps {
   background-color: #a40000;
-  background-position: 5px center;
+  background-position: 4px center;
   background-repeat: no-repeat;
-  background-size: 27px 27px;
-  border-radius: 5px;
+  background-size: 18px 18px;
+  border-radius: 3px;
   border: 0px;
   color: white;
   cursor: default;
   display: inline-block;
-  font-size: 11px;
+  font-size: 7px;
   font-weight: bold;
-  height: 28px;
-  line-height: 28px;  /* centers text; imps.css uses padding instead */
+  height: 19px;
+  line-height: 19px;  /* centers text; imps.css uses padding instead */
   margin: 0 2px;
-  min-width: 60px;
-  padding: 0 6px;
+  min-width: 41px;
+  padding: 0 4px;
   text-align: center;
   vertical-align: middle;
 }
 .imps.icon-left {
-  padding-left: 37px;
+  padding-left: 26px;
   text-align: right;
 }
 
@@ -76,7 +96,7 @@ p.note{
 .imps.back       { background-image: url("/static/images/icons/back_icon.png"); }
 .imps.backup     { background-image: url("/static/images/icons/backup_icon.png"); }
 .imps.box_closed { background-image: url("/static/images/icons/box_closed_icon.png"); }
-.imps.box_full   { background-image: url("/static/images/icons/box_full_icon.png"); width: 60px; }
+.imps.box_full   { background-image: url("/static/images/icons/box_full_icon.png"); width: 41px; }
 .imps.cancel     { background-image: url("/static/images/icons/cancel.png"); }
 .imps.columns    { background-image: url("/static/images/icons/columns_icon.png"); }
 .imps.edit       { background-image: url("/static/images/icons/edit_icon.png"); }

@@ -22,11 +22,17 @@ relevant) when it's resolved -- git history covers the rest.
   - DONE: _restore_diff_counts() -- item/box counts, live vs. staged.
     Verified against the same real backup: 38/9 current, 26/9
     candidate, exact match.
+  - DONE: _stage_candidate_sql() -- executes the rewritten dump,
+    building the restore_staging_* tables. Self-healing: drops any
+    leftover staging tables from an abandoned attempt (confirm page
+    opened, never clicked Cancel or Restore) before creating new ones
+    -- no separate cleanup job needed, storage overhead of leftovers
+    is negligible at IMPS's scale, the next restore attempt just
+    reclaims them. Verified against a real abandoned-staging-table
+    state.
   - NOT DONE: the confirm page itself (real page, not
     confirm_modal.html -- too much content for that component); logging
-    at each step (see below); cleanup for abandoned staging tables (user
-    opens the confirm page, never clicks Cancel or Restore -- nothing
-    currently cleans those up); wiring cp_backuprestore up to actually
+    at each step (see below); wiring cp_backuprestore up to actually
     call this engine; the upload path; maintenance mode (already built
     separately, see app/extensions.py) isn't yet wired around the real
     swap call; the safety-backup-before-swap step (reuse cp_backupnow's

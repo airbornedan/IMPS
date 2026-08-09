@@ -31,3 +31,10 @@ relevant) when it's resolved -- git history covers the rest.
     the upload either way. No "save this upload into my history"
     option -- restoring from it again means re-uploading it
 - question about saved tabs
+- restore_icon.png and upload_icon.png have inconsistent internal
+  padding around their white glyph vs. the rest of the icon set --
+  glyph fills ~67%/~42% of the canvas vs. download_icon.png's ~53%,
+  so at the same button size restore looks bigger and upload looks
+  smaller than the other icons, even though the red background square
+  is the same size in all of them. Needs the PNGs redrawn with padding
+  closer to the existing set, not a CSS fix.

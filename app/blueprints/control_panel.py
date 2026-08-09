@@ -180,7 +180,7 @@ def cp_backups():
     snapshots = [
         {
             "backup_date": backup_date,
-            "download_url": url_for("control_panel.cp_downloadsnapshot", snapshot_id=snapshot_id),
+            "download_url": url_for("control_panel.cp_snapshotdownload", snapshot_id=snapshot_id),
         }
         for snapshot_id, backup_date in rows
     ]
@@ -193,12 +193,12 @@ def cp_backups():
 
 ########################################################################
 ### RESTORE FROM BACKUP -- STUB. Entry point exists (see cp_backups.html)
-### but the actual engine (scratch-DB validation, before/after diff,
-### the real confirm page, the DB+image swap) isn't built yet.
-@bp.route("/cp_restore")
+### but the actual engine (staging tables, before/after diff, the real
+### confirm page, the DB+image swap) isn't built yet.
+@bp.route("/cp_backuprestore")
 @login_required
-def cp_restore():
-    return render_template("control_panel/cp_restore.html")
+def cp_backuprestore():
+    return render_template("control_panel/cp_backuprestore.html")
 
 
 ########################################################################
@@ -301,10 +301,10 @@ def cp_backupnow():
 # lookup key against backup_history -- never joined onto BACKUP_DIR
 # directly. The filenames that do get opened come from that row, not
 # from the request.
-@bp.route("/cp_downloadsnapshot/<snapshot_id>")
+@bp.route("/cp_snapshotdownload/<snapshot_id>")
 @login_required
 @db_errors(exec_msg="Database error when verifying backup snapshot.")
-def cp_downloadsnapshot(snapshot_id):
+def cp_snapshotdownload(snapshot_id):
     with get_db_connection() as mydb:
         cursor = mydb.cursor()
         cursor.execute(

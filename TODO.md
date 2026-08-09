@@ -9,3 +9,6 @@ relevant) when it's resolved -- git history covers the rest.
   - upload step: uploaded file is the combined zip (database.sql +
     photos.zip) from cp_downloadsnapshot -- unzip that outer layer
     first to get back the two separate pieces before anything else
+  - static/images/icons/restore_icon.png has no real transparency
+    (fully opaque, solid background) -- will show a box on the red
+    .imps button background, needs a proper transparent version

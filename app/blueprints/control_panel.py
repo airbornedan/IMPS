@@ -384,6 +384,7 @@ def cp_backuprestore(snapshot_id):
         cursor.close()
 
         if not row or not os.path.isfile(row[0]):
+            logger.warning(f"Restore preview requested for missing snapshot {snapshot_id}")
             return render_template(
                 "errorpage.html",
                 err_message="That backup no longer exists.",
@@ -391,12 +392,15 @@ def cp_backuprestore(snapshot_id):
             )
         filename, created_at = row
 
+        logger.info(f"Staging snapshot {snapshot_id} for restore preview")
+
         # open()'s default encoding follows the locale, not the file.
         with open(filename, encoding="utf-8") as f:
             original_sql = f.read()
         rewritten = rewrite_dump_for_staging(original_sql)
         _stage_candidate_sql(mydb, rewritten)
         diff = _restore_diff_counts(mydb)
+        logger.info(f"Snapshot {snapshot_id} staged: {diff}")
 
     return render_template(
         "control_panel/cp_backuprestoreconfirm.html",
@@ -470,6 +474,7 @@ def cp_backuprestoreconfirm(snapshot_id):
         cursor.close()
 
         if not row or not os.path.isfile(row[0]):
+            logger.warning(f"Restore confirmed for missing snapshot {snapshot_id}")
             return render_template(
                 "errorpage.html",
                 err_message="That backup's photo archive no longer exists.",
@@ -500,17 +505,21 @@ def cp_backuprestoreupload():
 
     upload = request.files.get("upload")
     if not upload or not upload.filename:
+        logger.warning("Restore upload submitted with no file")
         return render_template(
             "errorpage.html",
             err_message="No file was uploaded.",
             err_page_from="/cp_backups",
         )
 
+    logger.info(f"Restore upload received: {upload.filename}")
+
     temp_dir = tempfile.mkdtemp(prefix="imps_restore_upload_")
     zip_path = os.path.join(temp_dir, "upload.zip")
     upload.save(zip_path)
 
     if not zipfile.is_zipfile(zip_path):
+        logger.warning(f"Restore upload {upload.filename} is not a valid zip")
         shutil.rmtree(temp_dir, ignore_errors=True)
         return render_template(
             "errorpage.html",
@@ -519,7 +528,9 @@ def cp_backuprestoreupload():
         )
 
     with zipfile.ZipFile(zip_path) as zf:
-        if set(zf.namelist()) != {"database.sql", "photos.zip"}:
+        names = set(zf.namelist())
+        if names != {"database.sql", "photos.zip"}:
+            logger.warning(f"Restore upload {upload.filename} has unexpected contents: {names}")
             shutil.rmtree(temp_dir, ignore_errors=True)
             return render_template(
                 "errorpage.html",
@@ -540,6 +551,7 @@ def cp_backuprestoreupload():
 
         mismatch = _staged_schema_mismatch(mydb)
         if mismatch:
+            logger.warning(f"Restore upload {upload.filename} rejected: schema mismatch ({mismatch})")
             shutil.rmtree(temp_dir, ignore_errors=True)
             return render_template(
                 "errorpage.html",
@@ -548,6 +560,7 @@ def cp_backuprestoreupload():
             )
 
         diff = _restore_diff_counts(mydb)
+        logger.info(f"Restore upload {upload.filename} staged: {diff}")
 
     session["restore_upload_image_zip"] = image_zip_path
     session["restore_upload_temp_dir"] = temp_dir
@@ -568,6 +581,7 @@ def cp_backuprestoreuploadconfirm():
     temp_dir = session.pop("restore_upload_temp_dir", None)
 
     if not candidate_image_zip or not os.path.isfile(candidate_image_zip):
+        logger.warning("Restore upload confirmed but its staged data is gone -- session expired?")
         return render_template(
             "errorpage.html",
             err_message="That upload is no longer available -- upload the file again.",
@@ -577,7 +591,8 @@ def cp_backuprestoreuploadconfirm():
     try:
         error_response = _execute_confirmed_restore(candidate_image_zip, "the uploaded file")
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        if temp_dir:
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     if error_response:
         return error_response

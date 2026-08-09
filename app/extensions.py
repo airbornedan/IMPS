@@ -344,15 +344,8 @@ if not logger.handlers:
 ########################################################################
 ### MAINTENANCE MODE
 ########################################################################
-# Blocks every request except static assets while a restore is in
-# progress -- see block_during_maintenance() in app/__init__.py for
-# the enforcement, this just owns the lock file's path and the
-# enter/exit/check helpers.
-#
-# File-based, not an in-memory flag: WSGIDaemonProcess runs multiple
-# OS processes (see deploy/apache/imps-apache.conf), which don't share
-# memory with each other -- only the filesystem is visible to all of
-# them, same reasoning as SECRET_KEY_FILE/first.run above.
+# File-based, not in-memory -- WSGI runs 2 processes with no shared
+# memory. Enforcement is block_during_maintenance() in app/__init__.py.
 
 MAINTENANCE_LOCK_FILE = os.path.join(IMPS_DIR, "maintenance.lock")
 

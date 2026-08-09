@@ -559,6 +559,10 @@ p.note {
 	background-image: url("images/icons/backup_icon.png");
 }
 
+.restore {
+	background-image: url("images/icons/restore_icon.png");
+}
+
 .bar {
 	background-image: url("images/icons/bar_icon.png");
 }

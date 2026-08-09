@@ -9,12 +9,15 @@
 	<h3>Back up database and photos</h3>
 </div>
 <div>
-	<form action="/cp_backupnow" method="post">
+	<form action="/cp_backupnow" method="post" style="display:inline;">
 	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="imps icon-left backup">
         Backup now
         </button>
         </form>
+	<a href="/cp_restore">
+		<button type="button" class="imps icon-left restore">Restore&hellip;</button>
+	</a>
 </div>
 {% if snapshots %}
 <div class="item_display_table">

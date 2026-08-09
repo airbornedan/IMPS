@@ -137,6 +137,16 @@ def cp_backups():
 
 
 ########################################################################
+### RESTORE FROM BACKUP -- STUB. Entry point exists (see cp_backups.html)
+### but the actual engine (scratch-DB validation, before/after diff,
+### the real confirm page, the DB+image swap) isn't built yet.
+@bp.route("/cp_restore")
+@login_required
+def cp_restore():
+    return render_template("control_panel/cp_restore.html")
+
+
+########################################################################
 ### CONTROL PANEL -- CLEANUP TAB (launcher; cleanup tools live at
 ### their own routes, /cp_orphaneditemscleanup and /cp_photofilescleanup)
 @bp.route("/cp_cleanup")

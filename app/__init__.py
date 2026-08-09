@@ -62,6 +62,21 @@ def create_app():
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
 
     ####################################################################
+    ### MAINTENANCE MODE (see MAINTENANCE_LOCK_FILE in extensions.py)
+    ####################################################################
+    # Blocks every request while a restore is in progress -- static is
+    # exempt so the maintenance page itself still renders styled
+    # instead of blank. Checked first, ahead of every other gate below,
+    # since nothing else matters while a restore is running.
+    @app.before_request
+    def block_during_maintenance():
+        if not extensions.maintenance_mode_active():
+            return None
+        if request.path.startswith("/static/"):
+            return None
+        return render_template("maintenance.html"), 503
+
+    ####################################################################
     ### OPTIONAL LAN-ONLY ACCESS RESTRICTION
     ####################################################################
     # Off unless explicitly enabled via [access] restrict_to_lan = true

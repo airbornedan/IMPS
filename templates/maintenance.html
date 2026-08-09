@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div><h2>IMPS is restoring from a backup</h2>
+This page will refresh automatically once it's done. Please don't
+close this tab or navigate away.</div>
+<br>
+<div>
+<img src="/static/images/sad_imps.png" style="width: 100px;">
+</div>
+<script>
+setTimeout(function () {
+	location.reload();
+}, 8000);
+</script>
+{% endblock %}

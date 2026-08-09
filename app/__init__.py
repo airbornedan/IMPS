@@ -5,6 +5,7 @@ import os
 import ipaddress
 
 from flask import Flask, request, session, render_template
+from flask_wtf.csrf import CSRFError
 
 from app.extensions import (
     ITEM_IMAGE_DIR,
@@ -215,6 +216,23 @@ def create_app():
             err_message="Something went wrong on the server.",
             err_page_from="/",
         ), 500
+
+    ### CSRF TOKEN MISSING/EXPIRED -- e.g. a form left open past the
+    ### token's time limit, or a stale session. Flask-WTF raises this
+    ### as a plain 400 with no page of its own otherwise.
+    @app.errorhandler(CSRFError)
+    def csrf_error(e):
+        logger.warning(
+            f"CSRF validation failed on {request.path}: {e.description}"
+        )
+        return render_template(
+            "errorpage.html",
+            err_message=(
+                "That page was open too long and your session expired. "
+                "Please go back and try again."
+            ),
+            err_page_from="/",
+        ), 400
 
     ####################################################################
     ### DEV-MODE STARTUP CHECKS (see app/dev_checks.py)

@@ -11,6 +11,7 @@ import tempfile
 import time
 import zipfile
 from contextlib import suppress
+from datetime import datetime
 from io import BytesIO
 from mysql.connector.errors import IntegrityError
 
@@ -410,10 +411,19 @@ def cp_backuprestore(snapshot_id):
     )
 
 
+def _snapshot_label(snapshot_id):
+    """Formats a snapshot_id (a raw time.time() string) the same way
+    cp_backups.html shows it, so an error message pointing at one
+    matches what's actually visible in the Backups tab list."""
+    return datetime.fromtimestamp(float(snapshot_id)).strftime("%Y-%m-%d %H:%M")
+
+
 ########################################################################
 ### RESTORE FROM BACKUP -- ACTUALLY RUNS IT. Safety backup, maintenance
 ### mode, swap the already-staged tables, restore photos. Shared by
-### the snapshot and upload confirm routes below.
+### the snapshot and upload confirm routes below. If the swap or photo
+### extraction fails, tries to recover by restoring the safety backup
+### automatically before giving up.
 def _execute_confirmed_restore(candidate_image_zip, source_label):
     """Returns None on success, or a rendered error page response."""
     logger.info(f"Restore confirmed for {source_label} -- taking safety backup")
@@ -435,12 +445,7 @@ def _execute_confirmed_restore(candidate_image_zip, source_label):
         logger.info(f"Restore {source_label}: database swap succeeded")
     except Exception as e:
         logger.error(f"Restore {source_label}: database swap failed: {e}")
-        extensions.exit_maintenance_mode()
-        return render_template(
-            "errorpage.html",
-            err_message=f"Restore failed during the database swap. A safety backup was taken first (snapshot {safety_snapshot_id}, see the Backups tab).",
-            err_page_from="/cp_backups",
-        )
+        return _attempt_recovery(source_label, safety_snapshot_id, "the database swap")
 
     try:
         with zipfile.ZipFile(candidate_image_zip) as zf:
@@ -448,16 +453,71 @@ def _execute_confirmed_restore(candidate_image_zip, source_label):
         logger.info(f"Restore {source_label}: photo extraction succeeded")
     except (OSError, zipfile.BadZipFile) as e:
         logger.error(f"Restore {source_label}: photo extraction failed: {e}")
-        extensions.exit_maintenance_mode()
-        return render_template(
-            "errorpage.html",
-            err_message=f"The database was restored, but restoring photos failed. A safety backup exists (snapshot {safety_snapshot_id}, see the Backups tab).",
-            err_page_from="/cp_backups",
-        )
+        return _attempt_recovery(source_label, safety_snapshot_id, "restoring photos")
 
     extensions.exit_maintenance_mode()
     logger.info(f"Restore {source_label}: complete")
     return None
+
+
+def _attempt_recovery(source_label, safety_snapshot_id, failed_step):
+    """Called when the swap or photo extraction fails mid-restore.
+    Already in maintenance mode -- stays there through this attempt,
+    exits it on every path out. Recovery reuses the same staging/swap
+    pipeline, just pointed at the safety backup instead of the
+    original candidate -- no schema check needed, it was made from
+    this exact database moments ago."""
+    safety_label = f"the safety backup made {_snapshot_label(safety_snapshot_id)}"
+    logger.error(f"Restore {source_label} failed at {failed_step} -- attempting automatic recovery from {safety_label}")
+
+    with get_db_connection() as mydb:
+        cursor = mydb.cursor()
+        cursor.execute(
+            "SELECT filename FROM backup_history WHERE snapshot_id = %s AND backup_type = 'db'",
+            (safety_snapshot_id,),
+        )
+        db_row = cursor.fetchone()
+        cursor.execute(
+            "SELECT filename FROM backup_history WHERE snapshot_id = %s AND backup_type = 'image'",
+            (safety_snapshot_id,),
+        )
+        image_row = cursor.fetchone()
+        cursor.close()
+
+    if not db_row or not os.path.isfile(db_row[0]) or not image_row or not os.path.isfile(image_row[0]):
+        extensions.exit_maintenance_mode()
+        logger.error(f"Recovery for {source_label} aborted -- {safety_label}'s files are missing")
+        return render_template(
+            "errorpage.html",
+            err_message=f"Restore failed during {failed_step}, and automatic recovery couldn't find {safety_label}'s files. Check the Backups tab and the server logs.",
+            err_page_from="/cp_backups",
+        )
+
+    try:
+        with open(db_row[0], encoding="utf-8") as f:
+            original_sql = f.read()
+        rewritten = rewrite_dump_for_staging(original_sql)
+        with get_db_connection() as mydb:
+            _stage_candidate_sql(mydb, rewritten)
+            _swap_staging_tables_into_place(mydb)
+        with zipfile.ZipFile(image_row[0]) as zf:
+            zf.extractall(ITEM_IMAGE_FS_DIR)
+    except Exception as e:
+        extensions.exit_maintenance_mode()
+        logger.error(f"Automatic recovery for {source_label} FAILED: {e}")
+        return render_template(
+            "errorpage.html",
+            err_message=f"Restore failed during {failed_step}, and automatic recovery also failed. Your data may be in an inconsistent state -- {safety_label} is what to restore manually from the Backups tab, or check the server logs.",
+            err_page_from="/cp_backups",
+        )
+
+    extensions.exit_maintenance_mode()
+    logger.info(f"Automatic recovery for {source_label} succeeded -- restored {safety_label}")
+    return render_template(
+        "errorpage.html",
+        err_message=f"Restore failed during {failed_step}, but automatic recovery succeeded -- your data was put back to its state right before this attempt ({safety_label}).",
+        err_page_from="/cp_backups",
+    )
 
 
 @bp.route("/cp_backuprestoreconfirm/<snapshot_id>", methods=["POST"])

@@ -751,17 +751,6 @@ def cp_catdelsuccess(cat_num):
 
 
 ########################################################################
-### REDIRECT TO THE REAL BULK-DELETE ENDPOINT
-@bp.route("/cp_delallorphans", methods=["POST"])
-@login_required
-def cp_delallorphans():
-    # Routed redirect to the functional mass removal endpoint. A 307
-    # preserves the POST method/body on the redirect instead of letting
-    # the browser turn it into a GET.
-    return redirect(url_for("control_panel.cp_delallorphanphotos"), code=307)
-
-
-########################################################################
 ### CREATE NEW CATEGORY RECORD ENTRY
 @bp.route("/cp_addcat", methods=["POST"])
 @login_required

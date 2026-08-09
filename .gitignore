@@ -73,3 +73,7 @@ git_token
 
 # Claude Code local settings (per-session permission allowlist, etc.)
 .claude/
+
+# Personal backlog (see .claude/commands/btw.md) -- dev-machine-only,
+# same reasoning as deploy/tools/: shouldn't ship to the demo/Pi.
+TODO.md

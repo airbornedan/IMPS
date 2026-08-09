@@ -37,4 +37,7 @@ relevant) when it's resolved -- git history covers the rest.
   so at the same button size restore looks bigger and upload looks
   smaller than the other icons, even though the red background square
   is the same size in all of them. Needs the PNGs redrawn with padding
-  closer to the existing set, not a CSS fix.
+  closer to the existing set, not a CSS fix. The original icons were
+  drawn in a vector tool with a template meant to keep every glyph in
+  sync -- track that tooling down (may be lost) before redrawing by
+  eye.

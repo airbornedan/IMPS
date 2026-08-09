@@ -6,7 +6,7 @@ relevant) when it's resolved -- git history covers the rest.
 
 ## Inbox
 - restore from backups -- UI entry point is wired up (Restore button
-  on cp_backups.html -> /cp_restore, currently a placeholder page).
+  on cp_backups.html -> /cp_backuprestore, currently a placeholder page).
   The actual engine is not built. Design decisions already made:
   - clicking Restore always leads to a real confirm PAGE (not the
     confirm_modal.html component -- too much content for it), showing
@@ -24,7 +24,7 @@ relevant) when it's resolved -- git history covers the rest.
   - maintenance mode (already built, see app/extensions.py) wraps the
     actual swap
   - upload step: uploaded file is the combined zip (database.sql +
-    photos.zip) from cp_downloadsnapshot -- unzip that outer layer
+    photos.zip) from cp_snapshotdownload -- unzip that outer layer
     first to get back the two separate pieces before anything else
   - uploaded backups are one-shot, not added to backup_history/the
     table: validate (schema check) -> confirm -> restore -> delete

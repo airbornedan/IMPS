@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 # libjpeg/zlib for Pillow's image handling; default-mysql-client gives us
-# mysqldump for the in-app backup feature (cp_dbbackup route).
+# mysqldump for the in-app backup feature (cp_backupnow route).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libjpeg62-turbo zlib1g default-mysql-client \
     && rm -rf /var/lib/apt/lists/*

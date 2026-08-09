@@ -30,3 +30,4 @@ relevant) when it's resolved -- git history covers the rest.
     table: validate (schema check) -> confirm -> restore -> delete
     the upload either way. No "save this upload into my history"
     option -- restoring from it again means re-uploading it
+- question about saved tabs

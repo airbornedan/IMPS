@@ -602,25 +602,32 @@ def cp_backuprestoreupload():
     sql_path = os.path.join(temp_dir, "database.sql")
     image_zip_path = os.path.join(temp_dir, "photos.zip")
 
-    with open(sql_path, encoding="utf-8") as f:
-        original_sql = f.read()
-    rewritten = rewrite_dump_for_staging(original_sql)
+    # A malformed dump raises partway through staging -- caught here
+    # (not just left to @db_errors) so the temp dir doesn't leak.
+    try:
+        with open(sql_path, encoding="utf-8") as f:
+            original_sql = f.read()
+        rewritten = rewrite_dump_for_staging(original_sql)
 
-    with get_db_connection() as mydb:
-        _stage_candidate_sql(mydb, rewritten)
+        with get_db_connection() as mydb:
+            _stage_candidate_sql(mydb, rewritten)
 
-        mismatch = _staged_schema_mismatch(mydb)
-        if mismatch:
-            logger.warning(f"Restore upload {upload.filename} rejected: schema mismatch ({mismatch})")
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            return render_template(
-                "errorpage.html",
-                err_message=f"That backup's database structure doesn't match this install ({mismatch}). It may be from a different version of IMPS.",
-                err_page_from="/cp_backups",
-            )
+            mismatch = _staged_schema_mismatch(mydb)
+            if mismatch:
+                logger.warning(f"Restore upload {upload.filename} rejected: schema mismatch ({mismatch})")
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                return render_template(
+                    "errorpage.html",
+                    err_message=f"That backup's database structure doesn't match this install ({mismatch}). It may be from a different version of IMPS.",
+                    err_page_from="/cp_backups",
+                )
 
-        diff = _restore_diff_counts(mydb)
-        logger.info(f"Restore upload {upload.filename} staged: {diff}")
+            diff = _restore_diff_counts(mydb)
+            logger.info(f"Restore upload {upload.filename} staged: {diff}")
+    except Exception:
+        logger.warning(f"Restore upload {upload.filename} failed to stage -- likely a malformed dump")
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise
 
     session["restore_upload_image_zip"] = image_zip_path
     session["restore_upload_temp_dir"] = temp_dir

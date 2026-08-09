@@ -152,6 +152,29 @@ def _swap_staging_tables_into_place(mydb):
     cursor.close()
 
 
+def _restore_diff_counts(mydb):
+    """Item/box counts for the confirm page's before/after comparison
+    -- live tables vs. the already-staged restore_staging_* ones."""
+    cursor = mydb.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM items")
+    current_items = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM boxes")
+    current_boxes = cursor.fetchone()[0]
+
+    cursor.execute(f"SELECT COUNT(*) FROM {RESTORE_STAGING_PREFIX}items")
+    candidate_items = cursor.fetchone()[0]
+    cursor.execute(f"SELECT COUNT(*) FROM {RESTORE_STAGING_PREFIX}boxes")
+    candidate_boxes = cursor.fetchone()[0]
+
+    cursor.close()
+
+    return {
+        "current": {"items": current_items, "boxes": current_boxes},
+        "candidate": {"items": candidate_items, "boxes": candidate_boxes},
+    }
+
+
 def _record_backup(mydb, snapshot_id, backup_type, filename):
     cursor = mydb.cursor()
     cursor.execute(

@@ -103,6 +103,55 @@ def rewrite_dump_for_staging(sql_text):
     return sql_text
 
 
+# After a swap, the live tables carry restore_staging_-prefixed FK
+# constraint names (renamed to dodge the errno-121 collision while
+# staging). MariaDB has no RENAME CONSTRAINT, so these put the
+# canonical names back -- DROP + ADD in separate statements, since
+# combining them in one ALTER collides with itself even when the old
+# and new names differ. Without this, a second restore collides with
+# the first one's leftover staging name. Matches deploy/schema.sql.
+RESTORE_CONSTRAINT_REPAIRS = [
+    ("boxes", "fk_boxes_loc_num",
+     "FOREIGN KEY (`loc_num`) REFERENCES `locations` (`loc_num`) ON DELETE RESTRICT ON UPDATE CASCADE"),
+    ("items", "fk_items_cat_num",
+     "FOREIGN KEY (`cat_num`) REFERENCES `categories` (`cat_num`) ON DELETE RESTRICT ON UPDATE CASCADE"),
+    ("items", "fk_items_box_num",
+     "FOREIGN KEY (`box_num`) REFERENCES `boxes` (`box_num`) ON DELETE SET NULL ON UPDATE CASCADE"),
+]
+
+
+def _swap_staging_tables_into_place(mydb):
+    """Atomically promotes restore_staging_* tables into place. Live
+    tables are renamed aside in the same RENAME TABLE statement (all
+    pairs succeed or none do), then dropped -- before the constraint
+    repair, not after: an explicitly-named constraint stays with its
+    table through a rename, so the old, renamed-aside table is still
+    sitting on the canonical name until it's actually dropped, which
+    blocks ADD CONSTRAINT from reusing that name otherwise.
+    """
+    cursor = mydb.cursor()
+
+    old_suffix = "_pre_restore"
+    pairs = [f"`{t}` TO `{t}{old_suffix}`" for t in RESTORE_DATA_TABLES]
+    pairs += [f"`{RESTORE_STAGING_PREFIX}{t}` TO `{t}`" for t in RESTORE_DATA_TABLES]
+    cursor.execute("RENAME TABLE " + ", ".join(pairs))
+
+    # The renamed-aside tables still reference each other by their new
+    # *_pre_restore names (a renamed table's FK metadata follows it),
+    # so dropping in creation order hits parent-before-child FK errors
+    # -- they're being discarded anyway, so just drop the check.
+    cursor.execute("SET FOREIGN_KEY_CHECKS=0")
+    for table in RESTORE_DATA_TABLES:
+        cursor.execute(f"DROP TABLE `{table}{old_suffix}`")
+    cursor.execute("SET FOREIGN_KEY_CHECKS=1")
+
+    for table, name, definition in RESTORE_CONSTRAINT_REPAIRS:
+        cursor.execute(f"ALTER TABLE `{table}` DROP FOREIGN KEY `{RESTORE_STAGING_PREFIX}{name}`")
+        cursor.execute(f"ALTER TABLE `{table}` ADD CONSTRAINT `{name}` {definition}")
+
+    cursor.close()
+
+
 def _record_backup(mydb, snapshot_id, backup_type, filename):
     cursor = mydb.cursor()
     cursor.execute(

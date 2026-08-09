@@ -43,36 +43,40 @@ p.note{
 
 /* Non-interactive copies of real .imps buttons (imps.css section 3).
    Duplicated, not shared, to avoid pulling in imps.css's page layout --
-   keep in sync by hand. */
+   keep in sync by hand. Scaled to 2/3 of the real button's dimensions,
+   matching this page's 12px body text against the main UI's 18px --
+   the real button's full 42px height inside 12px text otherwise blows
+   out the line it's on and can overlap the line below it. */
 .imps {
   background-color: #a40000;
-  background-position: 8px center;
+  background-position: 5px center;
   background-repeat: no-repeat;
-  background-size: 40px 40px;
-  border-radius: 7px;
+  background-size: 27px 27px;
+  border-radius: 5px;
   border: 0px;
   color: white;
   cursor: default;
   display: inline-block;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: bold;
-  height: 42px;
-  line-height: 42px;  /* centers text; imps.css uses padding instead */
+  height: 28px;
+  line-height: 28px;  /* centers text; imps.css uses padding instead */
   margin: 0 2px;
-  min-width: 90px;
-  padding: 0 8px;
+  min-width: 60px;
+  padding: 0 6px;
   text-align: center;
   vertical-align: middle;
 }
 .imps.icon-left {
-  padding-left: 56px;
+  padding-left: 37px;
   text-align: right;
 }
 
 .imps.add        { background-image: url("/static/images/icons/add_icon.png"); }
+.imps.back       { background-image: url("/static/images/icons/back_icon.png"); }
 .imps.backup     { background-image: url("/static/images/icons/backup_icon.png"); }
 .imps.box_closed { background-image: url("/static/images/icons/box_closed_icon.png"); }
-.imps.box_full   { background-image: url("/static/images/icons/box_full_icon.png"); width: 90px; }
+.imps.box_full   { background-image: url("/static/images/icons/box_full_icon.png"); width: 60px; }
 .imps.cancel     { background-image: url("/static/images/icons/cancel.png"); }
 .imps.columns    { background-image: url("/static/images/icons/columns_icon.png"); }
 .imps.edit       { background-image: url("/static/images/icons/edit_icon.png"); }

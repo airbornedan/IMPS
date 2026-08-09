@@ -545,6 +545,30 @@ p.note {
       padding-left: 30px;
     }
 
+/* "Working" modal (see includes/working_modal.html) -- shown while a
+   slow action (backup, restore) is in flight. No close button; it
+   disappears on its own once the page navigates away. */
+.working-cont {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 5px solid #eee;
+  border-top-color: #a40000;
+  border-radius: 50%;
+  animation: imps-spin 0.8s linear infinite;
+}
+
+@keyframes imps-spin {
+  to { transform: rotate(360deg); }
+}
+
 
 /* ================================================================
    3. BUTTONS / ICONS

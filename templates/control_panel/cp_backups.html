@@ -4,6 +4,7 @@
 
 {% set active_tab = 'Backups' %}
 {% include "includes/cp_tabs.html" %}
+{% include "includes/working_modal.html" %}
 
 <div>
 	<h3>Back up database and photos</h3>
@@ -38,7 +39,7 @@
 			</a>
 		</div>
 		<div class="table_cell table_cell-actions">
-			<a href="{{ snap.restore_url }}">
+			<a href="{{ snap.restore_url }}" data-working>
 				<button type="button" class="imps icon-only restore" title="Restore"></button>
 			</a>
 		</div>

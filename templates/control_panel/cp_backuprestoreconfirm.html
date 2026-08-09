@@ -5,6 +5,7 @@
 {% set tab_label = "Backups" %}
 {% set back_url = "/cp_backups" %}
 {% include "includes/cp_tab_subheader.html" %}
+{% include "includes/working_modal.html" %}
 
 <p>Restore from {{ source_description }}?</p>
 
@@ -31,7 +32,7 @@
 <p>This replaces your current database and photos. This cannot be undone.</p>
 
 <div class="btn-pair">
-<form action="{{ confirm_action_url }}" method="post">
+<form action="{{ confirm_action_url }}" method="post" data-working>
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <button type="submit" class="imps icon-left restore">Restore</button>
 </form>

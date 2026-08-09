@@ -304,9 +304,7 @@ def cp_backuprestore(snapshot_id):
             )
         filename, created_at = row
 
-        # mysqldump writes UTF-8 (matches the DB's utf8mb4 charset) --
-        # explicit here since open()'s default encoding follows the
-        # environment's locale, not the file's actual content.
+        # open()'s default encoding follows the locale, not the file.
         with open(filename, encoding="utf-8") as f:
             original_sql = f.read()
         rewritten = rewrite_dump_for_staging(original_sql)

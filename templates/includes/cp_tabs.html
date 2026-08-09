@@ -4,10 +4,12 @@
      navigation links styled to look like tabs via the imps_tab_on /
      imps_tab_off classes, no JS required. The including template
      sets active_tab to one of: BoxItem, Backups, Cleanup, Server. -->
-<div>
-  <a href="/control_panel"><button type="button" class="{% if active_tab == 'BoxItem' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Settings</button></a>
-  <a href="/cp_backups"><button type="button" class="{% if active_tab == 'Backups' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Backups</button></a>
-  <a href="/cp_cleanup"><button type="button" class="{% if active_tab == 'Cleanup' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Cleanup</button></a>
-  <a href="/cp_server"><button type="button" class="{% if active_tab == 'Server' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Server</button></a>
+<div style="width: fit-content;">
+  <div>
+    <a href="/control_panel"><button type="button" class="{% if active_tab == 'BoxItem' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Settings</button></a>
+    <a href="/cp_backups"><button type="button" class="{% if active_tab == 'Backups' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Backups</button></a>
+    <a href="/cp_cleanup"><button type="button" class="{% if active_tab == 'Cleanup' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Cleanup</button></a>
+    <a href="/cp_server"><button type="button" class="{% if active_tab == 'Server' %}imps_tab_on{% else %}imps_tab_off{% endif %}">Server</button></a>
+  </div>
+  <div style="width: 100%; background-color:#a40000; padding:0px;">&nbsp;</div>
 </div>
-<div style="width: 90%; background-color:#a40000; padding:0px;">&nbsp;</div>

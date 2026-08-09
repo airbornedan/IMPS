@@ -267,6 +267,7 @@ def cp_backups():
         {
             "backup_time": created_at.strftime("%Y-%m-%d %H:%M"),
             "download_url": url_for("control_panel.cp_snapshotdownload", snapshot_id=snapshot_id),
+            "restore_url": url_for("control_panel.cp_backuprestore", snapshot_id=snapshot_id),
         }
         for snapshot_id, created_at in rows
     ]
@@ -278,13 +279,57 @@ def cp_backups():
 
 
 ########################################################################
-### RESTORE FROM BACKUP -- STUB. Entry point exists (see cp_backups.html)
-### but the actual engine (staging tables, before/after diff, the real
-### confirm page, the DB+image swap) isn't built yet.
-@bp.route("/cp_backuprestore")
+### RESTORE FROM BACKUP -- CONFIRM PAGE. Stages the candidate SQL and
+### shows the before/after diff. The actual swap (POST target below)
+### is still a stub -- maintenance mode, the safety backup, and the
+### image-side restore aren't wired up yet.
+@bp.route("/cp_backuprestore/<snapshot_id>")
 @login_required
-def cp_backuprestore():
-    return render_template("control_panel/cp_backuprestore.html")
+@db_errors(exec_msg="Database error when preparing restore.")
+def cp_backuprestore(snapshot_id):
+    with get_db_connection() as mydb:
+        cursor = mydb.cursor()
+        cursor.execute(
+            "SELECT filename, created_at FROM backup_history WHERE snapshot_id = %s AND backup_type = 'db'",
+            (snapshot_id,),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+
+        if not row or not os.path.isfile(row[0]):
+            return render_template(
+                "errorpage.html",
+                err_message="That backup no longer exists.",
+                err_page_from="/cp_backups",
+            )
+        filename, created_at = row
+
+        with open(filename) as f:
+            original_sql = f.read()
+        rewritten = rewrite_dump_for_staging(original_sql)
+        _stage_candidate_sql(mydb, rewritten)
+        diff = _restore_diff_counts(mydb)
+
+    return render_template(
+        "control_panel/cp_backuprestoreconfirm.html",
+        snapshot_id=snapshot_id,
+        backup_time=created_at.strftime("%Y-%m-%d %H:%M"),
+        diff=diff,
+    )
+
+
+########################################################################
+### RESTORE FROM BACKUP -- CONFIRMED. STUB. The confirm page above is
+### real; this, the actual swap, is not -- maintenance mode, the
+### safety backup, and the image-side restore aren't wired up yet.
+@bp.route("/cp_backuprestoreconfirm/<snapshot_id>", methods=["POST"])
+@login_required
+def cp_backuprestoreconfirm(snapshot_id):
+    return render_template(
+        "errorpage.html",
+        err_message="Restoring isn't built yet -- this is a placeholder for the Restore button's final destination.",
+        err_page_from="/cp_backups",
+    )
 
 
 ########################################################################

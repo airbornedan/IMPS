@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+{% set sub_title = "Restore from backup" %}
+{% set active_tab = 'Backups' %}
+{% set tab_label = "Backups" %}
+{% set back_url = "/cp_backups" %}
+{% include "includes/cp_tab_subheader.html" %}
+
+<p>Restore from the backup made {{ backup_time }}?</p>
+
+<div class="item_display_table">
+<span class="table_head">
+	<span class="table_label"></span>
+	<span class="table_label-actions">Items</span>
+	<span class="table_label-actions">Boxes</span>
+</span>
+<span class="table_body">
+	<div class="table_row">
+		<div class="table_cell">Currently</div>
+		<div class="table_cell-actions">{{ diff.current.items }}</div>
+		<div class="table_cell-actions">{{ diff.current.boxes }}</div>
+	</div>
+	<div class="table_row">
+		<div class="table_cell">This backup</div>
+		<div class="table_cell-actions">{{ diff.candidate.items }}</div>
+		<div class="table_cell-actions">{{ diff.candidate.boxes }}</div>
+	</div>
+</span>
+</div>
+
+<p>This replaces your current database and photos. This cannot be undone.</p>
+
+<div class="btn-pair">
+<form action="/cp_backuprestoreconfirm/{{ snapshot_id }}" method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<button type="submit" class="imps icon-left restore">Restore</button>
+</form>
+<a href="/cp_backups">
+	<button type="button" class="imps icon-left cancel">Cancel</button>
+</a>
+</div>
+{% endblock %}

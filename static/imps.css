@@ -359,6 +359,15 @@ p.note {
   background-color: #eee;
 }
 
+/* Backups tab's Download/Restore columns -- icon-only buttons, no
+   need for the wide first-child default width. */
+.table_label-actions,
+.table_cell-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+}
+
 /* Only truncated category cells get wrapped in .tooltip (see
    includeitemlist.html); this gives that case a pointer cursor. */
 .table_cell-cat .tooltip {

@@ -41,3 +41,7 @@ relevant) when it's resolved -- git history covers the rest.
   drawn in a vector tool with a template meant to keep every glyph in
   sync -- track that tooling down (may be lost) before redrawing by
   eye.
+- consolidate the migration scripts in deploy/tools/ before pushing
+  this branch of work to the live Pi instance (currently:
+  migrate_categories_schema.sh, migrate_backup_snapshot_column.sh,
+  migrate_backup_drop_date_column.sh)

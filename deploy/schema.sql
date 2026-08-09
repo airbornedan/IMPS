@@ -130,7 +130,6 @@ CREATE TABLE `backup_history` (
   `snapshot_id` varchar(64) NOT NULL,
   `backup_type` enum('db','image') NOT NULL,
   `filename` varchar(512) NOT NULL,
-  `backup_date` date NOT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_type_created` (`backup_type`,`created_at`),

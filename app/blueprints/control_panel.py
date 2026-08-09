@@ -10,7 +10,6 @@ import subprocess
 import time
 import zipfile
 from contextlib import suppress
-from datetime import date
 from io import BytesIO
 from mysql.connector.errors import IntegrityError
 
@@ -104,11 +103,11 @@ def rewrite_dump_for_staging(sql_text):
     return sql_text
 
 
-def _record_backup(mydb, snapshot_id, backup_type, filename, backup_date):
+def _record_backup(mydb, snapshot_id, backup_type, filename):
     cursor = mydb.cursor()
     cursor.execute(
-        "INSERT INTO backup_history (snapshot_id, backup_type, filename, backup_date) VALUES (%s, %s, %s, %s)",
-        (snapshot_id, backup_type, filename, backup_date),
+        "INSERT INTO backup_history (snapshot_id, backup_type, filename) VALUES (%s, %s, %s)",
+        (snapshot_id, backup_type, filename),
     )
     cursor.close()
 
@@ -173,7 +172,7 @@ def cp_backups():
         cursor = mydb.cursor()
         cursor.execute(
             """
-            SELECT snapshot_id, MAX(backup_date)
+            SELECT snapshot_id, MAX(created_at)
             FROM backup_history
             GROUP BY snapshot_id
             ORDER BY MAX(created_at) DESC
@@ -184,12 +183,14 @@ def cp_backups():
         rows = cursor.fetchall()
         cursor.close()
 
+    ### Per-minute precision disambiguates same-day snapshots without
+    ### showing seconds nobody needs.
     snapshots = [
         {
-            "backup_date": backup_date,
+            "backup_time": created_at.strftime("%Y-%m-%d %H:%M"),
             "download_url": url_for("control_panel.cp_snapshotdownload", snapshot_id=snapshot_id),
         }
-        for snapshot_id, backup_date in rows
+        for snapshot_id, created_at in rows
     ]
 
     return render_template(
@@ -247,7 +248,6 @@ def cp_server():
 @db_errors(exec_msg="Database logging error during backup configuration storage lifecycle.")
 def cp_backupnow():
     snapshot_id = str(time.time())
-    today = str(date.today())
 
     ### DUMP THE DATABASE
     # Runs mysqldump directly (no shell), explicit argument list --
@@ -294,8 +294,8 @@ def cp_backupnow():
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        _record_backup(mydb, snapshot_id, "db", backup_file, today)
-        _record_backup(mydb, snapshot_id, "image", archive_file, today)
+        _record_backup(mydb, snapshot_id, "db", backup_file)
+        _record_backup(mydb, snapshot_id, "image", archive_file)
         _prune_old_snapshots(mydb)
 
     ### REDIRECT TO THE BACKUPS TAB
@@ -315,7 +315,7 @@ def cp_snapshotdownload(snapshot_id):
     with get_db_connection() as mydb:
         cursor = mydb.cursor()
         cursor.execute(
-            "SELECT backup_type, filename, backup_date FROM backup_history WHERE snapshot_id = %s",
+            "SELECT backup_type, filename, created_at FROM backup_history WHERE snapshot_id = %s",
             (snapshot_id,),
         )
         rows = cursor.fetchall()
@@ -329,7 +329,7 @@ def cp_snapshotdownload(snapshot_id):
         )
 
     files_by_type = {backup_type: filename for backup_type, filename, _ in rows}
-    backup_date = rows[0][2]
+    created_at = rows[0][2]
 
     ### BUILD THE COMBINED ZIP IN MEMORY. The photo archive is already
     ### a zip -- stored, not re-deflated, so it isn't recompressed.
@@ -347,7 +347,7 @@ def cp_snapshotdownload(snapshot_id):
         zip_buffer,
         mimetype="application/zip",
         as_attachment=True,
-        download_name=f"imps_backup_{backup_date}.zip",
+        download_name=f"imps_backup_{created_at.strftime('%Y-%m-%d_%H-%M')}.zip",
     )
 
 

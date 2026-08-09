@@ -28,7 +28,7 @@
 <span class="table_body">
 {% for snap in snapshots %}
 	<div class="table_row">
-		<div class="table_cell">{{ snap.backup_date }}</div>
+		<div class="table_cell">{{ snap.backup_time }}</div>
 		<div class="table_cell">
 			<a href="{{ snap.download_url }}">
 				<button type="button" class="imps icon-left download">Download</button>

@@ -104,16 +104,10 @@ def rewrite_dump_for_staging(sql_text):
 
 
 def _stage_candidate_sql(mydb, rewritten_sql):
-    """Executes an already-rewritten dump (see rewrite_dump_for_staging
-    above) against box_db, building the restore_staging_* tables.
-
-    Drops any restore_staging_* tables left behind by an abandoned
-    previous attempt first -- e.g. someone opened the confirm page and
-    never clicked Cancel or Restore. No separate cleanup job for that;
-    the next restore attempt (this call) is what reclaims them. FK
-    checks off for the drop since the leftovers can reference each
-    other by table name regardless of the order dropped in.
-    """
+    """Executes an already-rewritten dump (rewrite_dump_for_staging)
+    against box_db, building the restore_staging_* tables. Drops any
+    leftover staging tables from an abandoned attempt first --
+    self-healing, no separate cleanup job needed."""
     cursor = mydb.cursor()
 
     cursor.execute("SET FOREIGN_KEY_CHECKS=0")
@@ -129,13 +123,8 @@ def _stage_candidate_sql(mydb, rewritten_sql):
     cursor.close()
 
 
-# After a swap, the live tables carry restore_staging_-prefixed FK
-# constraint names (renamed to dodge the errno-121 collision while
-# staging). MariaDB has no RENAME CONSTRAINT, so these put the
-# canonical names back -- DROP + ADD in separate statements, since
-# combining them in one ALTER collides with itself even when the old
-# and new names differ. Without this, a second restore collides with
-# the first one's leftover staging name. Matches deploy/schema.sql.
+# Puts FK constraint names back to canonical after a swap (see
+# rewrite_dump_for_staging). Matches deploy/schema.sql.
 RESTORE_CONSTRAINT_REPAIRS = [
     ("boxes", "fk_boxes_loc_num",
      "FOREIGN KEY (`loc_num`) REFERENCES `locations` (`loc_num`) ON DELETE RESTRICT ON UPDATE CASCADE"),
@@ -147,14 +136,9 @@ RESTORE_CONSTRAINT_REPAIRS = [
 
 
 def _swap_staging_tables_into_place(mydb):
-    """Atomically promotes restore_staging_* tables into place. Live
-    tables are renamed aside in the same RENAME TABLE statement (all
-    pairs succeed or none do), then dropped -- before the constraint
-    repair, not after: an explicitly-named constraint stays with its
-    table through a rename, so the old, renamed-aside table is still
-    sitting on the canonical name until it's actually dropped, which
-    blocks ADD CONSTRAINT from reusing that name otherwise.
-    """
+    """Atomically promotes restore_staging_* tables into place via one
+    RENAME TABLE, drops the old tables, then repairs FK constraint
+    names back to canonical."""
     cursor = mydb.cursor()
 
     old_suffix = "_pre_restore"
@@ -162,10 +146,6 @@ def _swap_staging_tables_into_place(mydb):
     pairs += [f"`{RESTORE_STAGING_PREFIX}{t}` TO `{t}`" for t in RESTORE_DATA_TABLES]
     cursor.execute("RENAME TABLE " + ", ".join(pairs))
 
-    # The renamed-aside tables still reference each other by their new
-    # *_pre_restore names (a renamed table's FK metadata follows it),
-    # so dropping in creation order hits parent-before-child FK errors
-    # -- they're being discarded anyway, so just drop the check.
     cursor.execute("SET FOREIGN_KEY_CHECKS=0")
     for table in RESTORE_DATA_TABLES:
         cursor.execute(f"DROP TABLE `{table}{old_suffix}`")

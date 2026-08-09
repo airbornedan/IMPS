@@ -4,6 +4,7 @@
 ########################################################################
 from flask import Blueprint, request, render_template, redirect, url_for, make_response, send_file
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -40,6 +41,60 @@ bp = Blueprint("control_panel", __name__)
 # row, sharing a snapshot_id) to keep before the oldest gets deleted --
 # both DB rows and both files on disk.
 BACKUP_HISTORY_KEEP = 4
+
+########################################################################
+### RESTORE -- STAGE A CANDIDATE .sql DUMP UNDER PREFIXED TABLE NAMES
+# box_user has CREATE/DROP/ALTER on box_db.* but not CREATE DATABASE
+# (see deploy/db_setup.py) -- so a candidate backup gets staged as
+# extra tables in the same database, not a second scratch database.
+RESTORE_STAGING_PREFIX = "restore_staging_"
+RESTORE_DATA_TABLES = ["categories", "locations", "boxes", "items"]
+RESTORE_EXCLUDED_TABLES = ["backup_history"]
+
+
+def _strip_table_block(sql_text, table_name):
+    """Removes one table's structure+data block entirely from a
+    mysqldump .sql dump."""
+    start_marker = f"-- Table structure for table `{table_name}`"
+    start = sql_text.find(start_marker)
+    if start == -1:
+        return sql_text
+
+    # Back up to the blank "--" comment line directly above the marker.
+    block_start = sql_text.rfind("--\n", 0, start)
+    if block_start == -1:
+        block_start = start
+
+    # Bounded on this table's own UNLOCK TABLES; rather than the next
+    # table's marker -- works the same regardless of position (first,
+    # middle, or last table in the dump).
+    unlock_marker = "UNLOCK TABLES;"
+    unlock_pos = sql_text.find(unlock_marker, start)
+    if unlock_pos == -1:
+        return sql_text  # malformed dump -- leave it alone
+
+    block_end = unlock_pos + len(unlock_marker)
+    while block_end < len(sql_text) and sql_text[block_end] == "\n":
+        block_end += 1
+
+    return sql_text[:block_start] + sql_text[block_end:]
+
+
+def rewrite_dump_for_staging(sql_text):
+    """Rewrites a mysqldump .sql dump so importing it builds staging
+    tables (restore_staging_items, etc.) instead of touching the live
+    ones. backup_history is dropped entirely -- restoring it would
+    erase backup history taken after the snapshot being restored,
+    including the safety snapshot taken right before the real swap.
+    """
+    for table in RESTORE_EXCLUDED_TABLES:
+        sql_text = _strip_table_block(sql_text, table)
+
+    for table in RESTORE_DATA_TABLES:
+        staged = f"{RESTORE_STAGING_PREFIX}{table}"
+        sql_text = re.sub(rf"`{table}`", f"`{staged}`", sql_text)
+
+    return sql_text
 
 
 def _record_backup(mydb, snapshot_id, backup_type, filename, backup_date):

@@ -103,6 +103,32 @@ def rewrite_dump_for_staging(sql_text):
     return sql_text
 
 
+def _stage_candidate_sql(mydb, rewritten_sql):
+    """Executes an already-rewritten dump (see rewrite_dump_for_staging
+    above) against box_db, building the restore_staging_* tables.
+
+    Drops any restore_staging_* tables left behind by an abandoned
+    previous attempt first -- e.g. someone opened the confirm page and
+    never clicked Cancel or Restore. No separate cleanup job for that;
+    the next restore attempt (this call) is what reclaims them. FK
+    checks off for the drop since the leftovers can reference each
+    other by table name regardless of the order dropped in.
+    """
+    cursor = mydb.cursor()
+
+    cursor.execute("SET FOREIGN_KEY_CHECKS=0")
+    for table in RESTORE_DATA_TABLES:
+        cursor.execute(f"DROP TABLE IF EXISTS `{RESTORE_STAGING_PREFIX}{table}`")
+    cursor.execute("SET FOREIGN_KEY_CHECKS=1")
+
+    lines = [line for line in rewritten_sql.splitlines() if not line.strip().startswith("--")]
+    statements = [s.strip() for s in "\n".join(lines).split(";") if s.strip()]
+    for statement in statements:
+        cursor.execute(statement)
+
+    cursor.close()
+
+
 # After a swap, the live tables carry restore_staging_-prefixed FK
 # constraint names (renamed to dodge the errno-121 collision while
 # staging). MariaDB has no RENAME CONSTRAINT, so these put the

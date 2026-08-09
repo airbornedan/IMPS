@@ -5,13 +5,16 @@ or edit this file directly. Move an item out (done, or no longer
 relevant) when it's resolved -- git history covers the rest.
 
 ## Inbox
-- restore from backups -- UI entry point is wired up (Restore button
-  on cp_backups.html -> /cp_backuprestore, currently a placeholder page).
-  Engine progress (app/blueprints/control_panel.py):
+- restore from backups. Engine progress (app/blueprints/control_panel.py):
   - DONE: rewrite_dump_for_staging() -- rewrites a candidate .sql dump
     (categories/locations/boxes/items -> restore_staging_*, FK
     CONSTRAINT names too, backup_history dropped entirely). Verified
     against real backups from the demo box.
+  - DONE: _stage_candidate_sql() -- executes the rewritten dump,
+    building the restore_staging_* tables. Self-healing: drops any
+    leftover staging tables from an abandoned attempt (confirm page
+    opened, never clicked Cancel or Restore) before creating new ones.
+  - DONE: _restore_diff_counts() -- item/box counts, live vs. staged.
   - DONE: _swap_staging_tables_into_place() -- atomic RENAME TABLE
     promotes staging tables into place, drops the old ones, repairs FK
     constraint names back to canonical. Verified end-to-end on the
@@ -19,25 +22,21 @@ relevant) when it's resolved -- git history covers the rest.
     over a real full backup, exact item/box match, working FK joins,
     backup_history untouched, and a second restore back to the
     original with no leftover-state collision.
-  - DONE: _restore_diff_counts() -- item/box counts, live vs. staged.
-    Verified against the same real backup: 38/9 current, 26/9
-    candidate, exact match.
-  - DONE: _stage_candidate_sql() -- executes the rewritten dump,
-    building the restore_staging_* tables. Self-healing: drops any
-    leftover staging tables from an abandoned attempt (confirm page
-    opened, never clicked Cancel or Restore) before creating new ones
-    -- no separate cleanup job needed, storage overhead of leftovers
-    is negligible at IMPS's scale, the next restore attempt just
-    reclaims them. Verified against a real abandoned-staging-table
-    state.
-  - NOT DONE: the confirm page itself (real page, not
-    confirm_modal.html -- too much content for that component); logging
-    at each step (see below); wiring cp_backuprestore up to actually
-    call this engine; the upload path; maintenance mode (already built
-    separately, see app/extensions.py) isn't yet wired around the real
-    swap call; the safety-backup-before-swap step (reuse cp_backupnow's
-    logic); the image-side restore (extract photos.zip over
-    ITEM_IMAGE_FS_DIR, overlay not wipe-first)
+  - DONE: real confirm page. cp_backuprestore/<snapshot_id> stages the
+    candidate and shows the actual before/after diff. Backups tab has
+    a per-row Restore column (icon-only, same as Download) instead of
+    a top-level button -- the separate picker-page idea was dropped in
+    favor of going straight from a row to this confirm page. Cancel
+    just navigates back to /cp_backups, no explicit cleanup (self-
+    healing handles it). Verified end-to-end with a real
+    backup_history row: DB lookup, file read, stage, diff all correct.
+  - NOT DONE: cp_backuprestoreconfirm (the actual swap trigger, POST
+    target of the confirm page's Restore button) is still a stub;
+    logging at each step (see below); the upload path; maintenance
+    mode (already built separately, see app/extensions.py) isn't yet
+    wired around the real swap call; the safety-backup-before-swap
+    step (reuse cp_backupnow's logic); the image-side restore (extract
+    photos.zip over ITEM_IMAGE_FS_DIR, overlay not wipe-first)
   - logging: once the real route exists, log at each step (restore
     initiated + which snapshot/upload, staging counts, safety backup
     taken + its snapshot_id, entering maintenance mode, swap result,

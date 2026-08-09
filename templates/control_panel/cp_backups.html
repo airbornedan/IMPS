@@ -20,19 +20,19 @@
 <div class="item_display_table">
 <span class="table_head">
 	<span class="table_label">Date</span>
-	<span class="table_label-actions">Download</span>
-	<span class="table_label-actions">Restore</span>
+	<span class="table_label table_label-actions">Download</span>
+	<span class="table_label table_label-actions">Restore</span>
 </span>
 <span class="table_body">
 {% for snap in snapshots %}
 	<div class="table_row">
 		<div class="table_cell">{{ snap.backup_time }}</div>
-		<div class="table_cell-actions">
+		<div class="table_cell table_cell-actions">
 			<a href="{{ snap.download_url }}">
 				<button type="button" class="imps icon-only download" title="Download"></button>
 			</a>
 		</div>
-		<div class="table_cell-actions">
+		<div class="table_cell table_cell-actions">
 			<a href="{{ snap.restore_url }}">
 				<button type="button" class="imps icon-only restore" title="Restore"></button>
 			</a>

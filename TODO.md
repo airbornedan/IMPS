@@ -12,9 +12,15 @@ relevant) when it's resolved -- git history covers the rest.
     confirm_modal.html component -- too much content for it), showing
     a before/after comparison (current item/box counts vs. the
     backup's), not just a bare "are you sure"
-  - those counts come from importing the candidate SQL into a scratch
-    database and querying it -- same step needed for schema
-    validation anyway, just read the counts while it's there
+  - NOT a scratch database -- box_user's grant (deploy/db_setup.py) is
+    deliberately scoped to box_db.* only, no CREATE DATABASE. Instead:
+    stage inside box_db itself, using prefixed tables (e.g.
+    restore_staging_items, restore_staging_boxes) built from the
+    candidate SQL with its CREATE TABLE/INSERT INTO statements
+    rewritten to those names. Validate + compute before/after counts
+    against the staging tables, then swap into place with one atomic
+    RENAME TABLE once confirmed. No privilege change, no root password
+    prompt anywhere in the running app.
   - maintenance mode (already built, see app/extensions.py) wraps the
     actual swap
   - upload step: uploaded file is the combined zip (database.sql +
@@ -24,6 +30,3 @@ relevant) when it's resolved -- git history covers the rest.
     table: validate (schema check) -> confirm -> restore -> delete
     the upload either way. No "save this upload into my history"
     option -- restoring from it again means re-uploading it
-  - open question before building: does the configured DB user even
-    have CREATE DATABASE privileges for the scratch-DB approach to
-    work at all? Not yet verified.

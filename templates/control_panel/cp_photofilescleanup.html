@@ -5,6 +5,9 @@
 {% set tab_label = "Cleanup" %}
 {% set back_url = "/cp_cleanup" %}
 {% include "includes/cp_tab_subheader.html" %}
+{% with confirm_yes_label="Delete" %}
+{% include 'includes/confirm_modal.html' %}
+{% endwith %}
 <div class="container-flex">
 <form name="del_item_form" method="POST" action="/cp_photofilesdel">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -35,16 +38,41 @@
 </div>
 <div class="row mt-3 btn-pair">
 	<div class="col col-auto">
-		<button type="submit" class="imps icon-left trash">Delete selected</button>
+		<button type="button" id="delete_selected_btn" class="imps icon-left trash">Delete selected</button>
 		</form>
 	</div>
 	<div class="col col-auto">
-		<form method="post" action="/cp_delallorphanphotos" style="display:inline;">
+		<form name="del_all_form" method="post" action="/cp_delallorphanphotos" style="display:inline;">
 			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-			<button type="submit" class="imps icon-left trash">Delete all</button>
+			<button type="button" id="delete_all_btn" class="imps icon-left trash">Delete all</button>
 		</form>
 	</div>
 </div>
+
+<script>
+// Confirm modal (Delete/Cancel) -- these deletes are permanent and
+// used to fire with no confirmation at all. Cancel/close is wired up
+// generically in modal.js; only what triggers this modal and which
+// form Delete actually submits are page-specific.
+var confirmYesBtn = document.getElementById("confirm_yes_btn");
+var pendingForm = null;
+
+document.getElementById("delete_selected_btn").addEventListener("click", function() {
+	pendingForm = document.forms["del_item_form"];
+	showConfirmModal("Delete the selected photos? This cannot be undone.");
+});
+
+document.getElementById("delete_all_btn").addEventListener("click", function() {
+	pendingForm = document.forms["del_all_form"];
+	showConfirmModal("Delete all unlinked photos? This cannot be undone.");
+});
+
+confirmYesBtn.addEventListener("click", function() {
+	if (pendingForm) {
+		pendingForm.submit();
+	}
+});
+</script>
 
 {% else %}
    <br>

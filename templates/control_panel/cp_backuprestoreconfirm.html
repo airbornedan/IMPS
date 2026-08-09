@@ -6,7 +6,7 @@
 {% set back_url = "/cp_backups" %}
 {% include "includes/cp_tab_subheader.html" %}
 
-<p>Restore from the backup made {{ backup_time }}?</p>
+<p>Restore from {{ source_description }}?</p>
 
 <div class="item_display_table">
 <span class="table_head">
@@ -31,7 +31,7 @@
 <p>This replaces your current database and photos. This cannot be undone.</p>
 
 <div class="btn-pair">
-<form action="/cp_backuprestoreconfirm/{{ snapshot_id }}" method="post">
+<form action="{{ confirm_action_url }}" method="post">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <button type="submit" class="imps icon-left restore">Restore</button>
 </form>

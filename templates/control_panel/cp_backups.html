@@ -9,12 +9,17 @@
 	<h3>Back up database and photos</h3>
 </div>
 <div>
-	<form action="/cp_backupnow" method="post">
+	<form action="/cp_backupnow" method="post" style="display:inline;">
 	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="imps icon-left backup">
         Backup now
         </button>
         </form>
+	<form action="/cp_backuprestoreupload" method="post" enctype="multipart/form-data" id="uploadForm" style="display:inline;">
+	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+	<button type="button" class="imps icon-left upload" id="openUpload">Upload&hellip;</button>
+	<input type="file" name="upload" id="uploadInput" accept=".zip" style="display:none;">
+	</form>
 </div>
 {% if snapshots %}
 <div class="item_display_table">
@@ -42,4 +47,15 @@
 </span>
 </div>
 {% endif %}
+
+<script>
+document.getElementById("openUpload").addEventListener("click", function () {
+	document.getElementById("uploadInput").click();
+});
+document.getElementById("uploadInput").addEventListener("change", function () {
+	if (this.files.length) {
+		document.getElementById("uploadForm").submit();
+	}
+});
+</script>
 {% endblock %}

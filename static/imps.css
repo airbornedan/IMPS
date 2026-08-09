@@ -572,6 +572,10 @@ p.note {
 	background-image: url("images/icons/restore_icon.png");
 }
 
+.upload {
+	background-image: url("images/icons/upload_icon.png");
+}
+
 .bar {
 	background-image: url("images/icons/bar_icon.png");
 }

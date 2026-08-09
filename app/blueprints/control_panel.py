@@ -2,11 +2,12 @@
 ### CONTROL PANEL BLUEPRINT — ADMIN: CATEGORIES, LOCATIONS, BACKUPS,
 ### ORPHANED PHOTO CLEANUP, VIEW/COLUMN PREFERENCES
 ########################################################################
-from flask import Blueprint, request, render_template, redirect, url_for, make_response, send_file
+from flask import Blueprint, request, render_template, redirect, url_for, make_response, send_file, session
 import os
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 import zipfile
 from contextlib import suppress
@@ -181,6 +182,44 @@ def _restore_diff_counts(mydb):
     }
 
 
+def _staged_schema_mismatch(mydb):
+    """Compares each staged table's columns against its live
+    counterpart (name + type only, not collation/defaults -- those
+    differ cosmetically between a hand-written schema.sql and a real
+    mysqldump without meaning anything). Returns a short description
+    of the first mismatch found, or None if they all match. Only
+    needed for uploads -- an existing snapshot came from this same
+    install, so its schema is trusted by construction."""
+    cursor = mydb.cursor()
+    for table in RESTORE_DATA_TABLES:
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
+            ORDER BY COLUMN_NAME
+            """,
+            (table,),
+        )
+        live_columns = cursor.fetchall()
+
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
+            ORDER BY COLUMN_NAME
+            """,
+            (f"{RESTORE_STAGING_PREFIX}{table}",),
+        )
+        staged_columns = cursor.fetchall()
+
+        if live_columns != staged_columns:
+            cursor.close()
+            return f"'{table}' table doesn't match"
+
+    cursor.close()
+    return None
+
+
 def _record_backup(mydb, snapshot_id, backup_type, filename):
     cursor = mydb.cursor()
     cursor.execute(
@@ -330,9 +369,7 @@ def cp_backups():
 
 ########################################################################
 ### RESTORE FROM BACKUP -- CONFIRM PAGE. Stages the candidate SQL and
-### shows the before/after diff. The actual swap (POST target below)
-### is still a stub -- maintenance mode, the safety backup, and the
-### image-side restore aren't wired up yet.
+### shows the before/after diff.
 @bp.route("/cp_backuprestore/<snapshot_id>")
 @login_required
 @db_errors(exec_msg="Database error when preparing restore.")
@@ -363,16 +400,62 @@ def cp_backuprestore(snapshot_id):
 
     return render_template(
         "control_panel/cp_backuprestoreconfirm.html",
-        snapshot_id=snapshot_id,
-        backup_time=created_at.strftime("%Y-%m-%d %H:%M"),
+        source_description=f"the backup made {created_at.strftime('%Y-%m-%d %H:%M')}",
+        confirm_action_url=url_for("control_panel.cp_backuprestoreconfirm", snapshot_id=snapshot_id),
         diff=diff,
     )
 
 
 ########################################################################
-### RESTORE FROM BACKUP -- CONFIRMED. Takes a safety backup, swaps the
-### already-staged tables (see cp_backuprestore above) into place under
-### maintenance mode, then restores photos over the live directory.
+### RESTORE FROM BACKUP -- ACTUALLY RUNS IT. Safety backup, maintenance
+### mode, swap the already-staged tables, restore photos. Shared by
+### the snapshot and upload confirm routes below.
+def _execute_confirmed_restore(candidate_image_zip, source_label):
+    """Returns None on success, or a rendered error page response."""
+    logger.info(f"Restore confirmed for {source_label} -- taking safety backup")
+    safety_snapshot_id, failure = _create_backup_snapshot()
+    if failure:
+        logger.error(f"Restore of {source_label} aborted -- safety backup failed ({failure})")
+        return render_template(
+            "errorpage.html",
+            err_message="Restore aborted: could not take a safety backup first.",
+            err_page_from="/cp_backups",
+        )
+    logger.info(f"Safety backup {safety_snapshot_id} taken before restoring {source_label}")
+
+    extensions.enter_maintenance_mode(reason=f"restoring {source_label}")
+
+    try:
+        with get_db_connection() as mydb:
+            _swap_staging_tables_into_place(mydb)
+        logger.info(f"Restore {source_label}: database swap succeeded")
+    except Exception as e:
+        logger.error(f"Restore {source_label}: database swap failed: {e}")
+        extensions.exit_maintenance_mode()
+        return render_template(
+            "errorpage.html",
+            err_message=f"Restore failed during the database swap. A safety backup was taken first (snapshot {safety_snapshot_id}, see the Backups tab).",
+            err_page_from="/cp_backups",
+        )
+
+    try:
+        with zipfile.ZipFile(candidate_image_zip) as zf:
+            zf.extractall(ITEM_IMAGE_FS_DIR)
+        logger.info(f"Restore {source_label}: photo extraction succeeded")
+    except (OSError, zipfile.BadZipFile) as e:
+        logger.error(f"Restore {source_label}: photo extraction failed: {e}")
+        extensions.exit_maintenance_mode()
+        return render_template(
+            "errorpage.html",
+            err_message=f"The database was restored, but restoring photos failed. A safety backup exists (snapshot {safety_snapshot_id}, see the Backups tab).",
+            err_page_from="/cp_backups",
+        )
+
+    extensions.exit_maintenance_mode()
+    logger.info(f"Restore {source_label}: complete")
+    return None
+
+
 @bp.route("/cp_backuprestoreconfirm/<snapshot_id>", methods=["POST"])
 @login_required
 @db_errors(exec_msg="Database error during restore.")
@@ -394,48 +477,110 @@ def cp_backuprestoreconfirm(snapshot_id):
             )
         candidate_image_zip = row[0]
 
-    logger.info(f"Restore confirmed for snapshot {snapshot_id} -- taking safety backup")
-    safety_snapshot_id, failure = _create_backup_snapshot()
-    if failure:
-        logger.error(f"Restore of {snapshot_id} aborted -- safety backup failed ({failure})")
+    error_response = _execute_confirmed_restore(candidate_image_zip, f"snapshot {snapshot_id}")
+    if error_response:
+        return error_response
+    return redirect(url_for("control_panel.cp_backups"))
+
+
+########################################################################
+### RESTORE FROM AN UPLOADED FILE -- one-shot: validate, stage, show
+### the confirm page. Never added to backup_history; the temp
+### extraction lives in the session until confirmed or abandoned.
+# SECURITY: only "database.sql" and "photos.zip" are ever extracted --
+# any other zip contents are rejected before extraction runs at all,
+# so there's no path-traversal surface in the uploaded archive.
+@bp.route("/cp_backuprestoreupload", methods=["POST"])
+@login_required
+@db_errors(exec_msg="Database error when preparing restore.")
+def cp_backuprestoreupload():
+    # The app-wide 16 MB cap (app/__init__.py) is sized for a single
+    # photo upload -- a full backup can be much larger.
+    request.max_content_length = 600 * 1024 * 1024  # 600 MB
+
+    upload = request.files.get("upload")
+    if not upload or not upload.filename:
         return render_template(
             "errorpage.html",
-            err_message="Restore aborted: could not take a safety backup first.",
+            err_message="No file was uploaded.",
             err_page_from="/cp_backups",
         )
-    logger.info(f"Safety backup {safety_snapshot_id} taken before restoring {snapshot_id}")
 
-    extensions.enter_maintenance_mode(reason=f"restoring snapshot {snapshot_id}")
+    temp_dir = tempfile.mkdtemp(prefix="imps_restore_upload_")
+    zip_path = os.path.join(temp_dir, "upload.zip")
+    upload.save(zip_path)
+
+    if not zipfile.is_zipfile(zip_path):
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return render_template(
+            "errorpage.html",
+            err_message="That file isn't a valid zip archive.",
+            err_page_from="/cp_backups",
+        )
+
+    with zipfile.ZipFile(zip_path) as zf:
+        if set(zf.namelist()) != {"database.sql", "photos.zip"}:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return render_template(
+                "errorpage.html",
+                err_message="That doesn't look like an IMPS backup -- expected database.sql and photos.zip inside.",
+                err_page_from="/cp_backups",
+            )
+        zf.extractall(temp_dir)
+
+    sql_path = os.path.join(temp_dir, "database.sql")
+    image_zip_path = os.path.join(temp_dir, "photos.zip")
+
+    with open(sql_path, encoding="utf-8") as f:
+        original_sql = f.read()
+    rewritten = rewrite_dump_for_staging(original_sql)
+
+    with get_db_connection() as mydb:
+        _stage_candidate_sql(mydb, rewritten)
+
+        mismatch = _staged_schema_mismatch(mydb)
+        if mismatch:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return render_template(
+                "errorpage.html",
+                err_message=f"That backup's database structure doesn't match this install ({mismatch}). It may be from a different version of IMPS.",
+                err_page_from="/cp_backups",
+            )
+
+        diff = _restore_diff_counts(mydb)
+
+    session["restore_upload_image_zip"] = image_zip_path
+    session["restore_upload_temp_dir"] = temp_dir
+
+    return render_template(
+        "control_panel/cp_backuprestoreconfirm.html",
+        source_description="the uploaded file",
+        confirm_action_url=url_for("control_panel.cp_backuprestoreuploadconfirm"),
+        diff=diff,
+    )
+
+
+@bp.route("/cp_backuprestoreuploadconfirm", methods=["POST"])
+@login_required
+@db_errors(exec_msg="Database error during restore.")
+def cp_backuprestoreuploadconfirm():
+    candidate_image_zip = session.pop("restore_upload_image_zip", None)
+    temp_dir = session.pop("restore_upload_temp_dir", None)
+
+    if not candidate_image_zip or not os.path.isfile(candidate_image_zip):
+        return render_template(
+            "errorpage.html",
+            err_message="That upload is no longer available -- upload the file again.",
+            err_page_from="/cp_backups",
+        )
 
     try:
-        with get_db_connection() as mydb:
-            _swap_staging_tables_into_place(mydb)
-        logger.info(f"Restore {snapshot_id}: database swap succeeded")
-    except Exception as e:
-        logger.error(f"Restore {snapshot_id}: database swap failed: {e}")
-        extensions.exit_maintenance_mode()
-        return render_template(
-            "errorpage.html",
-            err_message=f"Restore failed during the database swap. A safety backup was taken first (snapshot {safety_snapshot_id}, see the Backups tab).",
-            err_page_from="/cp_backups",
-        )
+        error_response = _execute_confirmed_restore(candidate_image_zip, "the uploaded file")
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
-    try:
-        with zipfile.ZipFile(candidate_image_zip) as zf:
-            zf.extractall(ITEM_IMAGE_FS_DIR)
-        logger.info(f"Restore {snapshot_id}: photo extraction succeeded")
-    except (OSError, zipfile.BadZipFile) as e:
-        logger.error(f"Restore {snapshot_id}: photo extraction failed: {e}")
-        extensions.exit_maintenance_mode()
-        return render_template(
-            "errorpage.html",
-            err_message=f"The database was restored, but restoring photos failed. A safety backup exists (snapshot {safety_snapshot_id}, see the Backups tab).",
-            err_page_from="/cp_backups",
-        )
-
-    extensions.exit_maintenance_mode()
-    logger.info(f"Restore {snapshot_id}: complete")
-
+    if error_response:
+        return error_response
     return redirect(url_for("control_panel.cp_backups"))
 
 

@@ -507,7 +507,7 @@ def _attempt_recovery(source_label, safety_snapshot_id, failed_step):
         logger.error(f"Automatic recovery for {source_label} FAILED: {e}")
         return render_template(
             "errorpage.html",
-            err_message=f"Restore failed during {failed_step}, and automatic recovery also failed. Your data may be in an inconsistent state -- {safety_label} is what to restore manually from the Backups tab, or check the server logs.",
+            err_message=f"Restore failed during {failed_step}. Automatic recovery also failed. Your data may be in an inconsistent state. Restore from {safety_label} on the Backups tab or check the server logs.",
             err_page_from="/cp_backups",
         )
 
@@ -515,7 +515,7 @@ def _attempt_recovery(source_label, safety_snapshot_id, failed_step):
     logger.info(f"Automatic recovery for {source_label} succeeded -- restored {safety_label}")
     return render_template(
         "errorpage.html",
-        err_message=f"Restore failed during {failed_step}, but automatic recovery succeeded -- your data was put back to its state right before this attempt ({safety_label}).",
+        err_message=f"Restore failed. IMPS has put your data and files back to how they were before this attempt (in the restore list as {_snapshot_label(safety_snapshot_id)}).",
         err_page_from="/cp_backups",
     )
 
@@ -618,7 +618,7 @@ def cp_backuprestoreupload():
                 shutil.rmtree(temp_dir, ignore_errors=True)
                 return render_template(
                     "errorpage.html",
-                    err_message=f"That backup's database structure doesn't match this install ({mismatch}). It may be from a different version of IMPS.",
+                    err_message=f"Database structure mismatch ({mismatch}).",
                     err_page_from="/cp_backups",
                 )
 
@@ -702,7 +702,7 @@ def cp_server():
 # this has real cost -- POST keeps this behind the CSRF token.
 @bp.route("/cp_backupnow", methods=["POST"])
 @login_required
-@db_errors(exec_msg="Database logging error during backup configuration storage lifecycle.")
+@db_errors(exec_msg="Database error writing backup.")
 def cp_backupnow():
     snapshot_id, failure = _create_backup_snapshot()
     if failure == "mysqldump":

@@ -119,19 +119,22 @@ CREATE TABLE `items` (
 -- Table structure for table `backup_history`
 --
 -- Tracks the round-robin retention of DB/photo backups created from
--- the control panel (see _record_backup_and_prune() in
--- app/blueprints/control_panel.py).
+-- the control panel (see _record_backup()/_prune_old_snapshots() in
+-- app/blueprints/control_panel.py). One "Backup now" click writes two
+-- rows (backup_type db and image) sharing one snapshot_id.
 --
 
 DROP TABLE IF EXISTS `backup_history`;
 CREATE TABLE `backup_history` (
   `id` int NOT NULL AUTO_INCREMENT,
+  `snapshot_id` varchar(64) NOT NULL,
   `backup_type` enum('db','image') NOT NULL,
   `filename` varchar(512) NOT NULL,
   `backup_date` date NOT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_type_created` (`backup_type`,`created_at`)
+  KEY `idx_type_created` (`backup_type`,`created_at`),
+  KEY `idx_snapshot` (`snapshot_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- No seed rows for backup_history -- a fresh install has no backups yet.

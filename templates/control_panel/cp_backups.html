@@ -6,61 +6,35 @@
 {% include "includes/cp_tabs.html" %}
 
 <div>
-	<h3>Backup photos and/or database</h3>
+	<h3>Back up database and photos</h3>
 </div>
-<div><b>Photos</b>
-	<div>
-		<form action="/cp_photoarchive" method="post">
-		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="imps icon-left backup">
-                Archive photos
-                </button>
-                </form>
-	</div>
-	{% if image_backups %}
-	<div class="backup-grid">
-	<div class="input_div">
-		<a href="{{ image_backups[0][0] }}">
-              	<button type="submit" class="imps icon-only download"></button>
-			Last backup ({{ image_backups[0][1] }})
-		</a>
-	</div>
-	{% for download_url, backup_date in image_backups[1:] %}
-	<div class="input_div">
-		<a href="{{ download_url }}">
-			<button type="submit" class="imps icon-only download"></button>
-			{{ backup_date }}
-		</a>
-	</div>
-	{% endfor %}
-	</div>
+<div>
+	<form action="/cp_backupnow" method="post">
+	<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="imps icon-left backup">
+        Backup now
+        </button>
+        </form>
+</div>
+{% if snapshots %}
+<div class="backup-grid">
+{% for snap in snapshots %}
+<div class="input_div">
+	{{ snap.backup_date }}<br>
+	{% if snap.db_url %}
+	<a href="{{ snap.db_url }}">
+		<button type="button" class="imps icon-only download"></button>
+		Database
+	</a>
+	{% endif %}
+	{% if snap.image_url %}
+	<a href="{{ snap.image_url }}">
+		<button type="button" class="imps icon-only download"></button>
+		Photos
+	</a>
 	{% endif %}
 </div>
-<div><b>Database</b>
-        <div>
-		<form action="/cp_dbbackup" method="post">
-		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="imps icon-left backup">
-                Backup now
-                </button>
-		</form>
-	</div>
-	{% if db_backups %}
-        <div class="backup-grid">
-        <div class="input_div">
-		<a href="{{ db_backups[0][0] }}">
-                <button type="submit" class="imps icon-only download"></button>
-		Last backup ({{ db_backups[0][1] }})</a>
-	</div>
-	{% for download_url, backup_date in db_backups[1:] %}
-	<div class="input_div">
-		<a href="{{ download_url }}">
-			<button type="submit" class="imps icon-only download"></button>
-			{{ backup_date }}
-		</a>
-	</div>
-	{% endfor %}
-	</div>
-	{% endif %}
+{% endfor %}
 </div>
+{% endif %}
 {% endblock %}

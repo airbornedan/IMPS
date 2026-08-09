@@ -1,51 +1,24 @@
 <link rel="stylesheet" href="help.css">
 <h1>Backing Up Your Data</h1>
 <hr>
-<p>As with all software,  it is important to keep IMPS backed up 
-regularly.</p>
-<h2>Backing up photos</h2>
-<p>IMPS can create an archive of all the image files in the item
-   image directory. When you installed or configured IMPS, you set
-   the path to the image storage directory. All image files in this 
-   directory can be archived and downloaded from the control panel.
-<p><b>To back up your item photos:</b></p>
+<p>As with all software, it is important to keep IMPS backed up
+   regularly.</p>
+<p><b>To back up your database and item photos:</b></p>
 <ol>
 <li><img src="/static/images/cp.png" class="help-nav-icon"> From the IMPS home page, click the Control panel (CP) icon.</li>
 <li>Select the <i>Backups</i> tab in the control panel.</li>
-<li>Click <span class="imps icon-left backup">Archive photos</span>.</li>
-<li>IMPS redirects back to this tab once the archive is created, where
-    it now appears at the top of the list. Click its
-    <img src="/static/images/icons/download_icon.png" class="help-icon"> download icon
-    to download the archive onto your local computer.</li>
-    <p class="note"><b>Note:</b> The archive contains all the image
-    files you have stored on IMPS. IMPS automatically keeps the 5
-    most recent photo archives and deletes older ones (both the
-    file and its entry in the Backups tab) once that limit is
-    exceeded. Each of the up-to-5 kept archives is listed with its
-    own download link directly on the <i>Backups</i> tab, not just
-    the single most recent one. You can find these same files in
-    the directory shown in the <b>Backup directory</b> field on the
-    <i>Server</i> tab on the Control panel.</p>
-
-</ol>
-<h2>Backing up the database</h2>
-<p>IMPS has a built-in ability to create a backup of the database. To
-   start a database backup:
-<ol>
-<li><img src="/static/images/cp.png" class="help-nav-icon"> From the IMPS home page, click the Control Panel (CP) icon.</li>
-<li>Click <span class="imps icon-left backup">Backup now</span> to create a backup.</li>
+<li>Click <span class="imps icon-left backup">Backup now</span>.</li>
 <li>IMPS redirects back to this tab once the backup is created, where
     it now appears at the top of the list. Click its
-    <img src="/static/images/icons/download_icon.png" class="help-icon"> download icon
-    to download the backup file to your local computer.</li>
-    <p class="note"><b>Note:</b> The backup contains all the necessary
-    SQL to re-create your database. IMPS automatically keeps the 5
-    most recent database backups and deletes older ones (both the
-    file and its entry in the Backups tab) once that limit is
-    exceeded. Each of the up-to-5 kept backups is listed with its
-    own download link directly on the <i>Backups</i> tab, not just
-    the single most recent one. You can find these same files in
-    the directory shown in the <b>Backup directory</b> field on the
-    <i>Server</i> tab on the Control panel.</p>
+    <img src="/static/images/icons/download_icon.png" class="help-icon"> download icons
+    (one for the database, one for the photos) to download either
+    onto your local computer.</li>
 </ol>
-
+<p class="note"><b>Note:</b> Each backup contains all your item photos
+plus all the SQL needed to re-create your database. IMPS automatically
+keeps the 4 most recent backups and deletes older ones (both the files
+and their entries on the Backups tab) once that limit is exceeded.
+Each kept backup is listed with its own download links directly on
+the <i>Backups</i> tab, not just the most recent one. You can find
+these same files in the directory shown in the <b>Backup directory</b>
+field on the <i>Server</i> tab on the Control panel.</p>

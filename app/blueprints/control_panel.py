@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import time
+from contextlib import suppress
 from datetime import date
 from mysql.connector.errors import IntegrityError
 
@@ -33,62 +34,56 @@ from app.extensions import (
 
 bp = Blueprint("control_panel", __name__)
 
-# How many of the most recent backups to keep per type (db, image)
-# before the oldest gets deleted -- both the DB row and the file on
-# disk. Applies independently to each type.
+# How many of the most recent snapshots (each one db row + one image
+# row, sharing a snapshot_id) to keep before the oldest gets deleted --
+# both DB rows and both files on disk.
 BACKUP_HISTORY_KEEP = 4
 
 
-def _record_backup_and_prune(mydb, backup_type, filename, backup_date):
-    """Insert a new backup_history row for this backup, then delete
-    the oldest row(s)/file(s) beyond BACKUP_HISTORY_KEEP for that same
-    type. Shared by cp_dbbackup and cp_photoarchive so both backup
-    kinds behave identically -- round-robin, newest first, oldest
-    dropped once the cap is exceeded.
-    """
+def _record_backup(mydb, snapshot_id, backup_type, filename, backup_date):
     cursor = mydb.cursor()
     cursor.execute(
-        "INSERT INTO backup_history (backup_type, filename, backup_date) VALUES (%s, %s, %s)",
-        (backup_type, filename, backup_date),
+        "INSERT INTO backup_history (snapshot_id, backup_type, filename, backup_date) VALUES (%s, %s, %s, %s)",
+        (snapshot_id, backup_type, filename, backup_date),
     )
     cursor.close()
 
+
+def _prune_old_snapshots(mydb):
+    """Deletes every row/file for any snapshot beyond the most recent
+    BACKUP_HISTORY_KEEP, grouped by snapshot_id."""
     cursor = mydb.cursor()
     cursor.execute(
         """
-        SELECT id, filename FROM backup_history
-        WHERE backup_type = %s
-        ORDER BY created_at DESC, id DESC
-        """,
-        (backup_type,),
+        SELECT snapshot_id FROM backup_history
+        GROUP BY snapshot_id
+        ORDER BY MAX(created_at) DESC
+        """
     )
-    all_rows = cursor.fetchall()
+    all_snapshot_ids = [row[0] for row in cursor.fetchall()]
     cursor.close()
 
-    stale_rows = all_rows[BACKUP_HISTORY_KEEP:]
-    for stale_id, stale_filename in stale_rows:
-        # Best effort file removal. If file can't be deleted, clean DB
-        # row anyway. stale_filename is from backup_history.filename at
-        # backup time, an absolute path from IMPS_DIR in extensions.py.
-        # Working directory independent.
-        try:
-            os.remove(stale_filename)
-        except OSError as e:
-            logger.error(f"Could not remove stale backup file '{stale_filename}': {e}")
-
+    for stale_snapshot_id in all_snapshot_ids[BACKUP_HISTORY_KEEP:]:
         cursor = mydb.cursor()
-        cursor.execute("DELETE FROM backup_history WHERE id = %s", (stale_id,))
+        cursor.execute(
+            "SELECT id, filename FROM backup_history WHERE snapshot_id = %s",
+            (stale_snapshot_id,),
+        )
+        stale_rows = cursor.fetchall()
         cursor.close()
 
+        for stale_id, stale_filename in stale_rows:
+            # Best effort file removal. If file can't be deleted, clean
+            # DB row anyway. stale_filename is an absolute path
+            # (IMPS_DIR in extensions.py), working directory independent.
+            try:
+                os.remove(stale_filename)
+            except OSError as e:
+                logger.error(f"Could not remove stale backup file '{stale_filename}': {e}")
 
-def _backup_rows_for_template(rows):
-    """Converts (filesystem_path, backup_date) rows from
-    backup_history into (download_url, backup_date) pairs for the
-    template. See cp_downloadbackup() below."""
-    return [
-        (url_for("control_panel.cp_downloadbackup", filename=os.path.basename(filename)), backup_date)
-        for filename, backup_date in rows
-    ]
+            cursor = mydb.cursor()
+            cursor.execute("DELETE FROM backup_history WHERE id = %s", (stale_id,))
+            cursor.close()
 
 
 ########################################################################
@@ -111,44 +106,56 @@ def cp_landing():
 def cp_backups():
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### READ THE MOST RECENT BACKUP_HISTORY_KEEP ROWS PER BACKUP
-        ### TYPE, NEWEST FIRST. Empty is valid (fresh install, no
-        ### backups yet), not an error. Template shows no "last
-        ### backup" link in that case.
+        ### FIND THE MOST RECENT BACKUP_HISTORY_KEEP SNAPSHOT_IDS
         cursor = mydb.cursor()
         cursor.execute(
             """
-            SELECT filename, backup_date FROM backup_history
-            WHERE backup_type = 'db'
-            ORDER BY created_at DESC, id DESC
+            SELECT snapshot_id FROM backup_history
+            GROUP BY snapshot_id
+            ORDER BY MAX(created_at) DESC
             LIMIT %s
             """,
             (BACKUP_HISTORY_KEEP,),
         )
-        db_backups = cursor.fetchall()
+        recent_snapshot_ids = [row[0] for row in cursor.fetchall()]
         cursor.close()
 
-        cursor = mydb.cursor()
-        cursor.execute(
-            """
-            SELECT filename, backup_date FROM backup_history
-            WHERE backup_type = 'image'
-            ORDER BY created_at DESC, id DESC
-            LIMIT %s
-            """,
-            (BACKUP_HISTORY_KEEP,),
-        )
-        image_backups = cursor.fetchall()
-        cursor.close()
+        ### FETCH EVERY ROW BELONGING TO THOSE SNAPSHOTS. Empty is
+        ### valid (fresh install, no backups yet), not an error.
+        rows = []
+        if recent_snapshot_ids:
+            placeholders = ", ".join(["%s"] * len(recent_snapshot_ids))
+            cursor = mydb.cursor()
+            cursor.execute(
+                f"""
+                SELECT snapshot_id, backup_type, filename, backup_date
+                FROM backup_history
+                WHERE snapshot_id IN ({placeholders})
+                ORDER BY backup_date DESC, snapshot_id DESC
+                """,
+                tuple(recent_snapshot_ids),
+            )
+            rows = cursor.fetchall()
+            cursor.close()
 
-    ### CONVERT STORED PATHS TO DOWNLOAD URLS
-    db_backups = _backup_rows_for_template(db_backups)
-    image_backups = _backup_rows_for_template(image_backups)
+    ### GROUP ROWS BACK INTO ONE ENTRY PER SNAPSHOT, EACH WITH A
+    ### DOWNLOAD URL FOR WHICHEVER OF db/image IT HAS. Older, unpaired
+    ### rows (from before snapshots existed) just end up with one side
+    ### blank -- see migrate_backup_snapshot_column.sh.
+    snapshots_by_id = {}
+    snapshot_order = []
+    for snapshot_id, backup_type, filename, backup_date in rows:
+        if snapshot_id not in snapshots_by_id:
+            snapshots_by_id[snapshot_id] = {"backup_date": backup_date, "db_url": None, "image_url": None}
+            snapshot_order.append(snapshot_id)
+        download_url = url_for("control_panel.cp_downloadbackup", filename=os.path.basename(filename))
+        snapshots_by_id[snapshot_id][f"{backup_type}_url"] = download_url
+
+    snapshots = [snapshots_by_id[snapshot_id] for snapshot_id in snapshot_order]
 
     return render_template(
         "control_panel/cp_backups.html",
-        db_backups=db_backups,
-        image_backups=image_backups,
+        snapshots=snapshots,
     )
 
 
@@ -183,20 +190,22 @@ def cp_server():
 
 
 ########################################################################
+### BACK UP DATABASE + PHOTOS TOGETHER, UNDER ONE SHARED SNAPSHOT_ID
 # SECURITY: POST-only. GET routes are exempt from CSRFProtect, and
-# mysqldump has real cost -- POST keeps this behind the CSRF token.
-@bp.route("/cp_dbbackup", methods=["POST"])
+# this has real cost -- POST keeps this behind the CSRF token.
+@bp.route("/cp_backupnow", methods=["POST"])
 @login_required
 @db_errors(exec_msg="Database logging error during backup configuration storage lifecycle.")
-def cp_dbbackup():
-    ### START BACKUP PROCESS
-    backup_time = str(time.time())
-    backup_file = os.path.join(BACKUP_DIR, f"{extensions.dbname}-{backup_time}.sql")
+def cp_backupnow():
+    snapshot_id = str(time.time())
+    today = str(date.today())
 
+    ### DUMP THE DATABASE
     # Runs mysqldump directly (no shell), explicit argument list --
     # shell-metacharacter injection isn't possible. Password passed via
     # MYSQL_PWD env var, not the command line, since command-line args
     # are visible to other local processes via `ps`/`/proc`.
+    backup_file = os.path.join(BACKUP_DIR, f"{extensions.dbname}-{snapshot_id}.sql")
     dump_env = os.environ.copy()
     dump_env["MYSQL_PWD"] = extensions.dbpass
 
@@ -210,49 +219,35 @@ def cp_dbbackup():
                 check=True,
             )
     except (subprocess.CalledProcessError, OSError) as e:
-        logger.error(f"mysqldump failed in cp_dbbackup: {e}")
+        logger.error(f"mysqldump failed in cp_backupnow: {e}")
         return render_template(
             "errorpage.html",
             err_message="Backup failed. Could not run mysqldump.",
             err_page_from="/",
         )
 
-    today = str(date.today())
+    ### ARCHIVE THE PHOTOS. If this fails, the dump above is orphaned
+    ### (no image half to pair it with) -- delete it rather than leave
+    ### a half-snapshot behind.
+    archive_base = os.path.join(BACKUP_DIR, f"imps_imagearchive.{snapshot_id}")
+    try:
+        shutil.make_archive(archive_base, "zip", ITEM_IMAGE_FS_DIR)
+    except OSError as e:
+        logger.error(f"Photo archive failed in cp_backupnow: {e}")
+        with suppress(OSError):
+            os.remove(backup_file)
+        return render_template(
+            "errorpage.html",
+            err_message="Backup failed. Could not archive photos.",
+            err_page_from="/",
+        )
+    archive_file = f"{archive_base}.zip"
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### RECORD IN ROUND-ROBIN HISTORY (KEEPS MOST RECENT
-        ### BACKUP_HISTORY_KEEP, PRUNES OLDER: DB ROW AND FILE)
-        _record_backup_and_prune(mydb, "db", backup_file, today)
-
-    ### REDIRECT TO THE BACKUPS TAB
-    return redirect(url_for("control_panel.cp_backups"))
-
-
-########################################################################
-### CREATE PHOTO ARCHIVE AND LOG TO DB
-# SECURITY: POST-only, same reasoning as cp_dbbackup above.
-@bp.route("/cp_photoarchive", methods=["POST"])
-@login_required
-@db_errors(exec_msg="Database logging error during image compression archiving lifecycle.")
-def cp_photoarchive():
-    ### CREATE AN ARCHIVE OF PHOTOS (SYSTEM FILE IO)
-    today = str(date.today())
-    # Time component, not just date: same-day archiving produces
-    # distinct files instead of overwriting. Needed since
-    # BACKUP_HISTORY_KEEP keeps several archives in rotation.
-    archive_file = os.path.join(BACKUP_DIR, f"imps_imagearchive.{today}-{time.time()}")
-    archive_start_location = ITEM_IMAGE_FS_DIR
-    shutil.make_archive(archive_file, "zip", archive_start_location)
-
-    ### ADD EXTENSION TO FILENAME FOR DB WRITE
-    archive_file = f"{archive_file}.zip"
-
-    # Fetch an active, thread-safe connection from the pool
-    with get_db_connection() as mydb:
-        ### RECORD IN ROUND-ROBIN HISTORY (KEEPS MOST RECENT
-        ### BACKUP_HISTORY_KEEP, PRUNES OLDER: DB ROW AND FILE)
-        _record_backup_and_prune(mydb, "image", archive_file, today)
+        _record_backup(mydb, snapshot_id, "db", backup_file, today)
+        _record_backup(mydb, snapshot_id, "image", archive_file, today)
+        _prune_old_snapshots(mydb)
 
     ### REDIRECT TO THE BACKUPS TAB
     return redirect(url_for("control_panel.cp_backups"))

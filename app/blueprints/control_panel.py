@@ -2,13 +2,15 @@
 ### CONTROL PANEL BLUEPRINT — ADMIN: CATEGORIES, LOCATIONS, BACKUPS,
 ### ORPHANED PHOTO CLEANUP, VIEW/COLUMN PREFERENCES
 ########################################################################
-from flask import Blueprint, request, render_template, redirect, url_for, make_response, send_from_directory
+from flask import Blueprint, request, render_template, redirect, url_for, make_response, send_file
 import os
 import shutil
 import subprocess
 import time
+import zipfile
 from contextlib import suppress
 from datetime import date
+from io import BytesIO
 from mysql.connector.errors import IntegrityError
 
 from app import extensions
@@ -106,52 +108,27 @@ def cp_landing():
 def cp_backups():
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### FIND THE MOST RECENT BACKUP_HISTORY_KEEP SNAPSHOT_IDS
         cursor = mydb.cursor()
         cursor.execute(
             """
-            SELECT snapshot_id FROM backup_history
+            SELECT snapshot_id, MAX(backup_date)
+            FROM backup_history
             GROUP BY snapshot_id
             ORDER BY MAX(created_at) DESC
             LIMIT %s
             """,
             (BACKUP_HISTORY_KEEP,),
         )
-        recent_snapshot_ids = [row[0] for row in cursor.fetchall()]
+        rows = cursor.fetchall()
         cursor.close()
 
-        ### FETCH EVERY ROW BELONGING TO THOSE SNAPSHOTS. Empty is
-        ### valid (fresh install, no backups yet), not an error.
-        rows = []
-        if recent_snapshot_ids:
-            placeholders = ", ".join(["%s"] * len(recent_snapshot_ids))
-            cursor = mydb.cursor()
-            cursor.execute(
-                f"""
-                SELECT snapshot_id, backup_type, filename, backup_date
-                FROM backup_history
-                WHERE snapshot_id IN ({placeholders})
-                ORDER BY backup_date DESC, snapshot_id DESC
-                """,
-                tuple(recent_snapshot_ids),
-            )
-            rows = cursor.fetchall()
-            cursor.close()
-
-    ### GROUP ROWS BACK INTO ONE ENTRY PER SNAPSHOT, EACH WITH A
-    ### DOWNLOAD URL FOR WHICHEVER OF db/image IT HAS. Older, unpaired
-    ### rows (from before snapshots existed) just end up with one side
-    ### blank -- see migrate_backup_snapshot_column.sh.
-    snapshots_by_id = {}
-    snapshot_order = []
-    for snapshot_id, backup_type, filename, backup_date in rows:
-        if snapshot_id not in snapshots_by_id:
-            snapshots_by_id[snapshot_id] = {"backup_date": backup_date, "db_url": None, "image_url": None}
-            snapshot_order.append(snapshot_id)
-        download_url = url_for("control_panel.cp_downloadbackup", filename=os.path.basename(filename))
-        snapshots_by_id[snapshot_id][f"{backup_type}_url"] = download_url
-
-    snapshots = [snapshots_by_id[snapshot_id] for snapshot_id in snapshot_order]
+    snapshots = [
+        {
+            "backup_date": backup_date,
+            "download_url": url_for("control_panel.cp_downloadsnapshot", snapshot_id=snapshot_id),
+        }
+        for snapshot_id, backup_date in rows
+    ]
 
     return render_template(
         "control_panel/cp_backups.html",
@@ -254,36 +231,52 @@ def cp_backupnow():
 
 
 ########################################################################
-### DOWNLOAD A BACKUP FILE
-# SECURITY: filename is client-supplied. Never joined onto BACKUP_DIR
-# without the os.path.basename() check below, and must match a row in
-# backup_history.
-@bp.route("/cp_downloadbackup/<filename>")
+### DOWNLOAD A SNAPSHOT -- SQL + PHOTOS ZIPPED TOGETHER ON REQUEST
+# SECURITY: snapshot_id is client-supplied, but only ever used as a
+# lookup key against backup_history -- never joined onto BACKUP_DIR
+# directly. The filenames that do get opened come from that row, not
+# from the request.
+@bp.route("/cp_downloadsnapshot/<snapshot_id>")
 @login_required
-@db_errors(exec_msg="Database error when verifying backup file.")
-def cp_downloadbackup(filename):
-    if os.path.basename(filename) != filename:
-        return render_template(
-            "errorpage.html",
-            err_message="Invalid backup filename.",
-            err_page_from="/cp_backups",
-        )
-
+@db_errors(exec_msg="Database error when verifying backup snapshot.")
+def cp_downloadsnapshot(snapshot_id):
     with get_db_connection() as mydb:
         cursor = mydb.cursor()
-        cursor.execute("SELECT filename FROM backup_history")
-        all_paths = cursor.fetchall()
+        cursor.execute(
+            "SELECT backup_type, filename, backup_date FROM backup_history WHERE snapshot_id = %s",
+            (snapshot_id,),
+        )
+        rows = cursor.fetchall()
         cursor.close()
 
-    known_basenames = {os.path.basename(path) for (path,) in all_paths}
-    if filename not in known_basenames:
+    if not rows:
         return render_template(
             "errorpage.html",
             err_message="That backup no longer exists.",
             err_page_from="/cp_backups",
         )
 
-    return send_from_directory(BACKUP_DIR, filename, as_attachment=True)
+    files_by_type = {backup_type: filename for backup_type, filename, _ in rows}
+    backup_date = rows[0][2]
+
+    ### BUILD THE COMBINED ZIP IN MEMORY. The photo archive is already
+    ### a zip -- stored, not re-deflated, so it isn't recompressed.
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as combined:
+        db_file = files_by_type.get("db")
+        if db_file and os.path.isfile(db_file):
+            combined.write(db_file, arcname="database.sql")
+        image_file = files_by_type.get("image")
+        if image_file and os.path.isfile(image_file):
+            combined.write(image_file, arcname="photos.zip", compress_type=zipfile.ZIP_STORED)
+    zip_buffer.seek(0)
+
+    return send_file(
+        zip_buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"imps_backup_{backup_date}.zip",
+    )
 
 
 ########################################################################

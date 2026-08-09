@@ -17,24 +17,23 @@
         </form>
 </div>
 {% if snapshots %}
-<div class="backup-grid">
+<div class="item_display_table">
+<span class="table_head">
+	<span class="table_label">Date</span>
+	<span class="table_label"></span>
+</span>
+<span class="table_body">
 {% for snap in snapshots %}
-<div class="input_div">
-	{{ snap.backup_date }}<br>
-	{% if snap.db_url %}
-	<a href="{{ snap.db_url }}">
-		<button type="button" class="imps icon-only download"></button>
-		Database
-	</a>
-	{% endif %}
-	{% if snap.image_url %}
-	<a href="{{ snap.image_url }}">
-		<button type="button" class="imps icon-only download"></button>
-		Photos
-	</a>
-	{% endif %}
-</div>
+	<div class="table_row">
+		<div class="table_cell">{{ snap.backup_date }}</div>
+		<div class="table_cell">
+			<a href="{{ snap.download_url }}">
+				<button type="button" class="imps icon-left download">Download</button>
+			</a>
+		</div>
+	</div>
 {% endfor %}
+</span>
 </div>
 {% endif %}
 {% endblock %}

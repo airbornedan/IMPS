@@ -6,7 +6,15 @@ import ipaddress
 
 from flask import Flask, request, session, render_template
 
-from app.extensions import ITEM_IMAGE_DIR, FLASK_SECRET_KEY, csrf, limiter, route_to_help_topic, logger
+from app.extensions import (
+    ITEM_IMAGE_DIR,
+    FLASK_SECRET_KEY,
+    INSTANCE_LABEL,
+    csrf,
+    limiter,
+    route_to_help_topic,
+    logger,
+)
 from app import extensions
 
 ########################################################################
@@ -138,6 +146,13 @@ def create_app():
         if request.url_rule:
             topic = route_to_help_topic(request.url_rule.rule)
         return {"help_topic": topic}
+
+    ####################################################################
+    ### INSTANCE LABEL (see INSTANCE_LABEL in app/extensions.py)
+    ####################################################################
+    @app.context_processor
+    def inject_instance_label():
+        return {"instance_label": INSTANCE_LABEL}
 
     ####################################################################
     ### "LAST LIST VIEW" TRACKING (see LIST_VIEW_ENDPOINTS above)

@@ -40,6 +40,13 @@ backup_dir = "static/backup"
 # Settings for the IMPS app
 password = "imps"
 
+[instance]
+# Optional. Shown next to "IMPS" in the page header and browser tab
+# title -- useful for telling installs apart at a glance when more
+# than one is running (a demo, a real install, a disposable test
+# VM, etc.). Leave blank, or omit this whole section, for no label.
+label = ""
+
 # [rate_limit]
 # Optional. Controls where login-attempt counts (see app/blueprints/auth.py)
 # are tracked. Uncomment and set this if IMPS is served by more than one

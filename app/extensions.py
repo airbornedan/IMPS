@@ -56,6 +56,13 @@ dbpass = imps_config["database"]["password"]
 IMPS_DIR = imps_config["directories"]["imps_dir"]
 IMPS_IP = imps_config["directories"]["imps_ip"]
 
+### INSTANCE LABEL -- optional, shown next to "IMPS" in the page header
+### and browser tab title (see inject_instance_label() in app/__init__.py)
+### so it's obvious at a glance which install this is when more than one
+### is running. Blank/omitted shows nothing. Not part of the setup
+### wizard -- toml-only, same as [access]/[rate_limit] below.
+INSTANCE_LABEL = imps_config.get("instance", {}).get("label", "")
+
 ### ITEM_IMAGE_DIR HAS TWO JOBS, SO IT NEEDS TWO FORMS. The toml value
 ### (e.g. "static/images/items/") is a plain path relative to
 ### IMPS_DIR, same convention as backup_dir below. Templates use it as

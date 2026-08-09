@@ -1,6 +1,6 @@
 <!DOCTYPE html>
    <head>
-      <title>IMPS</title>
+      <title>IMPS{% if instance_label %} &mdash; {{ instance_label }}{% endif %}</title>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/tinysort/3.2.8/tinysort.min.js" integrity="sha512-P3lisBxY1PusizpelihVrBeciBfWA9r7Ff/8j16b4K399OWJIrY1UdzdE7/BctqKv6Xujr8hp3IA2XiQX3Bsew==" crossorigin="anonymous" referrerpolicy="no-referrer">
            </script>
      <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
@@ -56,7 +56,7 @@
 <!-- end context-sensitive help -->
 
 <div id="container">
-       <div-1><a href="/" style="font-size: 24px; font-weight:bold">IMPS</a></div>
+       <div-1><a href="/" style="font-size: 24px; font-weight:bold">IMPS</a>{% if instance_label %} <span style="font-size: 13px; font-weight: bold; color: #a40000;">{{ instance_label }}</span>{% endif %}</div>
        <div-2><a href="/"><img src="/static/images/imp.png" height="80px;" width="120px;"></a></div> 
        <div-3><span class="header_sub">Inventory Management Photo System</span></div>
 </div>

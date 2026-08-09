@@ -363,7 +363,7 @@ p.note {
    need for the wide first-child default width. */
 .table_label-actions,
 .table_cell-actions {
-  width: 1%;
+  width: 62px;
   white-space: nowrap;
   text-align: center;
 }

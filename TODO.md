@@ -7,22 +7,24 @@ relevant) when it's resolved -- git history covers the rest.
 ## Inbox
 - restore from backups -- UI entry point is wired up (Restore button
   on cp_backups.html -> /cp_backuprestore, currently a placeholder page).
-  The actual engine is not built. Design decisions already made:
-  - clicking Restore always leads to a real confirm PAGE (not the
-    confirm_modal.html component -- too much content for it), showing
-    a before/after comparison (current item/box counts vs. the
-    backup's), not just a bare "are you sure"
-  - NOT a scratch database -- box_user's grant (deploy/db_setup.py) is
-    deliberately scoped to box_db.* only, no CREATE DATABASE. Instead:
-    stage inside box_db itself, using prefixed tables (e.g.
-    restore_staging_items, restore_staging_boxes) built from the
-    candidate SQL with its CREATE TABLE/INSERT INTO statements
-    rewritten to those names. Validate + compute before/after counts
-    against the staging tables, then swap into place with one atomic
-    RENAME TABLE once confirmed. No privilege change, no root password
-    prompt anywhere in the running app.
-  - maintenance mode (already built, see app/extensions.py) wraps the
-    actual swap
+  Engine progress (app/blueprints/control_panel.py):
+  - DONE: rewrite_dump_for_staging() -- rewrites a candidate .sql dump
+    (categories/locations/boxes/items -> restore_staging_*, FK
+    CONSTRAINT names too, backup_history dropped entirely). Verified
+    against real backups from the demo box.
+  - DONE: _swap_staging_tables_into_place() -- atomic RENAME TABLE
+    promotes staging tables into place, drops the old ones, repairs FK
+    constraint names back to canonical. Verified end-to-end on the
+    live MariaDB test container: staged a real "items deleted" backup
+    over a real full backup, exact item/box match, working FK joins,
+    backup_history untouched, and a second restore back to the
+    original with no leftover-state collision.
+  - NOT DONE: computing the before/after diff counts from the staged
+    tables for the confirm page; the confirm page itself (real page,
+    not confirm_modal.html -- too much content for that component);
+    wiring cp_backuprestore up to actually call this engine; the
+    upload path; maintenance mode (already built separately, see
+    app/extensions.py) isn't yet wired around the real swap call
   - upload step: uploaded file is the combined zip (database.sql +
     photos.zip) from cp_snapshotdownload -- unzip that outer layer
     first to get back the two separate pieces before anything else

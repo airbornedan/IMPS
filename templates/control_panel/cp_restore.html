@@ -1,16 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="page_title">Control Panel</p>
-
+{% set sub_title = "Restore from backup" %}
 {% set active_tab = 'Backups' %}
-{% include "includes/cp_tabs.html" %}
-
-<div>
-	<h3>Restore from backup</h3>
-</div>
+{% set tab_label = "Backups" %}
+{% set back_url = "/cp_backups" %}
+{% include "includes/cp_tab_subheader.html" %}
 <p>Restoring isn't built yet -- this is a placeholder for the button's
 final destination.</p>
-<a href="/cp_backups">
-	<button type="button" class="imps icon-left back">Back</button>
-</a>
 {% endblock %}

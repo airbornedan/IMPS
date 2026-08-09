@@ -82,7 +82,7 @@
          	</div>
                 {% endif %}
                 {% if cat_column != 'False' %}
-         	<div class="table_cell table_cell-cat" style="background-color:#eee">
+         	<div class="table_cell table_cell-cat">
          		{% if item_cat|length > 20 %}
          		<div class="tooltip">
          			{{ item_cat | truncate(20) }}
@@ -131,6 +131,6 @@
 	<span id="batchActionBarLabel">0 selected</span>
 	<span>
 		<button type="button" class="imps icon-left cancel" id="batchCancelBtn">Cancel</button>
-		<button type="button" class="imps icon-left trash" id="batchDeleteBtn">Delete selected</button>
+		<button type="button" class="imps icon-left trash" id="batchDeleteBtn">Delete selected&hellip;</button>
 	</span>
 </div>

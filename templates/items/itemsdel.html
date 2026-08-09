@@ -7,7 +7,7 @@
 <input type="hidden" name="back_url" value="{{ back_url or '' }}">
 
 <button type="submit" class="imps icon-left trash">All</button>
-<a href="{{ back_url or '/' }}"><button type="button" class="imps icon-left cancel">Back</button></a>
+<a href="{{ back_url or '/' }}"><button type="button" class="imps icon-left back">Back</button></a>
 
 <div class="item_display_table" id="itemsdel_table">
 <span class="table_head">
@@ -42,7 +42,7 @@
 <p id="itemsdel_empty" style="display:none;">Nothing left to delete &mdash; returning to inventory&hellip;</p>
 
 <button type="submit" class="imps icon-left trash">All</button>
-<a href="{{ back_url or '/' }}"><button type="button" class="imps icon-left cancel">Back</button></a>
+<a href="{{ back_url or '/' }}"><button type="button" class="imps icon-left back">Back</button></a>
 
 <script>
 (function () {

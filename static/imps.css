@@ -355,6 +355,10 @@ p.note {
   width: 140px;
 }
 
+.table_cell-cat {
+  background-color: #eee;
+}
+
 /* Only truncated category cells get wrapped in .tooltip (see
    includeitemlist.html); this gives that case a pointer cursor. */
 .table_cell-cat .tooltip {
@@ -1033,9 +1037,20 @@ input[name="file"] {
 	background-color: #ccc;
 }
 
+/* .table_cell-cat carries its own background-color, which otherwise
+   paints over the row's picked background -- every other cell has no
+   background of its own, so the row color already shows through
+   those without this override. */
+.table_row.picked .table_cell-cat {
+	background-color: #ccc;
+}
+
+/* right offset is set from JS to track #itemdisplaytable's own right
+   edge (see alignActionBar() in multiselect_delete.js) -- the value
+   here is only what shows before that first runs. */
 .batch-action-bar {
 	position: fixed;
-	left: 50%;
+	right: 24px;
 	bottom: 24px;
 	z-index: 10;
 	display: flex;
@@ -1050,14 +1065,14 @@ input[name="file"] {
 	font-size: 14px;
 	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 	opacity: 0;
-	transform: translate(-50%, 10px);
-	transition: opacity 160ms ease, transform 160ms ease;
+	transform: translateY(10px);
+	transition: opacity 160ms ease, transform 160ms ease, right 120ms ease;
 	pointer-events: none;
 }
 
 .batch-action-bar.visible {
 	opacity: 1;
-	transform: translate(-50%, 0);
+	transform: translateY(0);
 	pointer-events: auto;
 }
 

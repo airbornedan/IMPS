@@ -2,7 +2,7 @@
 // A plain click on a trash icon is untouched -- it still submits that
 // row's own single-item form to /itemdel/<item_num> as always. Ctrl/Cmd-
 // click instead marks the row as picked and adds it to a pending batch,
-// with no navigation and no server round trip until "Delete selected"
+// with no navigation and no server round trip until "Delete selected..."
 // is actually clicked.
 //
 // Desktop only by design -- there's no touch equivalent of a modifier
@@ -22,11 +22,25 @@
 	var batchForm = document.getElementById("batchDeleteForm");
 	var cancelBtn = document.getElementById("batchCancelBtn");
 	var deleteBtn = document.getElementById("batchDeleteBtn");
+	var table = document.getElementById("itemdisplaytable");
+
+	// Right-aligns the action bar with the item table's own right edge
+	// instead of the viewport center -- otherwise it reads as floating
+	// over the page rather than belonging to the table, especially on
+	// a wide window where the table doesn't span the full width.
+	function alignActionBar() {
+		if (!actionBar || !table) {
+			return;
+		}
+		var gap = window.innerWidth - table.getBoundingClientRect().right;
+		actionBar.style.right = Math.max(gap, 0) + "px";
+	}
 
 	function refreshActionBar() {
 		if (!actionBar) {
 			return;
 		}
+		alignActionBar();
 		actionBarLabel.textContent = picked.size + " selected";
 		actionBar.classList.toggle("visible", picked.size > 0);
 	}
@@ -83,4 +97,7 @@
 			batchForm.submit();
 		});
 	}
+
+	window.addEventListener("resize", alignActionBar);
+	alignActionBar();
 })();

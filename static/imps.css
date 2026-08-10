@@ -712,7 +712,7 @@ p.note {
 }
 
 .imps:disabled {
-	opacity: 0.5;
+	opacity: 0.3;
 }
 
 /* Icon+text buttons -- reserves room on the left for the icon image

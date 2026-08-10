@@ -77,3 +77,7 @@ git_token
 # Personal backlog (see .claude/commands/btw.md) -- dev-machine-only,
 # same reasoning as deploy/tools/: shouldn't ship to the demo/Pi.
 TODO.md
+
+# Design source files -- not part of the app, not deploy tooling
+# either, just source material (icon vector sheets, etc.)
+design/

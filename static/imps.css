@@ -1117,6 +1117,13 @@ input[name="file"] {
 	pointer-events: auto;
 }
 
+/* .imps:disabled's 0.3 opacity is tuned for white backgrounds
+   everywhere else it's used -- too faint against this bar's black.
+   Scoped override, doesn't touch the shared rule. */
+.batch-action-bar .imps:disabled {
+	opacity: 0.7;
+}
+
 /* ================================================================
    BOOTSTRAP-LITE UTILITY CLASSES
    ================================================================

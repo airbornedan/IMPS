@@ -700,7 +700,7 @@ p.note {
 	display: inline-block;
 	font-size: 14px;
 	font-weight: bold;
-	height: 42px;
+	height: 46px;
 	line-height: 0px;
 	margin-bottom: 5px;
 	margin-top: 5px;
@@ -732,11 +732,11 @@ p.note {
 }
 
 /* Icon-only buttons -- fixed square, centered icon, no reserved text
-   space. Deliberately does NOT redeclare border-radius -- it inherits
-   the same 7px every other button uses. */
+   space. Deliberately does NOT redeclare border-radius or height --
+   inherits the same 7px radius and 46px height every other button
+   uses. */
 .imps.icon-only {
 	background-position: center;
-	height: 46px;
 	width: 46px;
 	min-width: 0;
 	padding: 8px;

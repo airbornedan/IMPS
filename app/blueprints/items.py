@@ -1024,7 +1024,7 @@ def itemsdeleted():
 
 ########################################################################
 ### BATCH RECATEGORIZE -- no confirm page, the floating bar's picker
-### is the confirm step. Applies directly.
+### is the confirm step.
 @bp.route("/itemsrecat", methods=["POST"])
 @login_required
 @db_errors(
@@ -1116,9 +1116,8 @@ def itemsboxmove():
 
     with get_db_connection() as mydb:
         ### VERIFY THE DESTINATION BOX EXISTS -- the FK would catch
-        ### this too, but a clean rejection here beats a raw
-        ### IntegrityError. The client-side picker already only
-        ### offers real box numbers; this covers a stale/direct POST.
+        ### it too, but this gives a clean rejection instead of a raw
+        ### IntegrityError.
         cursor = mydb.cursor()
         cursor.execute("SELECT 1 FROM boxes WHERE box_num = %s", (new_box_num,))
         box_exists = cursor.fetchone()

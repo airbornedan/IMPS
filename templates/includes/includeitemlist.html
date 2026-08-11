@@ -37,7 +37,7 @@
     {%- set item_date = item.item_date %}
     {%- set item_cat = item.item_cat %}
     {%- set item_desc = item.item_desc %}
-    	<div class= "table_row">
+    	<div class= "table_row" data-item-num="{{item_num}}">
         	<div class= "table_cell">
 			<a href="/itemdetail/{{item_num}}" style="font-weight:normal;" onmouseover="this.style.color='black';" onmouseout="this.style.color='';">
 
@@ -82,7 +82,7 @@
          	</div>
                 {% endif %}
                 {% if cat_column != 'False' %}
-         	<div class="table_cell table_cell-cat">
+         	<div class="table_cell table_cell-cat actionable" data-batch-action="cat">
          		{% if item_cat|length > 20 %}
          		<div class="tooltip">
          			{{ item_cat | truncate(20) }}
@@ -94,7 +94,7 @@
          	</div>
                 {% endif %}
                 {% if box_column != 'False' %}
-         	<div class="table_cell">  
+         	<div class="table_cell actionable" data-batch-action="box">
             		{{ box_num }}
          	</div>
                 {% endif %}
@@ -111,8 +111,8 @@
          	<div class="table_cell"> 
             		<div>
 			<form action="/itemdel/{{item_num}}">
-                  		<button type="submit" id="del_submit_button_{{loop.index}}" 
-					class="imps icon-only trash" data-item-num="{{item_num}}">
+                  		<button type="submit" id="del_submit_button_{{loop.index}}"
+					class="imps icon-only trash" data-batch-action="delete">
                      		</button>
             		</form>
 			</div>
@@ -126,11 +126,33 @@
 <form action="/itemsdel" method="post" id="batchDeleteForm">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 </form>
+<form action="/itemsrecat" method="post" id="batchRecatForm">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+<form action="/itemsboxmove" method="post" id="batchBoxMoveForm">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
 
 <div class="batch-action-bar" id="batchActionBar">
-	<span id="batchActionBarLabel">0 selected</span>
-	<span>
-		<button type="button" class="imps icon-left cancel" id="batchCancelBtn">Cancel</button>
-		<button type="button" class="imps icon-left trash" id="batchDeleteBtn">Delete selected&hellip;</button>
+	<span id="batchCount">0 selected</span>
+
+	<button type="button" class="imps icon-left trash" id="batchDeleteBtn" style="display:none;">Delete selected&hellip;</button>
+
+	<span id="batchBoxPicker" class="batch-picker" style="display:none;">
+		<label for="batchBoxNum">to Box</label>
+		<input type="text" id="batchBoxNum" size="3" autocomplete="off">
 	</span>
+	<button type="button" class="imps icon-only box_closed" id="batchBoxMoveBtn" title="Move" disabled style="display:none;"></button>
+
+	<span id="batchCatPicker" class="batch-picker" style="display:none;">
+		<label for="batchCatName">to Category</label>
+		<input type="text" id="batchCatName" autocomplete="off">
+	</span>
+	<button type="button" class="imps icon-only list" id="batchRecatBtn" title="Recategorize" disabled style="display:none;"></button>
+
+	<button type="button" class="batch-cancel" id="batchCancelBtn" title="Cancel">&times;</button>
 </div>
+
+<script>
+window.IMPS_AVAILABLE_BOXES = {{ available_boxes|default([])|tojson }};
+</script>

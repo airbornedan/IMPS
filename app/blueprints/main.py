@@ -17,6 +17,7 @@ from app.extensions import (
     get_items_per_page,
     get_offset_for_page,
     InvalidPageError,
+    get_available_boxes,
 )
 from app.sample_data import install_sample_data
 
@@ -265,6 +266,7 @@ def search_result(query_term):
             date_column=date_column,
             cat_column=cat_column,
             box_column=box_column,
+            available_boxes=get_available_boxes(),
         )
     )
     return response

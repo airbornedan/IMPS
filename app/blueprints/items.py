@@ -36,6 +36,8 @@ from app.extensions import (
     MAX_ITEM_DESC_LENGTH,
     get_or_create_cat_num,
     touch_box_last_changed,
+    parse_int,
+    get_available_boxes,
 )
 
 bp = Blueprint("items", __name__)
@@ -694,6 +696,7 @@ def itemsbycategory(category):
         date_column=date_column,
         cat_column=cat_column,
         box_column=box_column,
+        available_boxes=get_available_boxes(),
     )
 
 
@@ -1015,3 +1018,145 @@ def itemsdeleted():
         deleted_count=len(rows),
         back_url=back_url,
     )
+
+
+########################################################################
+### BATCH RECATEGORIZE -- no confirm page, the floating bar's picker
+### is the confirm step. Applies directly.
+@bp.route("/itemsrecat", methods=["POST"])
+@login_required
+@db_errors(
+    exec_msg="Database write execution error. Could not recategorize items."
+)
+def itemsrecat():
+    ### VALIDATE EVERY item_num -- CLIENT-SUPPLIED, TREAT AS UNTRUSTED
+    raw_item_nums = request.form.getlist("item_nums")
+    item_nums = []
+    for raw in raw_item_nums:
+        try:
+            item_nums.append(int(raw))
+        except (TypeError, ValueError):
+            return render_template(
+                "errorpage.html",
+                err_message="Invalid item selection.",
+                err_page_from="/",
+            )
+
+    back_url = safe_relative_url(session.get("last_list_view"))
+
+    if not item_nums:
+        return redirect(back_url or url_for("main.home"))
+
+    cat_name = request.form.get("cat_name", "").strip()
+    if not cat_name:
+        return render_template(
+            "errorpage.html",
+            err_message="Category name is required.",
+            err_page_from=back_url or "/",
+        )
+
+    placeholders = ", ".join(["%s"] * len(item_nums))
+
+    with get_db_connection() as mydb:
+        ### RESOLVE THE CATEGORY NAME TO ITS cat_num, CREATING IT IF
+        ### IT'S A BRAND NEW NAME. See get_or_create_cat_num() in
+        ### extensions.py.
+        cursor = mydb.cursor()
+        cat_num = get_or_create_cat_num(cursor, cat_name)
+        cursor.close()
+
+        recat_query = f""" UPDATE items SET cat_num = %s
+                            WHERE item_num IN ({placeholders}) """
+        cursor = mydb.cursor()
+        cursor.execute(recat_query, (cat_num, *item_nums))
+        affected = cursor.rowcount
+        cursor.close()
+
+    logger.info(
+        f"itemsrecat(): recategorized {affected} item(s) to {cat_name!r}"
+    )
+    return redirect(back_url or url_for("main.home"))
+
+
+########################################################################
+### BATCH BOX-MOVE -- no confirm page, same reasoning as itemsrecat().
+@bp.route("/itemsboxmove", methods=["POST"])
+@login_required
+@db_errors(exec_msg="Database write execution error. Could not move items.")
+def itemsboxmove():
+    ### VALIDATE EVERY item_num -- CLIENT-SUPPLIED, TREAT AS UNTRUSTED
+    raw_item_nums = request.form.getlist("item_nums")
+    item_nums = []
+    for raw in raw_item_nums:
+        try:
+            item_nums.append(int(raw))
+        except (TypeError, ValueError):
+            return render_template(
+                "errorpage.html",
+                err_message="Invalid item selection.",
+                err_page_from="/",
+            )
+
+    back_url = safe_relative_url(session.get("last_list_view"))
+
+    if not item_nums:
+        return redirect(back_url or url_for("main.home"))
+
+    new_box_num, err = parse_int(
+        request.form.get("box_num", ""),
+        err_message="Invalid entry. Box number must be an int.",
+        err_page_from=back_url or "/",
+    )
+    if err:
+        return err
+
+    placeholders = ", ".join(["%s"] * len(item_nums))
+
+    with get_db_connection() as mydb:
+        ### VERIFY THE DESTINATION BOX EXISTS -- the FK would catch
+        ### this too, but a clean rejection here beats a raw
+        ### IntegrityError. The client-side picker already only
+        ### offers real box numbers; this covers a stale/direct POST.
+        cursor = mydb.cursor()
+        cursor.execute("SELECT 1 FROM boxes WHERE box_num = %s", (new_box_num,))
+        box_exists = cursor.fetchone()
+        cursor.close()
+        if not box_exists:
+            return render_template(
+                "errorpage.html",
+                err_message="That box number doesn't exist.",
+                err_page_from=back_url or "/",
+            )
+
+        ### GET EACH ITEM'S CURRENT box_num, BEFORE THE UPDATE
+        ### OVERWRITES IT -- needed below to touch every distinct box
+        ### affected.
+        info_query = f""" SELECT item_num, box_num FROM items
+                           WHERE item_num IN ({placeholders}) """
+        cursor = mydb.cursor()
+        cursor.execute(info_query, tuple(item_nums))
+        rows = cursor.fetchall()
+        cursor.close()
+
+        if not rows:
+            return redirect(back_url or url_for("main.home"))
+
+        move_query = f""" UPDATE items SET box_num = %s
+                           WHERE item_num IN ({placeholders}) """
+        cursor = mydb.cursor()
+        cursor.execute(move_query, (new_box_num, *item_nums))
+        cursor.close()
+
+        ### TOUCH EVERY DISTINCT OLD BOX PLUS THE NEW ONE -- same
+        ### multi-box pattern as itemsdeleted() above.
+        box_nums = {row[1] for row in rows}
+        box_nums.add(new_box_num)
+        cursor = mydb.cursor()
+        for box_num in box_nums:
+            touch_box_last_changed(cursor, box_num)
+        cursor.close()
+
+    logger.info(
+        f"itemsboxmove(): moved {len(rows)} item(s) to box {new_box_num}"
+    )
+    return redirect(back_url or url_for("main.home"))

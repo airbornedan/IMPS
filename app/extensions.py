@@ -799,6 +799,11 @@ def touch_box_last_changed(cursor, box_num):
     )
 
 
+def get_available_boxes():
+    result = run_query("SELECT box_num FROM boxes ORDER BY box_num")
+    return [row[0] for row in result]
+
+
 ########################################################################
 ### LIST-VIEW PAGE SIZE
 ########################################################################

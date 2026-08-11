@@ -1059,14 +1059,15 @@ input[name="file"] {
 }
 
 /* ================================================================
-   7. BATCH DELETE (MULTI-SELECT)
+   7. BATCH ACTIONS (MULTI-SELECT)
    ================================================================
-   Ctrl/Cmd-click a row's trash icon (includes/includeitemlist.html,
-   see static/multiselect_delete.js) to mark it for batch delete
-   instead of navigating to the single-item confirm page. Ring color
-   matches the button's own red rather than a new accent -- same
-   reasoning applies to the row highlight reusing .table_label's
-   existing border-bottom gray instead of a new color.
+   Ctrl/Cmd-click a row's trash icon, box-num cell, or category cell
+   (includes/includeitemlist.html, see static/multiselect_batch.js)
+   to mark it for a batch delete/move/recategorize instead of the
+   normal single-item action. Ring color matches the button's own red
+   rather than a new accent -- same reasoning applies to the row
+   highlight reusing .table_label's existing border-bottom gray
+   instead of a new color.
    ================================================================ */
 
 .imps.icon-only.trash.picked {
@@ -1075,6 +1076,19 @@ input[name="file"] {
 }
 
 .table_row.picked {
+	background-color: #ccc;
+}
+
+/* box-num/category cells are real click targets here, unlike their
+   plain-text look everywhere else -- hover cue so that's
+   discoverable. Real click (no modifier) does nothing. */
+.table_cell.actionable {
+	cursor: pointer;
+}
+.table_cell.actionable:hover {
+	background-color: #eee;
+}
+.table_row.picked .table_cell.actionable:hover {
 	background-color: #ccc;
 }
 
@@ -1122,6 +1136,45 @@ input[name="file"] {
    Scoped override, doesn't touch the shared rule. */
 .batch-action-bar .imps:disabled {
 	opacity: 0.7;
+}
+
+.batch-picker {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.batch-picker label {
+	color: #ccc;
+}
+/* Background/text only, no border -- input[type="text"]'s black
+   border and .input-invalid's red border (both defined elsewhere in
+   this file) still apply untouched. */
+.batch-action-bar input[type="text"] {
+	background-color: #222;
+	color: #fff;
+}
+#batchBoxNum {
+	width: 48px;
+	text-align: center;
+}
+#batchCatName {
+	width: 130px;
+}
+
+/* Cancel is deliberately not a real .imps button -- just an "x", no
+   red background, so it doesn't compete with the actual actions. */
+.batch-cancel {
+	background: transparent;
+	border: none;
+	color: #ccc;
+	font-size: 20px;
+	height: 46px;
+	line-height: 1;
+	padding: 4px 10px;
+	cursor: pointer;
+}
+.batch-cancel:hover {
+	color: #fff;
 }
 
 /* ================================================================

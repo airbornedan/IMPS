@@ -19,6 +19,7 @@ from app.extensions import (
     get_items_per_page,
     get_offset_for_page,
     InvalidPageError,
+    get_available_boxes,
 )
 
 bp = Blueprint("inventory", __name__)
@@ -100,6 +101,7 @@ def inventory():
         date_column=date_column,
         cat_column=cat_column,
         box_column=box_column,
+        available_boxes=get_available_boxes(),
     )
 
 
@@ -339,6 +341,7 @@ def boxviewswitch(box_num):
             date_column=date_column,
             cat_column=cat_column,
             box_column=box_column,
+            available_boxes=get_available_boxes(),
         )
     )
     response.set_cookie("view", new_view)
@@ -409,6 +412,7 @@ def boxshowcontent(box_num):
             date_column=date_column,
             cat_column=cat_column,
             box_column=box_column,
+            available_boxes=get_available_boxes(),
         )
     )
     return response

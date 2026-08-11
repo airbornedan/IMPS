@@ -1131,11 +1131,15 @@ input[name="file"] {
 	pointer-events: auto;
 }
 
-/* .imps:disabled's 0.3 opacity is tuned for white backgrounds
-   everywhere else it's used -- too faint against this bar's black.
-   Scoped override, doesn't touch the shared rule. */
+/* .imps:disabled's 0.3 opacity is white-background-tuned, too faint
+   here. background-color can't fix it either -- the icon PNGs have
+   red baked in as opaque pixels. filter reaches those pixels
+   instead: grayscale(1) alone lands near-black (red's luminance is
+   low), so brightness() lifts it to a visible gray. White glyph
+   pixels clamp at 255 either way. */
 .batch-action-bar .imps:disabled {
-	opacity: 0.7;
+	opacity: 1;
+	filter: grayscale(1) brightness(3.5);
 }
 
 .batch-picker {

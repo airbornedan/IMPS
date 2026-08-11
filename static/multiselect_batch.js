@@ -143,6 +143,7 @@
 		}
 		var itemNum = row.getAttribute("data-item-num");
 		var action = target.getAttribute("data-batch-action");
+		var enteringCat = action === "cat" && currentAction !== "cat";
 
 		if (currentAction !== null && action !== currentAction) {
 			resetSelection();
@@ -165,6 +166,14 @@
 			}
 		}
 		refreshActionBar();
+
+		// Focus the category field the moment it becomes the active
+		// picker, not on every row added afterward -- a datalist input
+		// often needs to already have focus before a click reliably
+		// opens its suggestions, so this saves the first click.
+		if (enteringCat && catInput) {
+			catInput.focus();
+		}
 	});
 
 	if (cancelBtn) {

@@ -38,6 +38,7 @@ from app.extensions import (
     touch_box_last_changed,
     parse_int,
     get_available_boxes,
+    get_available_cats,
 )
 
 bp = Blueprint("items", __name__)
@@ -697,6 +698,7 @@ def itemsbycategory(category):
         cat_column=cat_column,
         box_column=box_column,
         available_boxes=get_available_boxes(),
+        available_cats=get_available_cats(),
     )
 
 

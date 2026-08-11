@@ -804,6 +804,11 @@ def get_available_boxes():
     return [row[0] for row in result]
 
 
+def get_available_cats():
+    result = run_query("SELECT cat_name FROM categories ORDER BY cat_name")
+    return [row[0] for row in result]
+
+
 ########################################################################
 ### LIST-VIEW PAGE SIZE
 ########################################################################

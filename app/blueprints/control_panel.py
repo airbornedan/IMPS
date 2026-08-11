@@ -35,6 +35,7 @@ from app.extensions import (
     get_or_create_loc_num,
     safe_image_path,
     get_available_boxes,
+    get_available_cats,
 )
 
 bp = Blueprint("control_panel", __name__)
@@ -1312,6 +1313,7 @@ def cp_orphaneditemscleanup():
         cat_column=cat_column,
         box_column=box_column,
         available_boxes=get_available_boxes(),
+        available_cats=get_available_cats(),
     )
 
 
@@ -1355,6 +1357,7 @@ def orphan_view_switch():
             cat_column=cat_column,
             box_column=box_column,
             available_boxes=get_available_boxes(),
+            available_cats=get_available_cats(),
         )
     )
     response.set_cookie("view", new_view)

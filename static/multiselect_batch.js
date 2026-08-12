@@ -131,7 +131,9 @@
 	}
 
 	document.addEventListener("click", function (event) {
-		var target = event.target.closest("[data-batch-action]");
+		var target = event.target.closest(
+			'[data-batch-action="delete"], [data-batch-action="box"], [data-batch-action="cat"]'
+		);
 		if (!target || !(event.ctrlKey || event.metaKey)) {
 			return;
 		}

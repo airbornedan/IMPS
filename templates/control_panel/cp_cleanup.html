@@ -8,17 +8,19 @@
 <h3>Clean up items / photos</h3>
 
         <div>
-                <div><a href="/cp_orphaneditemscleanup">
-                        <button type="submit" class="imps icon-left orphans">
+                <div>{% if has_orphaned_items %}<a href="/cp_orphaneditemscleanup">{% endif %}
+                        <button type="submit" class="imps icon-left orphans"
+                                {% if not has_orphaned_items %}disabled title="No orphaned items"{% endif %}>
                         Show orphaned items
-                        </button></a>
+                        </button>{% if has_orphaned_items %}</a>{% endif %}
                 </div>
         </div>
         <div>
-                <div><a href="/cp_photofilescleanup">
-                        <button type="submit" class="imps icon-left photo">
+                <div>{% if has_unlinked_photos %}<a href="/cp_photofilescleanup">{% endif %}
+                        <button type="submit" class="imps icon-left photo"
+                                {% if not has_unlinked_photos %}disabled title="No unlinked photos"{% endif %}>
                         Show unlinked photos
-                        </button></a>
+                        </button>{% if has_unlinked_photos %}</a>{% endif %}
                 </div>
         </div>
 {% endblock %}

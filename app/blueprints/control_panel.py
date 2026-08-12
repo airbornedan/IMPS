@@ -669,13 +669,57 @@ def cp_backuprestoreuploadconfirm():
     return redirect(url_for("control_panel.cp_backups"))
 
 
+### DB item_pic filenames vs. actual files in the image directory.
+### Returns (photo_filenames_in_db, orphans) or None on DB error.
+### Shared by cp_cleanup() (disabled-state check), cp_photofilescleanup()
+### (the list), and cp_photofilesdel() (server-side re-verification).
+def _find_unlinked_photos():
+    photo_files_query = "SELECT item_pic FROM items;"
+    result = run_query(photo_files_query)
+    if not result:
+        return None
+
+    photo_filenames_in_db = [row[0] for row in result if row[0]]
+    photo_filenames_in_db.sort()
+
+    files_in_dir = [f for f in os.listdir(ITEM_IMAGE_FS_DIR) if allowed_file(f)]
+    orphans = set(files_in_dir).difference(photo_filenames_in_db)
+    orphans.discard("none.jpg")
+
+    return photo_filenames_in_db, sorted(orphans)
+
+
 ########################################################################
 ### CONTROL PANEL -- CLEANUP TAB (launcher; cleanup tools live at
 ### their own routes, /cp_orphaneditemscleanup and /cp_photofilescleanup)
 @bp.route("/cp_cleanup")
 @login_required
+@db_errors(exec_msg="Database error when checking for cleanup items.")
 def cp_cleanup():
-    return render_template("control_panel/cp_cleanup.html")
+    orphan_items_query = "SELECT COUNT(*) FROM items WHERE box_num IS NULL;"
+    result = run_query(orphan_items_query)
+    if not result:
+        return render_template(
+            "errorpage.html",
+            err_message="Database error. Could not check for orphaned items.",
+            err_page_from="/",
+        )
+    has_orphaned_items = result[0][0] > 0
+
+    photo_check = _find_unlinked_photos()
+    if photo_check is None:
+        return render_template(
+            "errorpage.html",
+            err_message="Database error. Could not check for unlinked photos.",
+            err_page_from="/",
+        )
+    has_unlinked_photos = len(photo_check[1]) > 0
+
+    return render_template(
+        "control_panel/cp_cleanup.html",
+        has_orphaned_items=has_orphaned_items,
+        has_unlinked_photos=has_unlinked_photos,
+    )
 
 
 ########################################################################
@@ -837,41 +881,18 @@ def cp_categories():
 @login_required
 @db_errors(exec_msg="Database error when analyzing catalog assets.")
 def cp_photofilescleanup():
-    # Fetch an active, thread-safe connection from the pool
-    photo_files_query = "SELECT item_pic FROM items;"
-    result = run_query(photo_files_query)
-
-    ### CHECK THAT QUERY SUCCEEDED
-    if not result:
+    photo_check = _find_unlinked_photos()
+    if photo_check is None:
         return render_template(
             "errorpage.html",
             err_message="Database error. Could not access photos.",
             err_page_from="/",
         )
-
-    ### EXTRACT NAMES FROM RESULT ROWS
-    num_items = len(result)
-    photo_filenames_in_db = [row[0] for row in result if row[0]]
-    photo_filenames_in_db.sort()
-
-    ### READ ALL FILES IN PHYSICAL DIRECTORY
-    # Filtered to recognized image extensions (see allowed_file() in
-    # extensions.py). Stray non-image files are never treated as
-    # deletable "orphaned photos".
-    files_in_dir = [f for f in os.listdir(ITEM_IMAGE_FS_DIR) if allowed_file(f)]
-
-    ### FIND ORPHAN ENTRIES USING SET DIFFERENCING
-    orphans = set(files_in_dir).difference(photo_filenames_in_db)
-
-    # Remove placeholder image if present
-    orphans.discard("none.jpg")
-    orphans = sorted(orphans)
+    _, orphans = photo_check
 
     return render_template(
         "control_panel/cp_photofilescleanup.html",
-        file_names_in_db=photo_filenames_in_db,
         orphans=orphans,
-        num_items=num_items,
         ITEM_IMAGE_DIR=ITEM_IMAGE_DIR,
     )
 
@@ -900,25 +921,17 @@ def cp_photofilesdel():
     ### path-traversal deletes (e.g. filename=../../../../etc/passwd):
     ### attacker can only select files this route already considers
     ### orphaned.
-    photo_files_query = "SELECT item_pic FROM items;"
-    result = run_query(photo_files_query)
-
-    if not result:
+    photo_check = _find_unlinked_photos()
+    if photo_check is None:
         return render_template(
             "errorpage.html",
             err_message="Database error. Could not access files.",
             err_page_from="/",
         )
-
-    photo_filenames_in_db = [row[0] for row in result if row[0]]
-    photo_filenames_in_db.sort()
+    photo_filenames_in_db, orphans = photo_check
+    orphans = set(orphans)
 
     image_dir = ITEM_IMAGE_FS_DIR
-    files_in_dir = [f for f in os.listdir(image_dir) if allowed_file(f)]
-
-    orphans = set(files_in_dir).difference(photo_filenames_in_db)
-    orphans.discard("none.jpg")
-
     files_to_del = [
         f for f in requested_deletions if f in orphans and safe_image_path(f, image_dir)
     ]
@@ -945,7 +958,6 @@ def cp_photofilesdel():
     ### SHOW THE REFRESHED CLEANUP PAGE
     return render_template(
         "control_panel/cp_photofilescleanup.html",
-        file_names_in_db=photo_filenames_in_db,
         orphans=orphans,
         ITEM_IMAGE_DIR=ITEM_IMAGE_DIR,
     )
@@ -957,33 +969,14 @@ def cp_photofilesdel():
 @login_required
 @db_errors(exec_msg="Database error when fetching directory assets map.")
 def cp_delallorphanphotos():
-    # Fetch an active, thread-safe connection from the pool
-    photo_files_query = "SELECT item_pic FROM items;"
-    result = run_query(photo_files_query)
-
-    ### CHECK THAT QUERY SUCCEEDED
-    if not result:
+    photo_check = _find_unlinked_photos()
+    if photo_check is None:
         return render_template(
             "errorpage.html",
             err_message="Database error. Could not access photos.",
             err_page_from="/",
         )
-
-    ### EXTRACT NAMES FROM RESULT ROWS
-    photo_filenames_in_db = [row[0] for row in result if row[0]]
-    photo_filenames_in_db.sort()
-
-    ### READ ALL FILES IN PHYSICAL DIRECTORY
-    # Same image-extension filter as cp_photofilescleanup() above.
-    # Especially important here: this route deletes every file in the
-    # orphan set immediately, no per-file confirmation.
-    files_in_dir = [f for f in os.listdir(ITEM_IMAGE_FS_DIR) if allowed_file(f)]
-
-    ### CREATE A LIST OF IMAGES IN DIR BUT NOT IN DB
-    orphans = set(files_in_dir).difference(photo_filenames_in_db)
-
-    ### EXCLUDE DEFAULT PLACEHOLDER IMAGE
-    orphans.discard("none.jpg")
+    _, orphans = photo_check
 
     ### DELETE FILES OUTSIDE THE DB CONNECTION -- a slow filesystem
     ### shouldn't hold a pooled connection open

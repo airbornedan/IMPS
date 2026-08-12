@@ -1,18 +1,17 @@
 <br>
 <hr/>
-<div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr;">
+<div style="display:grid; grid-template-columns: 1fr 1fr; padding-right: 12px;">
    <div class="grid-item-left">
            <p>Created by Dan and Evelyn Hall</p>
    </div>
-   <div>&nbsp;</div>
-   <div class="grid-item">
+   <div class="grid-item" style="justify-self: end;">
       {% if logged_in != False %}
-      <a href="/logout">  
+      <a href="/logout">
          <img src="/static/images/icons/logout_icon.png" height="30px;">
       </a>
       {% endif %}
    </div>
+</div>
 
 </body>
 </html>
-

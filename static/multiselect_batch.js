@@ -36,6 +36,7 @@
 
 	var boxPicker = document.getElementById("batchBoxPicker");
 	var boxInput = document.getElementById("batchBoxNum");
+	var boxLabel = document.getElementById("batchBoxLabel");
 	var catPicker = document.getElementById("batchCatPicker");
 	var catInput = document.getElementById("batchCatName");
 	var catLabel = document.getElementById("batchCatLabel");
@@ -85,10 +86,18 @@
 			return;
 		}
 		alignActionBar();
-		countLabel.textContent = currentAction === "cat" ?
-			"Move " + picked.size + " to Category" : picked.size + " selected";
+		if (currentAction === "cat") {
+			countLabel.textContent = "Move " + picked.size + " to Category";
+		} else if (currentAction === "box") {
+			countLabel.textContent = "Move " + picked.size + " to Box";
+		} else {
+			countLabel.textContent = picked.size + " selected";
+		}
 		if (catLabel) {
 			catLabel.style.display = currentAction === "cat" ? "none" : "";
+		}
+		if (boxLabel) {
+			boxLabel.style.display = currentAction === "box" ? "none" : "";
 		}
 		actionBar.classList.toggle("visible", picked.size > 0);
 

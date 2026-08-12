@@ -65,7 +65,7 @@
 	<div>
 		<form action="/cp_addcat" name="add_cat" id="add_cat" method="POST" onsubmit="return validateForm(event);" >
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-			<input type="text" name="new_cat" id="new_cat" width="14" maxlength="64"></input>
+			<input type="text" name="new_cat" id="new_cat" width="14" maxlength="64" autofocus></input>
 			<button type="submit" class="imps icon-left add">
 				Add category
 			</button>

@@ -62,7 +62,7 @@
 	<div>
                 <form action="/cp_addloc" name="add_loc" id="add_loc" method="POST" onsubmit="return validateForm(event);" >
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-				<input type="text" name="new_loc" id="new_loc" width="14" maxlength="255"></input>
+				<input type="text" name="new_loc" id="new_loc" width="14" maxlength="255" autofocus></input>
 				<button type="submit" class="imps icon-left add">
 					Add location
 				</button>

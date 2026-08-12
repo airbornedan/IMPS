@@ -14,7 +14,7 @@ window.open("/itemsbycategory/"+category, "_self")
 
 <p class="page_title">Select category to show items</p>
 <div>
-	<select id="sel_category" name="category">
+	<select id="sel_category" name="category" autofocus>
 		{% for cat_name in available_cats %}
 			<option value="{{cat_name}}">{{cat_name}}</option>
 		{% endfor %}

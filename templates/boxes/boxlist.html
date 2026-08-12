@@ -37,16 +37,24 @@ Control panel to veiw the available locations. </p>
 				{{ box_num }}
 			</div>
 			<div class="table_cell"  style="background-color: #eee;">
+				{% if box_loc|length > 25 %}
 				<div class="tooltip">
 					{{ box_loc | truncate(25) }}
 					<span class="tooltiptext">{{ box_loc }}</span>
 				</div>
+				{% else %}
+				{{ box_loc }}
+				{% endif %}
 		        </div>
 		        <div class="table_cell table_cell-boxname">
+				{% if box_name|length > 20 %}
 				<div class="tooltip">
 					{{ box_name | truncate(20) }}
 					<span class="tooltiptext">{{ box_name }}</span>
 				</div>
+				{% else %}
+				{{ box_name }}
+				{% endif %}
 		        </div>
                         <div class="table_cell">
                                 {{ box_last_changed }}

@@ -23,17 +23,25 @@
 		<div class="table_row" data-merge-num="{{ category[2] }}">
 			{% if category[0] == "Uncategorized" %}
 			<div class="table_cell">
+				{% if category[0]|length > 25 %}
 				<div class="tooltip">
 					{{ category[0] | truncate(25) }}
 					<span class="tooltiptext">{{ category[0] }}</span>
 				</div>
+				{% else %}
+				{{ category[0] }}
+				{% endif %}
 			</div>
 			{% else %}
 			<div class="table_cell actionable" data-batch-action="merge">
+				{% if category[0]|length > 25 %}
 				<div class="tooltip">
 					{{ category[0] | truncate(25) }}
 					<span class="tooltiptext">{{ category[0] }}</span>
 				</div>
+				{% else %}
+				{{ category[0] }}
+				{% endif %}
 			</div>
 			{% endif %}
 			<div class="table_cell">

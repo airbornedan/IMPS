@@ -25,17 +25,25 @@
 	<div class="table_row" data-merge-num="{{ loc_num_lookup[loc_name] }}">
 		{% if loc_name == "Unspecified" %}
 		<div class="table_cell">
+			{% if loc_name|length > 25 %}
 			<div class="tooltip">
 				{{ loc_name | truncate(25) }}
 				<span class="tooltiptext">{{ loc_name }}</span>
 			</div>
+			{% else %}
+			{{ loc_name }}
+			{% endif %}
 		</div>
 		{% else %}
 		<div class="table_cell actionable" data-batch-action="merge">
+			{% if loc_name|length > 25 %}
 			<div class="tooltip">
 				{{ loc_name | truncate(25) }}
 				<span class="tooltiptext">{{ loc_name }}</span>
 			</div>
+			{% else %}
+			{{ loc_name }}
+			{% endif %}
 		</div>
 		{% endif %}
 		<div class="table_cell">{{loc_count[ns.counter]}}</div>

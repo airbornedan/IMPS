@@ -12,10 +12,10 @@
 	<div class="container-fluid">
 		<p>Merging:
 		{% for category in categories %}
-			<i>{{ category.cat_name }}</i> ({{ category.item_count }}){% if not loop.last %}, {% endif %}
+			<i>{{ category.cat_name }}</i> ({{ category.item_count }} item{{ "s" if category.item_count != 1 }}){% if not loop.last %}, {% endif %}
 		{% endfor %}
 		</p>
-		<p>{{ total_items }} item(s) total will move to the category you choose below. This cannot be undone.</p>
+		<p>{{ total_items }} items total will move to the category you choose below. This cannot be undone.</p>
 		<div>
 			<label for="dest_cat_name">Merge into:</label>
 			<input id="dest_cat_name" type="text" name="dest_cat_name" list="dest_cat_options" size="20" maxlength="64" autofocus autocomplete="off">

@@ -12,7 +12,7 @@
 	<div class="container-fluid">
 		<p>Merging:
 		{% for location in locations %}
-			<i>{{ location.loc_name }}</i> ({{ location.box_count }}){% if not loop.last %}, {% endif %}
+			<i>{{ location.loc_name }}</i> ({{ location.box_count }} box{{ "s" if location.box_count != 1 }}){% if not loop.last %}, {% endif %}
 		{% endfor %}
 		</p>
 		<p>{{ total_boxes }} boxes total will move to the location you choose below. This cannot be undone.</p>

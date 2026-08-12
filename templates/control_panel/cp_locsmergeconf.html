@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- Page content -->
+
+<p class="page_title">Merge locations</p>
+
+<form action="/cp_locsmerged" method="POST" name="merge_locs" onsubmit="return validateForm(event);">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% for location in locations %}
+<input type="hidden" name="loc_nums" value="{{ location.loc_num }}">
+{% endfor %}
+	<div class="container-fluid">
+		<p>Merging:
+		{% for location in locations %}
+			<i>{{ location.loc_name }}</i> ({{ location.box_count }}){% if not loop.last %}, {% endif %}
+		{% endfor %}
+		</p>
+		<p>{{ total_boxes }} box(es) total will move to the location you choose below. This cannot be undone.</p>
+		<div>
+			<label for="dest_loc_name">Merge into:</label>
+			<input id="dest_loc_name" type="text" name="dest_loc_name" list="dest_loc_options" size="20" maxlength="255" autofocus autocomplete="off">
+			<datalist id="dest_loc_options">
+			{% for loc_name in available_locs %}
+				<option value="{{ loc_name }}">
+			{% endfor %}
+			</datalist>
+		</div>
+	</div>
+	<div class="row">
+		<button type="submit" class="imps icon-left update">Merge</button>
+		<a href="/cp_locations"><button type="button" class="imps icon-left cancel">Cancel</button></a>
+	</div>
+</form>
+
+<script>
+function validateForm() {
+	let dest = document.forms["merge_locs"]["dest_loc_name"].value;
+
+	if (dest.trim() == "") {
+		showValidationError("A destination location is required.");
+		return false;
+	}
+
+	if (dest.length > 255) {
+		showValidationError("Location names are limited to 255 characters.");
+		return false;
+	}
+}
+</script>
+{% endblock %}

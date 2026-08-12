@@ -809,6 +809,11 @@ def get_available_cats():
     return [row[0] for row in result]
 
 
+def get_available_locs():
+    result = run_query("SELECT loc_name FROM locations ORDER BY loc_name")
+    return [row[0] for row in result]
+
+
 ########################################################################
 ### LIST-VIEW PAGE SIZE
 ########################################################################

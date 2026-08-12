@@ -20,13 +20,22 @@
 		</span>
 		<span class="table_body">
 		{% for category in items_per_category %}
-		<div class="table_row">
+		<div class="table_row" data-merge-num="{{ category[2] }}">
+			{% if category[0] == "Uncategorized" %}
 			<div class="table_cell">
 				<div class="tooltip">
 					{{ category[0] | truncate(25) }}
 					<span class="tooltiptext">{{ category[0] }}</span>
 				</div>
 			</div>
+			{% else %}
+			<div class="table_cell actionable" data-batch-action="merge">
+				<div class="tooltip">
+					{{ category[0] | truncate(25) }}
+					<span class="tooltiptext">{{ category[0] }}</span>
+				</div>
+			</div>
+			{% endif %}
 			<div class="table_cell">
 				{{category[1]}}
 			</div>
@@ -97,4 +106,14 @@ return false;
 }
 
 </script>
+
+<form action="/cp_catsmerge" method="post" id="mergeForm" data-field-name="cat_nums">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+
+<div class="batch-action-bar" id="mergeActionBar">
+	<span id="mergeCount">0 selected</span>
+	<button type="button" class="imps icon-only update" id="mergeBtn" title="Merge" disabled></button>
+	<button type="button" class="batch-cancel" id="mergeCancelBtn" title="Cancel">&times;</button>
+</div>
 {% endblock %}

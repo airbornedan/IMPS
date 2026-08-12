@@ -22,13 +22,22 @@
 	{% set ns = namespace(counter=-1) %}
 	{% for loc_name in locations %}
 	{% set ns.counter = ns.counter+1 %}
-	<div class="table_row">
+	<div class="table_row" data-merge-num="{{ loc_num_lookup[loc_name] }}">
+		{% if loc_name == "Unspecified" %}
 		<div class="table_cell">
 			<div class="tooltip">
 				{{ loc_name | truncate(25) }}
 				<span class="tooltiptext">{{ loc_name }}</span>
 			</div>
 		</div>
+		{% else %}
+		<div class="table_cell actionable" data-batch-action="merge">
+			<div class="tooltip">
+				{{ loc_name | truncate(25) }}
+				<span class="tooltiptext">{{ loc_name }}</span>
+			</div>
+		</div>
+		{% endif %}
 		<div class="table_cell">{{loc_count[ns.counter]}}</div>
 		<div class="table_cell">
 			{% if loc_name=="Unspecified" %}
@@ -85,4 +94,14 @@ function validateForm() {
 }
 
 </script>
+
+<form action="/cp_locsmerge" method="post" id="mergeForm" data-field-name="loc_nums">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+
+<div class="batch-action-bar" id="mergeActionBar">
+	<span id="mergeCount">0 selected</span>
+	<button type="button" class="imps icon-only update" id="mergeBtn" title="Merge" disabled></button>
+	<button type="button" class="batch-cancel" id="mergeCancelBtn" title="Cancel">&times;</button>
+</div>
 {% endblock %}

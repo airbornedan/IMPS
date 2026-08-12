@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- Page content -->
+
+<p class="page_title">Merge categories</p>
+
+<form action="/cp_catsmerged" method="POST" name="merge_cats" onsubmit="return validateForm(event);">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% for category in categories %}
+<input type="hidden" name="cat_nums" value="{{ category.cat_num }}">
+{% endfor %}
+	<div class="container-fluid">
+		<p>Merging:
+		{% for category in categories %}
+			<i>{{ category.cat_name }}</i> ({{ category.item_count }}){% if not loop.last %}, {% endif %}
+		{% endfor %}
+		</p>
+		<p>{{ total_items }} item(s) total will move to the category you choose below. This cannot be undone.</p>
+		<div>
+			<label for="dest_cat_name">Merge into:</label>
+			<input id="dest_cat_name" type="text" name="dest_cat_name" list="dest_cat_options" size="20" maxlength="64" autofocus autocomplete="off">
+			<datalist id="dest_cat_options">
+			{% for cat_name in available_cats %}
+				<option value="{{ cat_name }}">
+			{% endfor %}
+			</datalist>
+		</div>
+	</div>
+	<div class="row">
+		<button type="submit" class="imps icon-left update">Merge</button>
+		<a href="/cp_categories"><button type="button" class="imps icon-left cancel">Cancel</button></a>
+	</div>
+</form>
+
+<script>
+function validateForm() {
+	let dest = document.forms["merge_cats"]["dest_cat_name"].value;
+
+	if (dest.trim() == "") {
+		showValidationError("A destination category is required.");
+		return false;
+	}
+
+	if (dest.length > 64) {
+		showValidationError("Category names are limited to 64 characters.");
+		return false;
+	}
+}
+</script>
+{% endblock %}

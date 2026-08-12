@@ -36,6 +36,7 @@ from app.extensions import (
     safe_image_path,
     get_available_boxes,
     get_available_cats,
+    get_available_locs,
 )
 
 bp = Blueprint("control_panel", __name__)
@@ -1233,6 +1234,130 @@ def cp_catdelsuccess(cat_num):
 
 
 ########################################################################
+### MULTI-SELECT MERGE -- CONFIRM PAGE
+@bp.route("/cp_catsmerge", methods=["POST"])
+@login_required
+@db_errors(exec_msg="Database error when preparing category merge.")
+def cp_catsmerge():
+    raw_cat_nums = request.form.getlist("cat_nums")
+    cat_nums = []
+    for raw in raw_cat_nums:
+        try:
+            cat_nums.append(int(raw))
+        except (TypeError, ValueError):
+            return render_template(
+                "errorpage.html",
+                err_message="Invalid category selection.",
+                err_page_from="/cp_categories",
+            )
+
+    if not cat_nums:
+        return redirect(url_for("control_panel.cp_categories"))
+
+    placeholders = ", ".join(["%s"] * len(cat_nums))
+
+    with get_db_connection() as mydb:
+        ### Uncategorized is never a valid merge source.
+        cat_query = f""" SELECT c.cat_num, c.cat_name, COUNT(i.item_num)
+                          FROM categories c
+                          LEFT JOIN items i ON i.cat_num = c.cat_num
+                          WHERE c.cat_num IN ({placeholders})
+                            AND c.cat_name != 'Uncategorized'
+                          GROUP BY c.cat_num, c.cat_name """
+        cursor = mydb.cursor()
+        cursor.execute(cat_query, tuple(cat_nums))
+        rows = cursor.fetchall()
+        cursor.close()
+
+    if len(rows) < 2:
+        return redirect(url_for("control_panel.cp_categories"))
+
+    categories = [
+        {"cat_num": r[0], "cat_name": r[1], "item_count": r[2]} for r in rows
+    ]
+    total_items = sum(c["item_count"] for c in categories)
+
+    return render_template(
+        "control_panel/cp_catsmergeconf.html",
+        categories=categories,
+        total_items=total_items,
+        available_cats=get_available_cats(),
+    )
+
+
+########################################################################
+### EXECUTE MULTI-SELECT MERGE
+@bp.route("/cp_catsmerged", methods=["POST"])
+@login_required
+@db_errors(exec_msg="Database error. Could not safely merge categories.")
+def cp_catsmerged():
+    raw_cat_nums = request.form.getlist("cat_nums")
+    cat_nums = []
+    for raw in raw_cat_nums:
+        try:
+            cat_nums.append(int(raw))
+        except (TypeError, ValueError):
+            return render_template(
+                "errorpage.html",
+                err_message="Invalid category selection.",
+                err_page_from="/cp_categories",
+            )
+
+    if not cat_nums:
+        return redirect(url_for("control_panel.cp_categories"))
+
+    dest_name = request.form.get("dest_cat_name", "").strip()
+    if not dest_name:
+        return render_template(
+            "errorpage.html",
+            err_message="A destination category is required.",
+            err_page_from="/cp_categories",
+        )
+
+    placeholders = ", ".join(["%s"] * len(cat_nums))
+
+    with get_db_connection() as mydb:
+        ### RE-VALIDATE -- CLIENT-SUPPLIED. Drops Uncategorized and
+        ### anything vanished since the confirm page loaded.
+        cursor = mydb.cursor()
+        cursor.execute(
+            f""" SELECT cat_num FROM categories
+                 WHERE cat_num IN ({placeholders})
+                   AND cat_name != 'Uncategorized' """,
+            tuple(cat_nums),
+        )
+        valid_cat_nums = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+
+        if len(valid_cat_nums) < 2:
+            return redirect(url_for("control_panel.cp_categories"))
+
+        ### RESOLVE THE DESTINATION NAME TO ITS cat_num, CREATING IT
+        ### IF IT'S A BRAND NEW NAME. See get_or_create_cat_num() in
+        ### extensions.py.
+        cursor = mydb.cursor()
+        dest_cat_num = get_or_create_cat_num(cursor, dest_name)
+        cursor.close()
+
+        placeholders = ", ".join(["%s"] * len(valid_cat_nums))
+        reassign_query = f""" UPDATE items SET cat_num = %s
+                               WHERE cat_num IN ({placeholders}) """
+        cursor = mydb.cursor()
+        cursor.execute(reassign_query, (dest_cat_num, *valid_cat_nums))
+        cursor.close()
+
+        ### DELETE EVERY SELECTED CATEGORY EXCEPT THE DESTINATION --
+        ### correct either way, no branching needed.
+        del_query = f""" DELETE FROM categories
+                          WHERE cat_num IN ({placeholders}) AND cat_num != %s """
+        cursor = mydb.cursor()
+        cursor.execute(del_query, (*valid_cat_nums, dest_cat_num))
+        cursor.close()
+
+    return redirect(url_for("control_panel.cp_categories"))
+
+
+########################################################################
 ### CREATE NEW CATEGORY RECORD ENTRY
 @bp.route("/cp_addcat", methods=["POST"])
 @login_required
@@ -1419,7 +1544,8 @@ def cp_locations():
     return render_template(
         "control_panel/cp_locations.html",
         locations=locations,
-        loc_count=loc_count
+        loc_count=loc_count,
+        loc_num_lookup=name_to_num,
     )
 
 
@@ -1749,6 +1875,130 @@ def cp_locdelsuccess(loc_name):
 
     ### RETURN TO LOCATION LIST PAGE
     # The redirected route naturally fetches a fresh, updated locations dataset itself!
+    return redirect(url_for("control_panel.cp_locations"))
+
+
+########################################################################
+### MULTI-SELECT MERGE -- CONFIRM PAGE
+@bp.route("/cp_locsmerge", methods=["POST"])
+@login_required
+@db_errors(exec_msg="Database error when preparing location merge.")
+def cp_locsmerge():
+    raw_loc_nums = request.form.getlist("loc_nums")
+    loc_nums = []
+    for raw in raw_loc_nums:
+        try:
+            loc_nums.append(int(raw))
+        except (TypeError, ValueError):
+            return render_template(
+                "errorpage.html",
+                err_message="Invalid location selection.",
+                err_page_from="/cp_locations",
+            )
+
+    if not loc_nums:
+        return redirect(url_for("control_panel.cp_locations"))
+
+    placeholders = ", ".join(["%s"] * len(loc_nums))
+
+    with get_db_connection() as mydb:
+        ### Unspecified is never a valid merge source.
+        loc_query = f""" SELECT l.loc_num, l.loc_name, COUNT(b.box_num)
+                          FROM locations l
+                          LEFT JOIN boxes b ON b.loc_num = l.loc_num
+                          WHERE l.loc_num IN ({placeholders})
+                            AND l.loc_name != 'Unspecified'
+                          GROUP BY l.loc_num, l.loc_name """
+        cursor = mydb.cursor()
+        cursor.execute(loc_query, tuple(loc_nums))
+        rows = cursor.fetchall()
+        cursor.close()
+
+    if len(rows) < 2:
+        return redirect(url_for("control_panel.cp_locations"))
+
+    locations = [
+        {"loc_num": r[0], "loc_name": r[1], "box_count": r[2]} for r in rows
+    ]
+    total_boxes = sum(loc["box_count"] for loc in locations)
+
+    return render_template(
+        "control_panel/cp_locsmergeconf.html",
+        locations=locations,
+        total_boxes=total_boxes,
+        available_locs=get_available_locs(),
+    )
+
+
+########################################################################
+### EXECUTE MULTI-SELECT MERGE
+@bp.route("/cp_locsmerged", methods=["POST"])
+@login_required
+@db_errors(exec_msg="Database error. Could not safely merge locations.")
+def cp_locsmerged():
+    raw_loc_nums = request.form.getlist("loc_nums")
+    loc_nums = []
+    for raw in raw_loc_nums:
+        try:
+            loc_nums.append(int(raw))
+        except (TypeError, ValueError):
+            return render_template(
+                "errorpage.html",
+                err_message="Invalid location selection.",
+                err_page_from="/cp_locations",
+            )
+
+    if not loc_nums:
+        return redirect(url_for("control_panel.cp_locations"))
+
+    dest_name = request.form.get("dest_loc_name", "").strip()
+    if not dest_name:
+        return render_template(
+            "errorpage.html",
+            err_message="A destination location is required.",
+            err_page_from="/cp_locations",
+        )
+
+    placeholders = ", ".join(["%s"] * len(loc_nums))
+
+    with get_db_connection() as mydb:
+        ### RE-VALIDATE -- CLIENT-SUPPLIED. Drops Unspecified and
+        ### anything vanished since the confirm page loaded.
+        cursor = mydb.cursor()
+        cursor.execute(
+            f""" SELECT loc_num FROM locations
+                 WHERE loc_num IN ({placeholders})
+                   AND loc_name != 'Unspecified' """,
+            tuple(loc_nums),
+        )
+        valid_loc_nums = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+
+        if len(valid_loc_nums) < 2:
+            return redirect(url_for("control_panel.cp_locations"))
+
+        ### RESOLVE THE DESTINATION NAME TO ITS loc_num, CREATING IT
+        ### IF IT'S A BRAND NEW NAME. See get_or_create_loc_num() in
+        ### extensions.py.
+        cursor = mydb.cursor()
+        dest_loc_num = get_or_create_loc_num(cursor, dest_name)
+        cursor.close()
+
+        placeholders = ", ".join(["%s"] * len(valid_loc_nums))
+        reassign_query = f""" UPDATE boxes SET loc_num = %s
+                               WHERE loc_num IN ({placeholders}) """
+        cursor = mydb.cursor()
+        cursor.execute(reassign_query, (dest_loc_num, *valid_loc_nums))
+        cursor.close()
+
+        ### DELETE EVERY SELECTED LOCATION EXCEPT THE DESTINATION --
+        ### correct either way, no branching needed.
+        del_query = f""" DELETE FROM locations
+                          WHERE loc_num IN ({placeholders}) AND loc_num != %s """
+        cursor = mydb.cursor()
+        cursor.execute(del_query, (*valid_loc_nums, dest_loc_num))
+        cursor.close()
+
     return redirect(url_for("control_panel.cp_locations"))
 
 

@@ -15,7 +15,7 @@
 			<i>{{ location.loc_name }}</i> ({{ location.box_count }}){% if not loop.last %}, {% endif %}
 		{% endfor %}
 		</p>
-		<p>{{ total_boxes }} box(es) total will move to the location you choose below. This cannot be undone.</p>
+		<p>{{ total_boxes }} boxes total will move to the location you choose below. This cannot be undone.</p>
 		<div>
 			<label for="dest_loc_name">Merge into:</label>
 			<input id="dest_loc_name" type="text" name="dest_loc_name" list="dest_loc_options" size="20" maxlength="255" autofocus autocomplete="off">

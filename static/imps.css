@@ -647,6 +647,10 @@ p.note {
         background-image: url("images/icons/list_icon.png");
 }
 
+.merge {
+        background-image: url("images/icons/merge_icon.png");
+}
+
 .orphans {
 	background-image: url("images/icons/orphans_icon.png");
 }

@@ -145,7 +145,7 @@
 	<button type="button" class="imps icon-only box_closed" id="batchBoxMoveBtn" title="Move" disabled style="display:none;"></button>
 
 	<span id="batchCatPicker" class="batch-picker" style="display:none;">
-		<label for="batchCatName">to Category</label>
+		<label for="batchCatName" id="batchCatLabel">to Category</label>
 		<input type="text" id="batchCatName" list="batchCatOptions" autocomplete="off">
 		<datalist id="batchCatOptions">
 		{%- for cat_name in available_cats|default([]) %}

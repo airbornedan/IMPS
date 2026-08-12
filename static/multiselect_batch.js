@@ -38,6 +38,7 @@
 	var boxInput = document.getElementById("batchBoxNum");
 	var catPicker = document.getElementById("batchCatPicker");
 	var catInput = document.getElementById("batchCatName");
+	var catLabel = document.getElementById("batchCatLabel");
 
 	var validBoxes = window.IMPS_AVAILABLE_BOXES || [];
 
@@ -84,7 +85,11 @@
 			return;
 		}
 		alignActionBar();
-		countLabel.textContent = picked.size + " selected";
+		countLabel.textContent = currentAction === "cat" ?
+			"Move " + picked.size + " to Category" : picked.size + " selected";
+		if (catLabel) {
+			catLabel.style.display = currentAction === "cat" ? "none" : "";
+		}
 		actionBar.classList.toggle("visible", picked.size > 0);
 
 		if (deleteBtn) {

@@ -1,8 +1,9 @@
 ########################################################################
 ### INVENTORY BLUEPRINT — BROWSING/LISTING BOXES & ITEMS
 ########################################################################
-from flask import Blueprint, request, render_template, make_response
+from flask import Blueprint, request, render_template, make_response, session
 import os
+import re
 import qrcode
 
 from flask_paginate import Pagination, get_page_parameter
@@ -203,19 +204,23 @@ def boxlistbyloc(boxlocation):
     exec_msg="Database error when retrieving box structure data.",
 )
 def bybox():
-    # Fetch an active, thread-safe connection from the pool
-    available_box_nums_query = "SELECT boxes.box_num FROM boxes;"
-    result = run_query(available_box_nums_query)
+    available_boxes = get_available_boxes()
 
-    ### TURN RESULT INTO A LIST USING COMPREHENSION
-    # Extracts the first index of each tuple returned by fetchall()
-    available_boxes = [row[0] for row in result]
+    ### DEFAULT TO THE LAST BOX VIEWED, IF ANY -- re-checked against
+    ### available_boxes so a deleted box can't come back as a stale
+    ### default.
+    default_box_num = None
+    last_view = session.get("last_list_view", "")
+    match = re.fullmatch(r"/boxshowcontent/(\d+)", last_view)
+    if match and int(match.group(1)) in available_boxes:
+        default_box_num = int(match.group(1))
 
     ### SHOW BOX SELECTION PAGE
     return render_template(
         "items/bybox.html",
         ITEM_IMAGE_DIR=ITEM_IMAGE_DIR,
         available_boxes=available_boxes,
+        default_box_num=default_box_num,
     )
 
 

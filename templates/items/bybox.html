@@ -8,7 +8,8 @@
 	<div>
 		<input type="text" id="box_num" name="box_num" size="5" autofocus
 			list="box_num_suggestions" autocomplete="off"
-			placeholder="Box #">
+			placeholder="Box #"
+			{% if default_box_num %}value="{{ default_box_num }}"{% endif %}>
 		<!--
 			datalist gives native, filter-as-you-type autocomplete
 			against real box numbers -- a middle ground between a bare

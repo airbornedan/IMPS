@@ -9,16 +9,32 @@
 	var mergeBtn = document.getElementById("mergeBtn");
 	var cancelBtn = document.getElementById("mergeCancelBtn");
 	var mergeForm = document.getElementById("mergeForm");
+	var table = document.getElementById("mergeDisplayTable");
 
 	if (!actionBar || !mergeForm) {
 		return;
 	}
 
+	// Right-aligns the action bar with the table's own right edge
+	// instead of the viewport's -- see multiselect_batch.js's
+	// alignActionBar() for why.
+	function alignActionBar() {
+		if (!table) {
+			return;
+		}
+		var gap = window.innerWidth - table.getBoundingClientRect().right;
+		actionBar.style.right = Math.max(gap, 0) + "px";
+	}
+
 	function refreshActionBar() {
+		alignActionBar();
 		countLabel.textContent = picked.size + " selected";
 		actionBar.classList.toggle("visible", picked.size > 0);
 		mergeBtn.disabled = picked.size < 2;
 	}
+
+	window.addEventListener("resize", alignActionBar);
+	alignActionBar();
 
 	function clearPicked() {
 		document.querySelectorAll(".table_row.picked").forEach(function (row) {

@@ -17,11 +17,9 @@
 				 </div>
                 {% else %}
 	<div class="grid-item">
-		<div data-tooltip="{{item_name}}">
-			<a href="/itemedit/{{item_num}}">
-				<img src="{{ITEM_IMAGE_DIR}}{{item_pic}}" width="160px;">
-			</a>
-		</div>
+		<a href="/itemedit/{{item_num}}">
+			<img src="{{ITEM_IMAGE_DIR}}{{item_pic}}" width="160px;">
+		</a>
                 {% endif %}
          </div>
  {%- endfor %}

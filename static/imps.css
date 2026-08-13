@@ -82,10 +82,16 @@ ul {
   justify-content: center;
 }
 
+/* Backstop -- truncate(12)'s leeway lets some names through
+   untouched, which can overflow onto the border without this. */
 .no_item_photo_txt {
+  display: block;
   max-width: 130px;
   font-size: 24px;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ******************************************** */

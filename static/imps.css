@@ -68,16 +68,24 @@ ul {
   font-weight: bold;
 }
 
-.no_item_photo_txt {
-  display: inline-block;
-  padding: 5px;
-  max-width: 160px;
-  font-size: 24px;
+/* none.jpg has "No"/"Image" baked in near the top/bottom thirds, with
+   a blank gap between them -- centers the item name in that gap. */
+.no_item_photo {
+  background-image: url("images/items/none.jpg");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  width: 160px;
   height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.no_item_photo_txt {
+  max-width: 130px;
+  font-size: 24px;
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ******************************************** */

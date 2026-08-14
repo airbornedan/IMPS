@@ -60,6 +60,7 @@ Control panel to veiw the available locations. </p>
                                 {{ box_last_changed }}
                         </div>
                         <div class="table_cell">
+                                <span style="display:none">{{ 1 if box_num in not_empty_box_num_list else 0 }}</span>
                                 {% if box_num in not_empty_box_num_list %}
                                 <a href="/boxshowcontent/{{box_num}}" style="margin-left:0px; padding-left:0px;">
                                   <button type="submit" id="content_submit_button" class="imps icon-only box_full" style="padding-left:0px;">

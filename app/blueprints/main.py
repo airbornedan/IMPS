@@ -165,9 +165,12 @@ def search_result(query_term):
         # matches instead of requiring every word to hit.
         #
         # SOUNDEX is also added as a phonetic fallback against
-        # item_name, so a typo like "lamq" or "lampp" still surfaces
-        # items named "lamp" -- true typo tolerance, not just substring
-        # matching, no extra DB extensions required.
+        # item_name, category, and location, so a typo like "lamq" or
+        # "Decrating" still surfaces "lamp" or "Decorating" -- true
+        # typo tolerance, not just substring matching, no extra DB
+        # extensions required. Not applied to item_desc -- SOUNDEX
+        # encodes a whole string as one code, meaningless against a
+        # multi-word description.
         search_words = [w for w in re.split(r"\s+", query_term.strip()) if w]
         if not search_words:
             search_words = [query_term]
@@ -182,10 +185,13 @@ def search_result(query_term):
                 where_clauses.append(
                     "(i.item_name LIKE %s OR i.item_desc LIKE %s OR "
                     "c.cat_name LIKE %s OR loc.loc_name LIKE %s OR "
-                    "i.box_num = %s OR SOUNDEX(i.item_name) = SOUNDEX(%s))"
+                    "i.box_num = %s OR SOUNDEX(i.item_name) = SOUNDEX(%s) OR "
+                    "SOUNDEX(c.cat_name) = SOUNDEX(%s) OR "
+                    "SOUNDEX(loc.loc_name) = SOUNDEX(%s))"
                 )
                 where_params.extend(
-                    [like_param, like_param, like_param, like_param, int(word), word]
+                    [like_param, like_param, like_param, like_param, int(word),
+                     word, word, word]
                 )
 
                 # Name matches count for more than description/category/
@@ -195,28 +201,35 @@ def search_result(query_term):
                 score_clauses.append(
                     "(i.item_name LIKE %s)*3 + (i.item_desc LIKE %s) + "
                     "(c.cat_name LIKE %s)*2 + (loc.loc_name LIKE %s)*2 + "
-                    "(i.box_num = %s)*2 + (SOUNDEX(i.item_name) = SOUNDEX(%s))*2"
+                    "(i.box_num = %s)*2 + (SOUNDEX(i.item_name) = SOUNDEX(%s))*2 + "
+                    "(SOUNDEX(c.cat_name) = SOUNDEX(%s))*2 + "
+                    "(SOUNDEX(loc.loc_name) = SOUNDEX(%s))*2"
                 )
                 score_params.extend(
-                    [like_param, like_param, like_param, like_param, int(word), word]
+                    [like_param, like_param, like_param, like_param, int(word),
+                     word, word, word]
                 )
             else:
                 where_clauses.append(
                     "(i.item_name LIKE %s OR i.item_desc LIKE %s OR "
                     "c.cat_name LIKE %s OR loc.loc_name LIKE %s OR "
-                    "SOUNDEX(i.item_name) = SOUNDEX(%s))"
+                    "SOUNDEX(i.item_name) = SOUNDEX(%s) OR "
+                    "SOUNDEX(c.cat_name) = SOUNDEX(%s) OR "
+                    "SOUNDEX(loc.loc_name) = SOUNDEX(%s))"
                 )
                 where_params.extend(
-                    [like_param, like_param, like_param, like_param, word]
+                    [like_param, like_param, like_param, like_param, word, word, word]
                 )
 
                 score_clauses.append(
                     "(i.item_name LIKE %s)*3 + (i.item_desc LIKE %s) + "
                     "(c.cat_name LIKE %s)*2 + (loc.loc_name LIKE %s)*2 + "
-                    "(SOUNDEX(i.item_name) = SOUNDEX(%s))*2"
+                    "(SOUNDEX(i.item_name) = SOUNDEX(%s))*2 + "
+                    "(SOUNDEX(c.cat_name) = SOUNDEX(%s))*2 + "
+                    "(SOUNDEX(loc.loc_name) = SOUNDEX(%s))*2"
                 )
                 score_params.extend(
-                    [like_param, like_param, like_param, like_param, word]
+                    [like_param, like_param, like_param, like_param, word, word, word]
                 )
 
         where_sql = " OR ".join(where_clauses)

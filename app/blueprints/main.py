@@ -164,13 +164,9 @@ def search_result(query_term):
         # the description) rank higher, while still surfacing partial
         # matches instead of requiring every word to hit.
         #
-        # SOUNDEX is also added as a phonetic fallback against
-        # item_name, category, and location, so a typo like "lamq" or
-        # "Decrating" still surfaces "lamp" or "Decorating" -- true
-        # typo tolerance, not just substring matching, no extra DB
-        # extensions required. Not applied to item_desc -- SOUNDEX
-        # encodes a whole string as one code, meaningless against a
-        # multi-word description.
+        # SOUNDEX also covers item_name/category/location, for typo
+        # tolerance ("lamq" -> "lamp"). Not item_desc -- SOUNDEX codes
+        # a whole string as one value, useless against prose.
         search_words = [w for w in re.split(r"\s+", query_term.strip()) if w]
         if not search_words:
             search_words = [query_term]

@@ -157,11 +157,12 @@ def search_result(query_term):
         ##############################################################
         # Splits the query into individual words, matches an item if it
         # contains ANY of those words in ANY searchable column
-        # (item_name / item_desc / category name). Each matching
-        # word/column adds to a relevance score so items matching more
-        # words (or matching in the name vs. the description) rank
-        # higher, while still surfacing partial matches instead of
-        # requiring every word to hit.
+        # (item_name / item_desc / category name / location name), or
+        # is a whole-number word matching the item's box number
+        # exactly. Each matching word/column adds to a relevance score
+        # so items matching more words (or matching in the name vs.
+        # the description) rank higher, while still surfacing partial
+        # matches instead of requiring every word to hit.
         #
         # SOUNDEX is also added as a phonetic fallback against
         # item_name, so a typo like "lamq" or "lampp" still surfaces
@@ -177,25 +178,52 @@ def search_result(query_term):
         score_params = []
         for word in search_words:
             like_param = f"%{word}%"
-            where_clauses.append(
-                "(i.item_name LIKE %s OR i.item_desc LIKE %s OR c.cat_name LIKE %s "
-                "OR SOUNDEX(i.item_name) = SOUNDEX(%s))"
-            )
-            where_params.extend([like_param, like_param, like_param, word])
+            if word.isdigit():
+                where_clauses.append(
+                    "(i.item_name LIKE %s OR i.item_desc LIKE %s OR "
+                    "c.cat_name LIKE %s OR loc.loc_name LIKE %s OR "
+                    "i.box_num = %s OR SOUNDEX(i.item_name) = SOUNDEX(%s))"
+                )
+                where_params.extend(
+                    [like_param, like_param, like_param, like_param, int(word), word]
+                )
 
-            # Name matches count for more than description/category
-            # matches, and an exact phonetic match counts a little
-            # extra too, so the most relevant items bubble to the top.
-            score_clauses.append(
-                "(i.item_name LIKE %s)*3 + (i.item_desc LIKE %s) + "
-                "(c.cat_name LIKE %s)*2 + (SOUNDEX(i.item_name) = SOUNDEX(%s))*2"
-            )
-            score_params.extend([like_param, like_param, like_param, word])
+                # Name matches count for more than description/category/
+                # location matches, and an exact phonetic or box-number
+                # match counts a little extra too, so the most relevant
+                # items bubble to the top.
+                score_clauses.append(
+                    "(i.item_name LIKE %s)*3 + (i.item_desc LIKE %s) + "
+                    "(c.cat_name LIKE %s)*2 + (loc.loc_name LIKE %s)*2 + "
+                    "(i.box_num = %s)*2 + (SOUNDEX(i.item_name) = SOUNDEX(%s))*2"
+                )
+                score_params.extend(
+                    [like_param, like_param, like_param, like_param, int(word), word]
+                )
+            else:
+                where_clauses.append(
+                    "(i.item_name LIKE %s OR i.item_desc LIKE %s OR "
+                    "c.cat_name LIKE %s OR loc.loc_name LIKE %s OR "
+                    "SOUNDEX(i.item_name) = SOUNDEX(%s))"
+                )
+                where_params.extend(
+                    [like_param, like_param, like_param, like_param, word]
+                )
+
+                score_clauses.append(
+                    "(i.item_name LIKE %s)*3 + (i.item_desc LIKE %s) + "
+                    "(c.cat_name LIKE %s)*2 + (loc.loc_name LIKE %s)*2 + "
+                    "(SOUNDEX(i.item_name) = SOUNDEX(%s))*2"
+                )
+                score_params.extend(
+                    [like_param, like_param, like_param, like_param, word]
+                )
 
         where_sql = " OR ".join(where_clauses)
         score_sql = " + ".join(score_clauses)
 
-        ### SET UP SEARCH QUERY : SEARCH ITEM NAMES, DESCRIPTIONS, AND CATEGORIES
+        ### SET UP SEARCH QUERY : SEARCH ITEM NAMES, DESCRIPTIONS,
+        ### CATEGORIES, LOCATIONS, AND BOX NUMBERS
         # items.cat_num is a numeric foreign key rather than a string,
         # so categories has to be joined in to search/display the
         # category name -- c.cat_name is aliased as item_cat and rows
@@ -205,6 +233,10 @@ def search_result(query_term):
         # items.py for the same convention. Relevance score is
         # computed in ORDER BY only (not SELECTed), so it doesn't need
         # a dict key here.
+        # boxes/locations are LEFT JOINed, not JOINed -- an orphaned
+        # item (box_num IS NULL) still needs to match on name/desc/
+        # category, not be silently dropped from every search just
+        # because it has no box to resolve a location through.
         # LIMIT/OFFSET are applied in SQL rather than fetching every
         # matching row and slicing to the current page in Python --
         # keeps only `limit` rows (including item_desc text) crossing
@@ -213,6 +245,8 @@ def search_result(query_term):
                                   c.cat_name AS item_cat, i.item_desc
                            FROM items i
                            JOIN categories c ON i.cat_num = c.cat_num
+                           LEFT JOIN boxes b ON i.box_num = b.box_num
+                           LEFT JOIN locations loc ON b.loc_num = loc.loc_num
                            WHERE {where_sql}
                            ORDER BY ({score_sql}) DESC, i.item_num DESC
                            LIMIT %s OFFSET %s """
@@ -226,6 +260,8 @@ def search_result(query_term):
         ### GET NUMBER OF RESULTS (same WHERE clause, for pagination)
         num_item_query = f""" SELECT COUNT(*) FROM items i
                                JOIN categories c ON i.cat_num = c.cat_num
+                               LEFT JOIN boxes b ON i.box_num = b.box_num
+                               LEFT JOIN locations loc ON b.loc_num = loc.loc_num
                                WHERE {where_sql} """
         cursor = mydb.cursor()
         cursor.execute(num_item_query, tuple(where_params))

@@ -19,6 +19,8 @@ from app.extensions import (
     InvalidPageError,
     get_available_boxes,
     get_available_cats,
+    ITEM_COVER_PHOTO_SELECT,
+    ITEM_COVER_PHOTO_JOIN,
 )
 from app.sample_data import install_sample_data
 
@@ -250,12 +252,13 @@ def search_result(query_term):
         # matching row and slicing to the current page in Python --
         # keeps only `limit` rows (including item_desc text) crossing
         # the wire per search, not the entire matching result set.
-        item_query = f""" SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+        item_query = f""" SELECT i.item_num, i.item_name, i.box_num, {ITEM_COVER_PHOTO_SELECT}, i.item_date,
                                   c.cat_name AS item_cat, i.item_desc
                            FROM items i
                            JOIN categories c ON i.cat_num = c.cat_num
                            LEFT JOIN boxes b ON i.box_num = b.box_num
                            LEFT JOIN locations loc ON b.loc_num = loc.loc_num
+                           {ITEM_COVER_PHOTO_JOIN}
                            WHERE {where_sql}
                            ORDER BY ({score_sql}) DESC, i.item_num DESC
                            LIMIT %s OFFSET %s """

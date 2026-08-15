@@ -37,6 +37,8 @@ from app.extensions import (
     get_available_boxes,
     get_available_cats,
     get_available_locs,
+    ITEM_COVER_PHOTO_SELECT,
+    ITEM_COVER_PHOTO_JOIN,
 )
 
 bp = Blueprint("control_panel", __name__)
@@ -52,7 +54,7 @@ BACKUP_HISTORY_KEEP = 4
 # (see deploy/db_setup.py) -- so a candidate backup gets staged as
 # extra tables in the same database, not a second scratch database.
 RESTORE_STAGING_PREFIX = "restore_staging_"
-RESTORE_DATA_TABLES = ["categories", "locations", "boxes", "items"]
+RESTORE_DATA_TABLES = ["categories", "locations", "boxes", "items", "item_photos"]
 RESTORE_EXCLUDED_TABLES = ["backup_history"]
 
 
@@ -137,6 +139,8 @@ RESTORE_CONSTRAINT_REPAIRS = [
      "FOREIGN KEY (`cat_num`) REFERENCES `categories` (`cat_num`) ON DELETE RESTRICT ON UPDATE CASCADE"),
     ("items", "fk_items_box_num",
      "FOREIGN KEY (`box_num`) REFERENCES `boxes` (`box_num`) ON DELETE SET NULL ON UPDATE CASCADE"),
+    ("item_photos", "fk_item_photos_item_num",
+     "FOREIGN KEY (`item_num`) REFERENCES `items` (`item_num`) ON DELETE CASCADE ON UPDATE CASCADE"),
 ]
 
 
@@ -669,15 +673,15 @@ def cp_backuprestoreuploadconfirm():
     return redirect(url_for("control_panel.cp_backups"))
 
 
-### DB item_pic filenames vs. actual files in the image directory.
-### Returns (photo_filenames_in_db, orphans) or None on DB error.
+### DB item_photos filenames vs. actual files in the image directory.
+### Returns (photo_filenames_in_db, orphans). run_query() raises on a
+### real DB error (caught by the caller's @db_errors) rather than
+### returning falsy, so an empty item_photos table -- no item has a
+### photo yet, a legitimate state -- is not treated as a failure here.
 ### Shared by cp_cleanup() (disabled-state check), cp_photofilescleanup()
 ### (the list), and cp_photofilesdel() (server-side re-verification).
 def _find_unlinked_photos():
-    photo_files_query = "SELECT item_pic FROM items;"
-    result = run_query(photo_files_query)
-    if not result:
-        return None
+    result = run_query("SELECT filename FROM item_photos;")
 
     photo_filenames_in_db = [row[0] for row in result if row[0]]
     photo_filenames_in_db.sort()
@@ -1402,10 +1406,11 @@ def cp_addcat():
 @db_errors(exec_msg="Database error when fetching unassigned inventory assets.")
 def cp_orphaneditemscleanup():
     # Fetch an active, thread-safe connection from the pool
-    find_orphans_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+    find_orphans_query = f""" SELECT i.item_num, i.item_name, i.box_num, {ITEM_COVER_PHOTO_SELECT}, i.item_date,
                                      c.cat_name AS item_cat, i.item_desc
                               FROM items i
                               JOIN categories c ON i.cat_num = c.cat_num
+                              {ITEM_COVER_PHOTO_JOIN}
                               WHERE i.box_num IS NULL; """
     result = run_query(find_orphans_query, as_dict=True)
 
@@ -1442,10 +1447,11 @@ def cp_orphaneditemscleanup():
 @db_errors(exec_msg="Database error when filtering inventory views.")
 def orphan_view_switch():
     # Fetch an active, thread-safe connection from the pool
-    find_orphans_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+    find_orphans_query = f""" SELECT i.item_num, i.item_name, i.box_num, {ITEM_COVER_PHOTO_SELECT}, i.item_date,
                                      c.cat_name AS item_cat, i.item_desc
                               FROM items i
                               JOIN categories c ON i.cat_num = c.cat_num
+                              {ITEM_COVER_PHOTO_JOIN}
                               WHERE i.box_num IS NULL; """
     result = run_query(find_orphans_query, as_dict=True)
 

@@ -88,7 +88,6 @@ CREATE TABLE `items` (
   `item_num` int NOT NULL AUTO_INCREMENT,
   `item_name` varchar(256) NOT NULL,
   `box_num` int DEFAULT NULL,
-  `item_pic` varchar(255) DEFAULT 'none.jpg',
   `item_date` date NOT NULL,
   `cat_num` int NOT NULL DEFAULT 0,
   `item_desc` varchar(255) DEFAULT NULL,
@@ -100,6 +99,27 @@ CREATE TABLE `items` (
     ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_items_box_num` FOREIGN KEY (`box_num`) REFERENCES `boxes` (`box_num`)
     ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Table structure for table `item_photos`
+--
+-- Up to 6 rows per item_num (enforced in app code, not here -- MySQL
+-- has no clean per-group row-count constraint). No sort_order column:
+-- photo_num's own AUTO_INCREMENT order IS the display order, by
+-- design -- position 1 (MIN(photo_num) per item) is always the cover
+-- shown in lists, and there's no reordering feature. ON DELETE CASCADE
+-- means deleting an item cleans up its photo rows automatically, same
+-- as the single item_pic column used to just vanish with the row.
+
+CREATE TABLE `item_photos` (
+  `photo_num` int NOT NULL AUTO_INCREMENT,
+  `item_num` int NOT NULL,
+  `filename` varchar(255) NOT NULL,
+  PRIMARY KEY (`photo_num`),
+  KEY `idx_item_photos_item_num` (`item_num`),
+  CONSTRAINT `fk_item_photos_item_num` FOREIGN KEY (`item_num`) REFERENCES `items` (`item_num`)
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- No sample item seeded here -- see the boxes/categories sections

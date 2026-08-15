@@ -815,6 +815,29 @@ def get_available_locs():
 
 
 ########################################################################
+### ITEM PHOTOS -- cover photo (position 1, lowest photo_num) resolved
+### as "item_pic" for any items query, so every existing read site
+### (which already reads row['item_pic']) keeps working unchanged.
+### Requires the items table aliased as `i` in the query this is
+### spliced into -- true of every items query in the app.
+########################################################################
+ITEM_COVER_PHOTO_SELECT = "COALESCE(cover.filename, 'none.jpg') AS item_pic"
+ITEM_COVER_PHOTO_JOIN = """
+    LEFT JOIN item_photos cover ON cover.photo_num = (
+        SELECT MIN(ip.photo_num) FROM item_photos ip WHERE ip.item_num = i.item_num
+    )
+"""
+
+
+def get_item_photos(item_num):
+    """Every photo for an item, position 1 (cover) first."""
+    return run_query(
+        "SELECT photo_num, filename FROM item_photos WHERE item_num = %s ORDER BY photo_num",
+        (item_num,),
+    )
+
+
+########################################################################
 ### LIST-VIEW PAGE SIZE
 ########################################################################
 # Shared by every paginated list route (inventory, itemsbycategory,
@@ -924,6 +947,11 @@ MAX_BOX_NAME_LENGTH = 64
 MAX_ITEM_DESC_LENGTH = 255
 
 MAX_BOX_NUM = 9999
+
+# Photos per item: enforced here (server-side) and mirrored in the
+# itemedit.html grid (6 slots). Not a DB constraint -- MySQL has no
+# clean per-group row-count check.
+MAX_ITEM_PHOTOS = 6
 
 
 ########################################################################

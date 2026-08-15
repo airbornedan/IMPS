@@ -23,6 +23,7 @@ from app.extensions import (
     verify_and_reencode_image,
     image_dir_size_bytes,
     MAX_IMAGE_DIR_BYTES,
+    MAX_ITEM_PHOTOS,
     IMAGE_UPLOAD_LOCK,
     safe_relative_url,
     safe_image_path,
@@ -39,6 +40,9 @@ from app.extensions import (
     parse_int,
     get_available_boxes,
     get_available_cats,
+    get_item_photos,
+    ITEM_COVER_PHOTO_SELECT,
+    ITEM_COVER_PHOTO_JOIN,
 )
 
 bp = Blueprint("items", __name__)
@@ -51,11 +55,12 @@ bp = Blueprint("items", __name__)
 # anything downstream by convention. c.cat_name is aliased to item_cat
 # so the dict key matches the variable name every call site uses.
 # Kept as one shared constant so read sites can't drift out of sync.
-ITEMS_WITH_CAT_NAME = """
-    SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+ITEMS_WITH_CAT_NAME = f"""
+    SELECT i.item_num, i.item_name, i.box_num, {ITEM_COVER_PHOTO_SELECT}, i.item_date,
            c.cat_name AS item_cat, i.item_desc
     FROM items i
     JOIN categories c ON i.cat_num = c.cat_num
+    {ITEM_COVER_PHOTO_JOIN}
 """
 
 
@@ -240,7 +245,6 @@ def itemedit(item_num):
     item_num = item_result["item_num"]
     item_name = item_result["item_name"]
     box_num = item_result["box_num"]
-    item_pic = item_result["item_pic"]
     item_date = item_result["item_date"]
     item_cat = item_result["item_cat"]
     item_desc = item_result["item_desc"]
@@ -260,7 +264,8 @@ def itemedit(item_num):
         item_num=item_num,
         item_name=item_name,
         box_num=box_num,
-        item_pic=item_pic,
+        photos=get_item_photos(item_num),
+        max_item_photos=MAX_ITEM_PHOTOS,
         item_date=item_date,
         item_cat=item_cat,
         item_desc=item_desc,
@@ -282,7 +287,6 @@ def itemupdate(item_num):
     ud_item_date = ""
     ud_item_cat = ""
     ud_item_desc = ""
-    item_pic = "none.jpg"
 
     ### IF A FORM HAS BEEN SUBMITTED, UPDATE ITEM INFO
     if request.method == "POST":
@@ -292,12 +296,9 @@ def itemupdate(item_num):
         ud_item_desc = request.form.get("item_desc")
         ud_box_num = request.form.get("box_num")
         ud_item_cat = request.form.get("item_cat")
-        no_photo = request.form.get("no_photo")
 
         ### FORM DATA FROM HIDDEN FIELDS
         ud_passed_in_cat = request.form.get("passed_in_cat")
-        ud_passed_in_pic = request.form.get("item_pic")
-        item_pic = ud_passed_in_pic
 
         ### HANDLE CATEGORY DATAFIELD NOT CHANGED
         if not ud_item_cat:
@@ -385,81 +386,128 @@ def itemupdate(item_num):
                 touch_box_last_changed(cursor, ud_box_num_int)
                 cursor.close()
 
-            ####################################################
-            ### IMAGE HANDLING (FILESYSTEM OPERATIONS)
-            ####################################################
-            file = request.files.get("file")
-
-            ### IF A FILE IS SUBMITTED BUT THE TYPE IS PROHIBITED
-            if file and file.filename != "" and not allowed_file(file.filename):
-                return render_template(
-                    "errorpage.html",
-                    err_message="That file type is not allowed.",
-                    err_page_from="/",
-                )
-
-            ### IF THE FILE IS VALID, PROCESS AND SAVE IT
-            if file and file.filename != "" and allowed_file(file.filename):
-                filename, err = _save_uploaded_photo(file, err_page_from="/")
-                if err:
-                    return err
-
-                ### DELETE FORMER PHOTO UNLESS IT IS THE PLACEHOLDER
-                # ud_passed_in_pic comes from a hidden form field, so
-                # it's attacker-controlled -- run it through
-                # safe_image_path() rather than concatenating it into
-                # a path directly, or a crafted value like
-                # "../../../../etc/passwd" gets handed to os.remove().
-                if ud_passed_in_pic != "none.jpg":
-                    photo_to_delete = safe_image_path(
-                        ud_passed_in_pic, ITEM_IMAGE_FS_DIR
-                    )
-                    if photo_to_delete:
-                        try:
-                            os.remove(photo_to_delete)
-                        except FileNotFoundError:
-                            pass
-                        except Exception as e:
-                            logger.warning(f"itemupdate(): could not delete old photo {photo_to_delete!r}: {e}")
-
-                item_pic = filename
-
-            ### IF NO PHOTO CHECKBOX IS SELECTED RESET IMAGE TO DEFAULT
-            if no_photo:
-                item_pic = "none.jpg"
-
-                ### ATTEMPT TO DELETE OLD PHOTO
-                # Same reasoning as above -- sanitize before removing.
-                if ud_passed_in_pic != "none.jpg":
-                    photo_to_delete = safe_image_path(
-                        ud_passed_in_pic, ITEM_IMAGE_FS_DIR
-                    )
-                    if photo_to_delete:
-                        try:
-                            os.remove(photo_to_delete)
-                        except FileNotFoundError:
-                            pass
-                        except Exception as e:
-                            logger.warning(f"itemupdate(): could not delete old photo {photo_to_delete!r}: {e}")
-
-            ### 3. UPDATE FINAL FILENAME ENTRY IN DATABASE
-            pic_query = """ UPDATE items SET item_pic = %s WHERE item_num = %s """
-            cursor = mydb.cursor()
-            cursor.execute(pic_query, (item_pic, item_num))
-            cursor.close()
-
-            ### 4. GET CONFIRMED ITEM PIC FROM DATABASE TO DISPLAY ON RESULTS PAGE
-            item_query = """ SELECT item_pic FROM items WHERE item_num = %s """
-            cursor = mydb.cursor()
-            cursor.execute(item_query, (item_num,))
-            result = cursor.fetchone()
-            cursor.close()
-
-            if result:
-                item_pic = result[0]
+            ### Photos are no longer handled here -- see itemphotoadd()/
+            ### itemphotodel() below. itemedit.html has its own Add/
+            ### delete controls per photo instead of bundling upload
+            ### into this form.
 
     ### REDIRECT TO THE ITEM DETAIL PAGE
     return redirect(url_for("items.itemdetail", item_num=ud_item_num))
+
+
+########################################################################
+### ADD A PHOTO TO AN ITEM (itemedit.html's Add photo tiles)
+@bp.route("/itemphotoadd/<item_num>", methods=["POST"])
+@login_required
+@validate_int("item_num")
+@limiter.limit("30 per minute; 300 per hour")
+@db_errors(exec_msg="Database write execution error. Could not save photo.")
+def itemphotoadd(item_num):
+    file = request.files.get("file")
+    if not file or file.filename == "":
+        return render_template(
+            "errorpage.html",
+            err_message="No file selected",
+            err_page_from=f"/itemedit/{item_num}",
+        )
+    if not allowed_file(file.filename):
+        return render_template(
+            "errorpage.html",
+            err_message="That file type is not allowed.",
+            err_page_from=f"/itemedit/{item_num}",
+        )
+
+    with get_db_connection() as mydb:
+        cursor = mydb.cursor()
+        cursor.execute("SELECT 1 FROM items WHERE item_num = %s", (item_num,))
+        item_exists = cursor.fetchone()
+        cursor.close()
+        if not item_exists:
+            return render_template(
+                "errorpage.html",
+                err_message="Item number not in database.",
+                err_page_from="/",
+            )
+
+        ### ENFORCE THE PER-ITEM PHOTO CAP -- itemedit.html's grid
+        ### already hides Add photo once full, but a direct POST
+        ### bypasses that.
+        cursor = mydb.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM item_photos WHERE item_num = %s", (item_num,)
+        )
+        photo_count = cursor.fetchone()[0]
+        cursor.close()
+
+        if photo_count >= MAX_ITEM_PHOTOS:
+            return render_template(
+                "errorpage.html",
+                err_message=f"This item already has the maximum of {MAX_ITEM_PHOTOS} photos.",
+                err_page_from=f"/itemedit/{item_num}",
+            )
+
+        filename, err = _save_uploaded_photo(file, err_page_from=f"/itemedit/{item_num}")
+        if err:
+            return err
+
+        cursor = mydb.cursor()
+        cursor.execute(
+            "INSERT INTO item_photos (item_num, filename) VALUES (%s, %s)",
+            (item_num, filename),
+        )
+        cursor.close()
+
+    return redirect(url_for("items.itemedit", item_num=item_num))
+
+
+########################################################################
+### DELETE ONE PHOTO FROM AN ITEM (itemedit.html's per-photo delete icon)
+@bp.route("/itemphotodel/<item_num>/<photo_num>", methods=["POST"])
+@login_required
+@validate_int("item_num", "photo_num")
+@db_errors(exec_msg="Database write execution error. Could not delete photo.")
+def itemphotodel(item_num, photo_num):
+    with get_db_connection() as mydb:
+        ### CONFIRM THIS PHOTO ACTUALLY BELONGS TO THIS ITEM -- photo_num
+        ### is client-supplied (the delete icon's own form), so don't
+        ### trust it blindly; a mismatched item_num/photo_num pair is
+        ### rejected rather than silently deleting a different item's
+        ### photo.
+        cursor = mydb.cursor()
+        cursor.execute(
+            "SELECT filename FROM item_photos WHERE photo_num = %s AND item_num = %s",
+            (photo_num, item_num),
+        )
+        result = cursor.fetchone()
+        cursor.close()
+
+        if not result:
+            return render_template(
+                "errorpage.html",
+                err_message="That photo doesn't belong to this item.",
+                err_page_from=f"/itemedit/{item_num}",
+            )
+        filename = result[0]
+
+        cursor = mydb.cursor()
+        cursor.execute("DELETE FROM item_photos WHERE photo_num = %s", (photo_num,))
+        cursor.close()
+
+    ### DELETE THE FILE OUTSIDE THE DB LOCK -- same reasoning as
+    ### itemdeleted() above.
+    photo_file = safe_image_path(filename, ITEM_IMAGE_FS_DIR)
+    if photo_file:
+        try:
+            os.remove(photo_file)
+        except FileNotFoundError:
+            pass
+        except OSError as file_error:
+            logger.error(
+                f"itemphotodel(): could not delete photo file {photo_file!r}: {file_error}"
+            )
+
+    return redirect(url_for("items.itemedit", item_num=item_num))
+
 
 ########################################################################
 ### ADD ITEM TO DB AND UPLOAD AND SAVE PHOTO
@@ -556,9 +604,6 @@ def iteminsert():
     if not item_cat:
         item_cat = "Uncategorized"
 
-    ### IF NO FILE SELECTED, USE DEFAULT "NONE.JPG"
-    item_pic = filename if filename != "" else "none.jpg"
-
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### 1. RESOLVE THE SUBMITTED CATEGORY NAME TO ITS cat_num,
@@ -573,13 +618,13 @@ def iteminsert():
         cursor.close()
 
         ### 2. INSERT NEW ITEM INTO DATABASE
-        insert_query = """ INSERT INTO items (item_name, box_num, item_pic, item_date, cat_num, item_desc)
-             VALUES (%s, %s, %s, %s, %s, %s) """
+        insert_query = """ INSERT INTO items (item_name, box_num, item_date, cat_num, item_desc)
+             VALUES (%s, %s, %s, %s, %s) """
 
         cursor = mydb.cursor()
         cursor.execute(
             insert_query,
-            (item_name, box_num, item_pic, current_date, cat_num, item_desc),
+            (item_name, box_num, current_date, cat_num, item_desc),
         )
         cursor.close()
 
@@ -603,6 +648,17 @@ def iteminsert():
                 err_page_from="/",
             )
         item_num = result[0]
+
+        ### 4. IF A PHOTO WAS UPLOADED, IT BECOMES THIS ITEM'S FIRST
+        ### PHOTO (position 1 -- the cover). See item_photos in
+        ### deploy/schema.sql.
+        if filename:
+            cursor = mydb.cursor()
+            cursor.execute(
+                "INSERT INTO item_photos (item_num, filename) VALUES (%s, %s)",
+                (item_num, filename),
+            )
+            cursor.close()
 
     ### REDIRECT TO THE ITEM DETAIL PAGE
     return redirect(url_for("items.itemdetail", item_num=item_num, from_add="1"))
@@ -766,23 +822,7 @@ def itemdeleted(item_to_del):
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### 1. GET PHOTO FILE NAME FROM DB
-        photo_file_query = """ SELECT item_pic FROM items WHERE item_num = %s """
-        cursor = mydb.cursor()
-        cursor.execute(photo_file_query, (item_to_del,))
-        photo_result = cursor.fetchone()
-        cursor.close()
-
-        ### CHECK THAT QUERY SUCCEEDED
-        if not photo_result:
-            return render_template(
-                "errorpage.html",
-                err_message="Database error. Could not access photos.",
-                err_page_from="/",
-            )
-        photo_filename = photo_result[0]
-
-        ### 2. GET ITEM NAME AND BOX NUMBER FOR RESULTS PAGE / BOX-TOUCH
+        ### 1. GET ITEM NAME AND BOX NUMBER FOR RESULTS PAGE / BOX-TOUCH
         ### BEFORE DELETION -- box_num is needed to mark the box as
         ### touched below (step 3b); once the row's deleted, it's gone.
         item_name_query = """ SELECT item_name, box_num FROM items WHERE item_num = %s """
@@ -801,6 +841,17 @@ def itemdeleted(item_to_del):
         item_name = name_result[0]
         box_num = name_result[1]
 
+        ### 2. GET EVERY PHOTO FILENAME FOR THIS ITEM, BEFORE DELETION --
+        ### the DELETE below cascades item_photos rows away too (see
+        ### item_photos in deploy/schema.sql), so filenames have to be
+        ### read first to delete the actual files afterward.
+        cursor = mydb.cursor()
+        cursor.execute(
+            "SELECT filename FROM item_photos WHERE item_num = %s", (item_to_del,)
+        )
+        photo_filenames = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+
         ### 3. EXECUTE DELETION STATEMENT
         del_query = """ DELETE FROM items WHERE item_num = %s """
         cursor = mydb.cursor()
@@ -817,16 +868,11 @@ def itemdeleted(item_to_del):
     photo_dir = ITEM_IMAGE_FS_DIR
     delete_failed = False
 
-    ### ATTEMPT TO DELETE THE PHOTO UNLESS THERE'S NO REAL IMAGE TO DELETE.
-    ### "No real image" covers the placeholder ("none.jpg") and
-    ### NULL/empty item_pic values from older or imported data -- none
-    ### represent an actual file on disk, so nothing to attempt.
-    has_real_photo = bool(photo_filename) and photo_filename != "none.jpg"
-
-    if has_real_photo:
+    ### DELETE EVERY PHOTO FILE THIS ITEM HAD.
+    for photo_filename in photo_filenames:
         ### photo_filename comes from the DB, not the request, but
         ### treat it as untrusted: run it through safe_image_path()
-        ### (itemupdate() above, cp_photofilesdel() in
+        ### (itemphotodel() below, cp_photofilesdel() in
         ### control_panel.py).
         photo_file = safe_image_path(photo_filename, photo_dir)
         if photo_file is None:
@@ -834,7 +880,7 @@ def itemdeleted(item_to_del):
                 f"itemdeleted(): refusing to delete unsafe/invalid "
                 f"photo filename from DB: {photo_filename!r}"
             )
-            photo_file = os.path.join(photo_dir, "__nonexistent__")
+            continue
         try:
             os.remove(photo_file)
         except FileNotFoundError:
@@ -847,11 +893,11 @@ def itemdeleted(item_to_del):
             logger.error(f"System File deletion error: {file_error}")
             delete_failed = True
 
-    ### RETURN SUCCESS OR WARN ABOUT ORPHANED IMAGE FILE
+    ### RETURN SUCCESS OR WARN ABOUT ORPHANED IMAGE FILE(S)
     if delete_failed:
         return render_template(
             "errorpage.html",
-            err_message="The item was deleted from the database, but IMPS was unable to delete the image file.",
+            err_message="The item was deleted from the database, but IMPS was unable to delete one or more image files.",
             err_page_from="/",
         )
     else:
@@ -859,7 +905,7 @@ def itemdeleted(item_to_del):
             "items/itemdelconfirm.html",
             item_name=item_name,
             back_url=back_url,
-            had_photo=has_real_photo,
+            had_photo=bool(photo_filenames),
         )
 
 
@@ -942,10 +988,10 @@ def itemsdeleted():
 
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
-        ### 1. GET PHOTO FILENAMES AND BOX NUMBERS BEFORE DELETION --
-        ### box_num is needed to touch each affected box below (step
-        ### 2b); once the rows are deleted, they're gone.
-        info_query = f""" SELECT item_num, item_pic, box_num FROM items
+        ### 1. GET BOX NUMBERS BEFORE DELETION -- needed to touch each
+        ### affected box below (step 2b); once the rows are deleted,
+        ### they're gone.
+        info_query = f""" SELECT item_num, box_num FROM items
                            WHERE item_num IN ({placeholders}) """
         cursor = mydb.cursor()
         cursor.execute(info_query, tuple(item_nums))
@@ -957,6 +1003,17 @@ def itemsdeleted():
         if not rows:
             return redirect(back_url or url_for("main.home"))
 
+        ### 1b. GET EVERY PHOTO FILENAME FOR THESE ITEMS, BEFORE
+        ### DELETION -- the batch DELETE below cascades item_photos
+        ### rows away too (see item_photos in deploy/schema.sql).
+        cursor = mydb.cursor()
+        cursor.execute(
+            f"SELECT filename FROM item_photos WHERE item_num IN ({placeholders})",
+            tuple(item_nums),
+        )
+        photo_filenames = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+
         ### 2. EXECUTE DELETION STATEMENT -- ONE QUERY FOR THE WHOLE BATCH
         del_query = f""" DELETE FROM items
                           WHERE item_num IN ({placeholders}) """
@@ -967,7 +1024,7 @@ def itemsdeleted():
         ### 2b. TOUCH EVERY DISTINCT BOX AFFECTED -- once per box, not
         ### once per item, since several picked items here can share a
         ### box. See touch_box_last_changed() in extensions.py.
-        box_nums = {row[2] for row in rows}
+        box_nums = {row[1] for row in rows}
         cursor = mydb.cursor()
         for box_num in box_nums:
             touch_box_last_changed(cursor, box_num)
@@ -977,13 +1034,7 @@ def itemsdeleted():
     photo_dir = ITEM_IMAGE_FS_DIR
     failed_files = []
 
-    for _item_num, photo_filename, _box_num in rows:
-        ### "No real image" covers the placeholder ("none.jpg") and
-        ### NULL/empty item_pic values -- same reasoning as
-        ### itemdeleted() above.
-        if not photo_filename or photo_filename == "none.jpg":
-            continue
-
+    for photo_filename in photo_filenames:
         ### photo_filename comes from the DB, not the request, but
         ### treat it as untrusted -- same reasoning as itemdeleted().
         photo_file = safe_image_path(photo_filename, photo_dir)

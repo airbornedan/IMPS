@@ -124,17 +124,25 @@ def install_sample_data():
         for item in SAMPLE_ITEMS:
             dest_filename = _copy_sample_image(item["image"], item_image_dir_abs)
             cursor.execute(
-                """INSERT INTO items (item_name, box_num, item_pic, item_date, cat_num, item_desc)
-                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                """INSERT INTO items (item_name, box_num, item_date, cat_num, item_desc)
+                   VALUES (%s, %s, %s, %s, %s)""",
                 (
                     item["item_name"],
                     box_nums[item["box_index"]],
-                    dest_filename,
                     today,
                     cat_nums[item["item_cat"]],
                     item["item_desc"],
                 ),
             )
+            ### dest_filename FALLS BACK TO "none.jpg" (see
+            ### _copy_sample_image()) IF THE BUNDLED PHOTO IS MISSING --
+            ### best-effort by design (see module docstring), so the
+            ### item still gets created, just without a photo row.
+            if dest_filename != "none.jpg":
+                cursor.execute(
+                    "INSERT INTO item_photos (item_num, filename) VALUES (%s, %s)",
+                    (cursor.lastrowid, dest_filename),
+                )
         cursor.close()
 
 

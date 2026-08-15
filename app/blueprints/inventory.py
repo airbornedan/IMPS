@@ -22,6 +22,8 @@ from app.extensions import (
     InvalidPageError,
     get_available_boxes,
     get_available_cats,
+    ITEM_COVER_PHOTO_SELECT,
+    ITEM_COVER_PHOTO_JOIN,
 )
 
 bp = Blueprint("inventory", __name__)
@@ -58,10 +60,11 @@ def inventory():
 
         ### INVENTORY
         ### SET UP ALL ITEMS QUERY
-        inv_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+        inv_query = f""" SELECT i.item_num, i.item_name, i.box_num, {ITEM_COVER_PHOTO_SELECT}, i.item_date,
                                 c.cat_name AS item_cat, i.item_desc
                          FROM items i
                          JOIN categories c ON i.cat_num = c.cat_num
+                         {ITEM_COVER_PHOTO_JOIN}
                          ORDER BY i.item_num DESC
                          LIMIT %s OFFSET %s """
 
@@ -302,10 +305,11 @@ def boxviewswitch(box_num):
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### BOX CONTENT QUERY
-        query_statement = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+        query_statement = f""" SELECT i.item_num, i.item_name, i.box_num, {ITEM_COVER_PHOTO_SELECT}, i.item_date,
                                       c.cat_name AS item_cat, i.item_desc
                                FROM items i
                                JOIN categories c ON i.cat_num = c.cat_num
+                               {ITEM_COVER_PHOTO_JOIN}
                                WHERE i.box_num = %s """
         cursor = mydb.cursor(dictionary=True)
         cursor.execute(query_statement, (box_num,))
@@ -387,10 +391,11 @@ def boxshowcontent(box_num):
         box_name = box_result[0]
 
         ### BOX CONTENT QUERY
-        items_in_box_query = """ SELECT i.item_num, i.item_name, i.box_num, i.item_pic, i.item_date,
+        items_in_box_query = f""" SELECT i.item_num, i.item_name, i.box_num, {ITEM_COVER_PHOTO_SELECT}, i.item_date,
                                          c.cat_name AS item_cat, i.item_desc
                                   FROM items i
                                   JOIN categories c ON i.cat_num = c.cat_num
+                                  {ITEM_COVER_PHOTO_JOIN}
                                   WHERE i.box_num = %s """
         cursor = mydb.cursor(dictionary=True)
         cursor.execute(items_in_box_query, (box_num,))

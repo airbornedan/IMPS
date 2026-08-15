@@ -19,12 +19,14 @@ function setSearchTerm(){
 <!-- Page content -->
 
 <p class="page_title">Enter search term</p>
-<div>
-	<input id="search_term" autofocus  type="text">
-</div>
-<div>
-	<button class="imps icon-left search" onclick="setSearchTerm()" id="search_button" default>
-		Search
-	</button>
-</div>
+<form onsubmit="setSearchTerm(); return false;">
+	<div>
+		<input id="search_term" autofocus  type="text">
+	</div>
+	<div>
+		<button class="imps icon-left search" id="search_button" default>
+			Search
+		</button>
+	</div>
+</form>
 {% endblock %}

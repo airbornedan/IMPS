@@ -290,14 +290,14 @@ def itemupdate(item_num):
     ud_item_name = ""
     ud_item_num = item_num
     ud_box_num = ""
-    ud_item_date = ""
     ud_item_cat = ""
     ud_item_desc = ""
 
     ### IF A FORM HAS BEEN SUBMITTED, UPDATE ITEM INFO
     if request.method == "POST":
         ### GET FORM DATA
-        ud_item_date = request.form.get("item_date")
+        ### item_date ISN'T READ HERE -- it's the item's added date, not
+        ### editable. itemedit.html's field is a readonly display only.
         ud_item_name = request.form.get("item_name")
         ud_item_desc = request.form.get("item_desc")
         ud_box_num = request.form.get("box_num")
@@ -365,7 +365,7 @@ def itemupdate(item_num):
 
             ### 2. WRITE CORE ITEM VALUES TO DB
             item_update_query = """ UPDATE items SET item_name = %s, item_desc = %s, cat_num = %s,
-                item_date = %s, box_num = %s WHERE item_num = %s """
+                box_num = %s WHERE item_num = %s """
 
             cursor = mydb.cursor()
             cursor.execute(
@@ -374,7 +374,6 @@ def itemupdate(item_num):
                     ud_item_name,
                     ud_item_desc,
                     ud_cat_num,
-                    ud_item_date,
                     ud_box_num,
                     ud_item_num,
                 ),

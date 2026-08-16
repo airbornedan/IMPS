@@ -293,10 +293,8 @@ p.note {
   transform-origin: left center;
 }
 
-/* itemdetail.html's read-only photo gallery -- no delete icon here to
-   cover, so hover-zoom (unlike the edit grid above) is safe. Scoped
-   scale, not .thumbnail's default 5x -- these sit larger at rest than
-   a 50px list thumbnail, so 5x would be excessive. */
+/* Read-only gallery -- zoom is safe here (no delete icon to cover).
+   Smaller scale than .thumbnail's default 5x -- these start bigger. */
 .item-detail-photos {
   display: flex;
   flex-wrap: wrap;

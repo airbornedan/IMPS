@@ -168,25 +168,43 @@ def _swap_staging_tables_into_place(mydb):
 
 
 def _restore_diff_counts(mydb):
-    """Item/box counts for the confirm page's before/after comparison
-    -- live tables vs. the already-staged restore_staging_* ones."""
+    """Item/box/photo counts for the confirm page's before/after
+    comparison -- live tables vs. the already-staged restore_staging_*
+    ones."""
     cursor = mydb.cursor()
 
     cursor.execute("SELECT COUNT(*) FROM items")
     current_items = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM boxes")
     current_boxes = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM item_photos")
+    current_photos = cursor.fetchone()[0]
 
     cursor.execute(f"SELECT COUNT(*) FROM {RESTORE_STAGING_PREFIX}items")
     candidate_items = cursor.fetchone()[0]
     cursor.execute(f"SELECT COUNT(*) FROM {RESTORE_STAGING_PREFIX}boxes")
     candidate_boxes = cursor.fetchone()[0]
 
+    ### A pre-migration backup's dump has no item_photos table at all,
+    ### so the staging one never gets created -- check first rather
+    ### than let a bare COUNT(*) error out.
+    cursor.execute(
+        "SELECT COUNT(*) FROM information_schema.TABLES "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s",
+        (f"{RESTORE_STAGING_PREFIX}item_photos",),
+    )
+    staged_photos_table_exists = cursor.fetchone()[0] > 0
+    if staged_photos_table_exists:
+        cursor.execute(f"SELECT COUNT(*) FROM {RESTORE_STAGING_PREFIX}item_photos")
+        candidate_photos = cursor.fetchone()[0]
+    else:
+        candidate_photos = None
+
     cursor.close()
 
     return {
-        "current": {"items": current_items, "boxes": current_boxes},
-        "candidate": {"items": candidate_items, "boxes": candidate_boxes},
+        "current": {"items": current_items, "boxes": current_boxes, "photos": current_photos},
+        "candidate": {"items": candidate_items, "boxes": candidate_boxes, "photos": candidate_photos},
     }
 
 

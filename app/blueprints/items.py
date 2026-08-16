@@ -124,7 +124,7 @@ def _save_uploaded_photo(file, err_page_from):
 @db_errors(exec_msg="Database error when fetching item.")
 def itemdetail(item_num):
 
-    item_query = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
+    item_query = ITEMS_WITH_CAT_NAME + " WHERE i.item_num = %s "
     ### DB QUERY -- use the connection pool, same as every other route
     result = run_query(item_query, (item_num,), fetch="one", as_dict=True)
 
@@ -214,7 +214,7 @@ def itemedit(item_num):
     # Fetch an active, thread-safe connection from the pool
     with get_db_connection() as mydb:
         ### QUERY MAIN ITEM DETAILS
-        item_query_statement = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
+        item_query_statement = ITEMS_WITH_CAT_NAME + " WHERE i.item_num = %s "
         cursor = mydb.cursor(dictionary=True)
         cursor.execute(item_query_statement, (item_num,))
         item_result = cursor.fetchone()
@@ -766,7 +766,7 @@ def itemsbycategory(category):
 @db_errors(exec_msg="Database error when fetching item deletion metrics.")
 def itemdel(item_num):
     # Fetch an active, thread-safe connection from the pool
-    del_query = ITEMS_WITH_CAT_NAME + " WHERE item_num = %s "
+    del_query = ITEMS_WITH_CAT_NAME + " WHERE i.item_num = %s "
     result = run_query(del_query, (item_num,), fetch="one", as_dict=True)
 
     ### CHECK THAT QUERY SUCCEEDED
@@ -941,7 +941,7 @@ def itemsdel():
     placeholders = ", ".join(["%s"] * len(item_nums))
     items_query = (
         ITEMS_WITH_CAT_NAME
-        + f" WHERE item_num IN ({placeholders}) ORDER BY item_num "
+        + f" WHERE i.item_num IN ({placeholders}) ORDER BY i.item_num "
     )
     result = run_query(items_query, tuple(item_nums), as_dict=True)
 

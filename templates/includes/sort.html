@@ -1,5 +1,5 @@
 <script>
-var table = document.getElementById('itemdisplaytable')
+var table = document.getElementById('{{ sort_table_id | default("itemdisplaytable") }}')
     ,tableHead = table.querySelector('span.table_head')
     ,tableHeaders = tableHead.querySelectorAll('span.table_label')
     ,tableBody = table.querySelector('span.table_body')
@@ -28,6 +28,7 @@ tableHead.addEventListener('click',function(e){
             ,{
                 selector:'div.table_cell:nth-child('+(tableHeaderIndex+1)+')'
                 ,order: order
+                ,natural: true
             }
         );
     }

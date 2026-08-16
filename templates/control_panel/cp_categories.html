@@ -14,9 +14,9 @@
 		<span class="table_head">
 			<span class="table_label">Cat name</span>
 			<span class="table_label">Total items</span>
-			<span class="table_label">Edit cat</span>
-			<span class="table_label">List items</span>
-			<span class="table_label">Delete</span>
+			<span class="table_label table_label-nosort">Edit cat</span>
+			<span class="table_label table_label-nosort">List items</span>
+			<span class="table_label table_label-nosort">Delete</span>
 		</span>
 		<span class="table_body">
 		{% for category in items_per_category %}
@@ -79,6 +79,8 @@
 		</span>
 	</div>
 </div>
+{% set sort_table_id = "mergeDisplayTable" %}
+{% include 'includes/sort.html' %}
 	<div>
 		<form action="/cp_addcat" name="add_cat" id="add_cat" method="POST" onsubmit="return validateForm(event);" >
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

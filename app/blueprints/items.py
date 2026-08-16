@@ -6,6 +6,7 @@ import os
 import pathlib
 import tempfile
 import time
+from contextlib import suppress
 from datetime import date
 
 from PIL import Image, ImageOps
@@ -94,7 +95,12 @@ def _save_uploaded_photo(file, err_page_from):
             dir=ITEM_IMAGE_FS_DIR, prefix=".upload_", suffix=pp.suffix
         )
         os.close(temp_fd)
-        file.save(temp_path)
+        try:
+            file.save(temp_path)
+        except OSError:
+            with suppress(OSError):
+                os.remove(temp_path)
+            raise
 
     ### VERIFY THE UPLOADED BYTES ARE ACTUALLY A DECODABLE IMAGE AND
     ### RE-ENCODE, DISCARDING THE ORIGINAL BYTES.
@@ -109,7 +115,12 @@ def _save_uploaded_photo(file, err_page_from):
     image = Image.open(temp_path)
     image = ImageOps.exif_transpose(image)
     image.thumbnail((600, 600))
-    image.save(temp_path)
+    try:
+        image.save(temp_path)
+    except OSError:
+        with suppress(OSError):
+            os.remove(temp_path)
+        raise
 
     ### MOVE THE FULLY VERIFIED AND PROCESSED IMAGE INTO PLACE
     os.replace(temp_path, save_path)

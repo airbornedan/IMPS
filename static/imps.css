@@ -313,10 +313,12 @@ p.note {
 @media (hover: hover) {
   .item-detail-photos .thumbnail:hover {
     transform: scale(2);
+    transform-origin: left center;
   }
 }
 .item-detail-photos .thumbnail.zoomed {
   transform: scale(2);
+  transform-origin: left center;
 }
 
 /* Fixed 2x3 grid, max 6 photos (MAX_ITEM_PHOTOS in extensions.py).

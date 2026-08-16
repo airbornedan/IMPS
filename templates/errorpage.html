@@ -8,8 +8,14 @@
 <img src="/static/images/sad_imps.png" style="width: 100px;">
 </div>
 <div>
+{% if err_page_from == "/" %}
+<a href="/"><br>
+<button class="imps icon-left home">Home</button>
+</a>
+{% else %}
 <a href="{{err_page_from}}"><br>
 <button class="imps icon-left back">Back</button>
 </a>
+{% endif %}
 </div>
 {% endblock %}

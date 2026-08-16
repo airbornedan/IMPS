@@ -311,11 +311,17 @@ p.note {
 @media (hover: hover) {
   .item-detail-photos .thumbnail:hover {
     transform: scale(2);
+  }
+  /* Leftmost photo has no room to its left -- anchor its zoom so it
+     only grows rightward. Others zoom from center (the app default). */
+  .item-detail-photos .thumbnail:first-child:hover {
     transform-origin: left center;
   }
 }
 .item-detail-photos .thumbnail.zoomed {
   transform: scale(2);
+}
+.item-detail-photos .thumbnail:first-child.zoomed {
   transform-origin: left center;
 }
 

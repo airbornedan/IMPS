@@ -71,7 +71,7 @@
 		<form action="/itemphotoadd/{{item_num}}" method="POST" enctype="multipart/form-data" class="item-photo-add-form">
 			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 			<label class="item-photo-add-card">
-				<input type="file" name="file" accept="image/*" style="display:none;" onchange="this.form.submit();">
+				<input type="file" name="file" accept="image/*" style="display:none;" onchange="validateAndSubmitPhoto(this);">
 				<div class="plus"></div>
 				Add photo
 			</label>
@@ -91,6 +91,23 @@
 	</div>
 <!-- Modal dialog and form validation JS -->
 <script>
+// Catches a bad file type before it submits -- modal instead of an
+// error page, and input.value = "" actually clears the picker.
+function validateAndSubmitPhoto(input) {
+	const file = input.files[0];
+	if (!file) {
+		return;
+	}
+	const allowed_extensions = ["png", "jpg", "jpeg", "webp"];
+	const ext = file.name.split(".").pop().toLowerCase();
+	if (!allowed_extensions.includes(ext)) {
+		showValidationError("That file type isn't allowed. <br>Use PNG, JPG, or WEBP.");
+		input.value = "";
+		return;
+	}
+	input.form.submit();
+}
+
 // Shared with validateForm()'s submit-time check below.
 const valid_numbers = {{available_boxes|tojson}};
 const boxNumInput = document.getElementById("box_num");

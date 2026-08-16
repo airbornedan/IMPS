@@ -139,6 +139,23 @@ function validateForm() {
 
     return false;
   }
+
+  let photo_choice = document.querySelector('input[name="photo_yes_no"]:checked').value;
+  if (photo_choice === "yes") {
+    let file_input = document.getElementById("file");
+    let file = file_input.files[0];
+    if (!file) {
+      showValidationError("Select a photo, <br>or choose \"No photo\".");
+      return false;
+    }
+    let allowed_extensions = ["png", "jpg", "jpeg", "webp"];
+    let ext = file.name.split(".").pop().toLowerCase();
+    if (!allowed_extensions.includes(ext)) {
+      showValidationError("That file type isn't allowed. <br>Use PNG, JPG, or WEBP.");
+      file_input.value = "";
+      return false;
+    }
+  }
 }
 </script>
 {% endblock %}

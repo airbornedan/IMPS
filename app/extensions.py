@@ -949,9 +949,11 @@ MAX_ITEM_DESC_LENGTH = 255
 MAX_BOX_NUM = 9999
 
 # Photos per item: enforced here (server-side) and mirrored in the
-# itemedit.html grid (6 slots). Not a DB constraint -- MySQL has no
-# clean per-group row-count check.
-MAX_ITEM_PHOTOS = 6
+# itemedit.html/itemadd.html grids. Not a DB constraint -- MySQL has
+# no clean per-group row-count check. 3 tiles into one full grid row
+# (3 columns) and keeps a multi-file add request well under
+# MAX_CONTENT_LENGTH.
+MAX_ITEM_PHOTOS = 3
 
 
 ########################################################################

@@ -6,8 +6,8 @@
 <p><em>(No photo was associated with this item.)</em></p>
 {% endif %}
 <a href="/"><button class="imps icon-left home">Home</button></a>
-{% if back_url %}
-<a href="{{ back_url }}"><button class="imps icon-left home">Back</button></a>
+{% if back_url and back_url != "/" %}
+<a href="{{ back_url }}"><button class="imps icon-left back">Back</button></a>
 {% endif %}
 <br>
 {% endblock %}

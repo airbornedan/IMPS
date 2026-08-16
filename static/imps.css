@@ -293,6 +293,32 @@ p.note {
   transform-origin: left center;
 }
 
+/* itemdetail.html's read-only photo gallery -- no delete icon here to
+   cover, so hover-zoom (unlike the edit grid above) is safe. Scoped
+   scale, not .thumbnail's default 5x -- these sit larger at rest than
+   a 50px list thumbnail, so 5x would be excessive. */
+.item-detail-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 4px 0 16px;
+}
+.item-detail-photos .thumbnail {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+}
+@media (hover: hover) {
+  .item-detail-photos .thumbnail:hover {
+    transform: scale(2);
+  }
+}
+.item-detail-photos .thumbnail.zoomed {
+  transform: scale(2);
+}
+
 /* Fixed 2x3 grid, max 6 photos (MAX_ITEM_PHOTOS in extensions.py).
    Filled cells show a thumbnail + delete icon; open cells show an
    Add photo tile. Position 1 is always the cover. No hover-zoom here

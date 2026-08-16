@@ -2,8 +2,13 @@
 {% block content %}
 <!-- Page content -->
 
-<p class="page_title">Item <span class="item_in_title">{{item_name}}</span></p>
-
+<div class="inline_div">
+	<b>Name:</b>
+</div>
+<div class="inline_div">
+	{{item_name}}
+</div>
+<br>
 <div class="inline_div">
 	<b>Box:</b>
 </div>
@@ -25,20 +30,26 @@
 	{{ item_cat }}
 </div>
 <br>
+{% if item_desc %}
 <div class="inline_div">
-	{% if (item_desc != "") %}
-		<b>Description:</b>
-	{%endif %} &nbsp;
+	<b>Description:</b>
 </div>
 <div class="inline_div">
 	{{item_desc}}
 </div>
-<br><br>
-<div>
-	<img src="{{ITEM_IMAGE_DIR}}/{{ item_pic }}" style="height: 150px; overflow: hidden;">
+<br>
+{% endif %}
+<div class="inline_div">
+	<b>Photos:</b>
+</div>
+<br>
+<div class="item-detail-photos">
+	{% for photo_num, filename in photos %}
+	<img src="{{ITEM_IMAGE_DIR}}{{filename}}" class="thumbnail">
+	{% endfor %}
 </div>
 {% if from_add == True %}
-<div class="inline_div">   
+<div class="inline_div">
         <form action="/itemadd" method="post">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button name="edit_button" class="imps icon-left add" type="submit">Add another</button>

@@ -140,7 +140,6 @@ def itemdetail(item_num):
     item_num = result["item_num"]
     item_name = result["item_name"]
     box_num = result["box_num"]
-    item_pic = result["item_pic"]
     item_date = result["item_date"]
     item_cat = result["item_cat"]
     item_desc = result["item_desc"]
@@ -153,7 +152,7 @@ def itemdetail(item_num):
         "items/itemdetail.html",
         item_name=item_name,
         item_num=item_num,
-        item_pic=item_pic,
+        photos=get_item_photos(item_num),
         box_num=box_num,
         item_date=item_date,
         item_cat=item_cat,

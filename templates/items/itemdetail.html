@@ -62,10 +62,18 @@
       	<a href="/itemedit/{{item_num}}">
       	<button name="edit_button" class="imps icon-left edit">Edit</button>
 	</a>
+	{% if not from_add and back_url %}
+			<a href="{{ back_url }}">
+       	<button class="imps icon-left back">
+				Back
+				</button>
+			</a>
+	{% else %}
 			<a href="/">
        	<button class="imps icon-left home">
 				Home
 				</button>
 			</a>
+	{% endif %}
 </div>
 {% endblock %}

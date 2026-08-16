@@ -147,6 +147,13 @@ def itemdetail(item_num):
     ### "ADD ANOTHER" BUTTON -- shown only when ?from_add=1 is present.
     from_add = request.args.get("from_add") == "1"
 
+    ### "BACK" VS "HOME" -- if we got here from one of the browsing
+    ### pages (see LIST_VIEW_ENDPOINTS in app/__init__.py), offer to
+    ### go back there instead of always landing on the main inventory.
+    ### Ignored when from_add is set -- "back" makes no sense right
+    ### after adding an item.
+    back_url = safe_relative_url(session.get("last_list_view"))
+
     ### RETURN RESULTS PAGE
     return render_template(
         "items/itemdetail.html",
@@ -159,6 +166,7 @@ def itemdetail(item_num):
         item_desc=item_desc,
         ITEM_IMAGE_DIR=ITEM_IMAGE_DIR,
         from_add=from_add,
+        back_url=back_url,
     )
 
 ########################################################################

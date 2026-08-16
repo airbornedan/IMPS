@@ -99,7 +99,6 @@ def _save_uploaded_photo(file, err_page_from):
     ### VERIFY THE UPLOADED BYTES ARE ACTUALLY A DECODABLE IMAGE AND
     ### RE-ENCODE, DISCARDING THE ORIGINAL BYTES.
     if not verify_and_reencode_image(temp_path):
-        os.remove(temp_path)
         return None, render_template(
             "errorpage.html",
             err_message="That file could not be processed as a valid image.",

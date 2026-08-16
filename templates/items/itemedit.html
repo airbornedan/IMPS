@@ -53,6 +53,17 @@
 		</div>
 	</form>
 
+	<div class="btn-pair">
+		<div>
+			<button type="submit" name="update_button" id="update_button" value="update" form="update_item" class="imps icon-left update">
+			Update</button>
+		</div>
+                   <a href="/itemdetail/{{item_num}}">
+                        <button type="button" class="imps icon-left cancel" method="GET">
+                        Cancel</button></a>
+
+	</div>
+
 	<div>
 		Photos:
 	</div>
@@ -77,17 +88,6 @@
 			</label>
 		</form>
 		{% endfor %}
-	</div>
-
-	<div class="btn-pair">
-		<div>
-			<button type="submit" name="update_button" id="update_button" value="update" form="update_item" class="imps icon-left update">
-			Update</button>
-		</div>
-                   <a href="/itemdetail/{{item_num}}">
-                        <button type="button" class="imps icon-left cancel" method="GET">
-                        Cancel</button></a>
-
 	</div>
 <!-- Modal dialog and form validation JS -->
 <script>

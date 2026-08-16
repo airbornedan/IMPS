@@ -59,7 +59,7 @@
 	<div class="item-photo-grid">
 		{% for photo_num, filename in photos %}
 		<div class="item-photo-cell">
-			<img src="{{ITEM_IMAGE_DIR}}{{filename}}" class="thumbnail item-photo-thumb">
+			<img src="{{ITEM_IMAGE_DIR}}{{filename}}" class="item-photo-thumb">
 			{% if loop.first %}<div class="item-photo-cover-tag">Cover</div>{% endif %}
 			<form action="/itemphotodel/{{item_num}}/{{photo_num}}" method="POST" style="display:inline;">
 				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

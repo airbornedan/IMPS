@@ -293,20 +293,11 @@ p.note {
   transform-origin: left center;
 }
 
-/* Item edit's photo grid: already-large 140px photos, so the default
-   scale(5) (tuned for 50px list thumbnails) would blow up to 700px. */
-@media (hover: hover) {
-  .thumbnail.item-photo-thumb:hover {
-    transform: scale(1.8);
-  }
-}
-.thumbnail.item-photo-thumb.zoomed {
-  transform: scale(1.8);
-}
-
 /* Fixed 2x3 grid, max 6 photos (MAX_ITEM_PHOTOS in extensions.py).
    Filled cells show a thumbnail + delete icon; open cells show an
-   Add photo tile. Position 1 is always the cover. */
+   Add photo tile. Position 1 is always the cover. No hover-zoom here
+   (unlike .thumbnail elsewhere) -- it covered the delete icon, making
+   it nearly unclickable. */
 .item-photo-grid {
   display: grid;
   grid-template-columns: repeat(3, 140px);
@@ -318,12 +309,13 @@ p.note {
   width: 140px;
   height: 140px;
 }
-.item-photo-cell .thumbnail {
+.item-photo-thumb {
   width: 140px;
   height: 140px;
   object-fit: cover;
   border: 2px solid #ccc;
   border-radius: 4px;
+  display: block;
 }
 .item-photo-cover-tag {
   position: absolute;

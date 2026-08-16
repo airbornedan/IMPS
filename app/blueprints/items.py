@@ -204,7 +204,8 @@ def itemadd():
         "items/itemadd.html",
         categories=available_categories,
         available_boxes=available_boxes,
-        prov_box_num=prov_box_num
+        prov_box_num=prov_box_num,
+        max_item_photos=MAX_ITEM_PHOTOS,
     )
 
 
@@ -557,42 +558,25 @@ def iteminsert():
             err_page_from="/itemadd",
         )
 
-    ### photo_yes_no IS A "yes"/"no" RADIO GROUP (see itemadd.html)
-    photo_included = request.form.get("photo_yes_no") == "yes"
-
-    if photo_included:
-        ### CHECK THAT THE POST CONTAINS FILE DATA
-        if "file" not in request.files:
-            return render_template(
-                "errorpage.html",
-                err_message="The photo did not load.",
-                err_page_from="/itemadd",
-            )
-
-        file = request.files["file"]
-        ### HANDLE CASE WHERE BROWSER SUBMITS A FILE WITHOUT A NAME
-        if file.filename == "":
-            return render_template(
-                "errorpage.html",
-                err_message="No file selected",
-                err_page_from="/itemadd",
-            )
-
-        ### IF THE FILE IS ALLOWED AND IN THE POST, SAVE IT
-        if file and allowed_file(file.filename):
-            filename, err = _save_uploaded_photo(file, err_page_from="/itemadd")
-            if err:
-                return err
-        ### IF THE FILE IS PROHIBITED SHOW ERROR PAGE
-        else:
+    ### PHOTO GRID (itemadd.html) -- up to MAX_ITEM_PHOTOS optional
+    ### file inputs, staged client-side (preview only, nothing
+    ### uploaded yet) until this one submit. Any bad file aborts the
+    ### whole add, same as the single-photo behavior this replaces.
+    photo_filenames = []
+    for i in range(MAX_ITEM_PHOTOS):
+        file = request.files.get(f"new_photo_{i}")
+        if not file or file.filename == "":
+            continue
+        if not allowed_file(file.filename):
             return render_template(
                 "errorpage.html",
                 err_message="That file type is not allowed.",
                 err_page_from="/itemadd",
             )
-    ### IF NO FILE WAS INCLUDED USE THE DEFAULT PHOTO
-    else:
-        filename = ""
+        filename, err = _save_uploaded_photo(file, err_page_from="/itemadd")
+        if err:
+            return err
+        photo_filenames.append(filename)
 
     ### GET DATE SO WE CAN SET ITEM DATE
     current_date = str(date.today())
@@ -653,10 +637,10 @@ def iteminsert():
             )
         item_num = result[0]
 
-        ### 4. IF A PHOTO WAS UPLOADED, IT BECOMES THIS ITEM'S FIRST
-        ### PHOTO (position 1 -- the cover). See item_photos in
-        ### deploy/schema.sql.
-        if filename:
+        ### 4. INSERT ANY STAGED PHOTOS -- insertion order here sets
+        ### photo_num order, so the first one becomes the cover. See
+        ### item_photos in deploy/schema.sql.
+        for filename in photo_filenames:
             cursor = mydb.cursor()
             cursor.execute(
                 "INSERT INTO item_photos (item_num, filename) VALUES (%s, %s)",

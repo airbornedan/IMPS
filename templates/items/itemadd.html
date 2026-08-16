@@ -35,20 +35,29 @@
         <div >
                 <textarea rows="4" cols="40" name="item_desc" id="item_desc" maxlength="255"></textarea>
         </div>
-        <div>
-                <input type="radio" id="no" name="photo_yes_no" value="no" checked>
-                <label>No photo</label>
-        </div>
-        <div>
-		<input type="radio" id="yes" name="photo_yes_no" value="yes">
-               	<label>Photo</label><br>
+</div>
+
+<div>
+	Photos:
+</div>
+<div class="item-photo-grid">
+	{% for i in range(max_item_photos) %}
+	<div class="item-photo-cell" id="photo_cell_{{i}}">
+		<label class="item-photo-add-card" id="photo_add_card_{{i}}">
+			<input type="file" name="new_photo_{{i}}" accept="image/*" style="display:none;" onchange="handlePhotoSelect(this, {{i}})">
+			<div class="plus"></div>
+			Add photo
+		</label>
+		<img class="item-photo-thumb" id="photo_preview_{{i}}" style="display:none;">
+		<button type="button" class="item-photo-del-btn" id="photo_clear_{{i}}" style="display:none;" title="Remove photo" aria-label="Remove photo" onclick="clearPhotoSlot({{i}})"></button>
 	</div>
-	<div >
-       	        <input class="form-control" type="file" id="file" name="file" accept="image/*"><br>
-	</div>
+	{% endfor %}
+</div>
+
+<div class="container-flex">
 	<div>
 		<button type="submit" class="imps icon-left add">
-			Add 
+			Add
 		</button>
 	</div>
 </div>
@@ -57,15 +66,38 @@
 
 <!-- Modal dialog and form validation HTML -->
 
-
 <script>
+// Staged photo grid: preview only, nothing uploads until the Add
+// button submits the whole form. Mirrors itemedit.html's per-tile
+// type check, but stores the file locally instead of auto-submitting.
+const allowed_photo_extensions = ["png", "jpg", "jpeg", "webp"];
 
-document.getElementById("file").addEventListener("click", radioButtonSwitchPhoto);
+function handlePhotoSelect(input, i) {
+	const file = input.files[0];
+	if (!file) {
+		return;
+	}
+	const ext = file.name.split(".").pop().toLowerCase();
+	if (!allowed_photo_extensions.includes(ext)) {
+		showValidationError("That file type isn't allowed. <br>Use PNG, JPG, or WEBP.");
+		input.value = "";
+		return;
+	}
+	const preview = document.getElementById("photo_preview_" + i);
+	preview.src = URL.createObjectURL(file);
+	preview.style.display = "block";
+	document.getElementById("photo_add_card_" + i).style.display = "none";
+	document.getElementById("photo_clear_" + i).style.display = "block";
+}
 
-function radioButtonSwitchPhoto(){
-   alert
-   radiobtn = document.getElementById("yes");
-   radiobtn.checked = true;
+function clearPhotoSlot(i) {
+	const input = document.querySelector('#photo_cell_' + i + ' input[type=file]');
+	input.value = "";
+	const preview = document.getElementById("photo_preview_" + i);
+	URL.revokeObjectURL(preview.src);
+	preview.style.display = "none";
+	document.getElementById("photo_add_card_" + i).style.display = "flex";
+	document.getElementById("photo_clear_" + i).style.display = "none";
 }
 </script>
 
@@ -138,23 +170,6 @@ function validateForm() {
     showValidationError("Box "+num_to_check+" is not in use. <br>Please select a different<br> box number.");
 
     return false;
-  }
-
-  let photo_choice = document.querySelector('input[name="photo_yes_no"]:checked').value;
-  if (photo_choice === "yes") {
-    let file_input = document.getElementById("file");
-    let file = file_input.files[0];
-    if (!file) {
-      showValidationError("Select a photo, <br>or choose \"No photo\".");
-      return false;
-    }
-    let allowed_extensions = ["png", "jpg", "jpeg", "webp"];
-    let ext = file.name.split(".").pop().toLowerCase();
-    if (!allowed_extensions.includes(ext)) {
-      showValidationError("That file type isn't allowed. <br>Use PNG, JPG, or WEBP.");
-      file_input.value = "";
-      return false;
-    }
   }
 }
 </script>

@@ -11,6 +11,7 @@ from app.extensions import (
     login_backoff_record_failure,
     login_backoff_record_success,
     login_failure_note_for_logging,
+    safe_relative_url,
 )
 
 bp = Blueprint("auth", __name__)
@@ -18,15 +19,23 @@ bp = Blueprint("auth", __name__)
 
 @bp.route("/login")
 def login():
-    # Optional: If they are already logged in, send them straight to the index
+    ### WHERE TO SEND THEM BACK TO AFTER LOGGING IN -- set by
+    ### login_required() when it bounced them here. Client-supplied
+    ### (a query param), so treat it as untrusted -- same reasoning as
+    ### back_url in the delete-item flows.
+    next_url = safe_relative_url(request.args.get("next"))
+
+    # Optional: If they are already logged in, send them straight to
+    # where they were headed (or the index, if nowhere in particular).
     if session.get("loggedin"):
-        return redirect("/")
+        return redirect(next_url or "/")
 
     ### SHOW THE LOGIN PAGE
     response = make_response(
         render_template(
             "usr_login.html",
             logged_in=False,
+            next=next_url,
         )
     )
     return response
@@ -87,7 +96,11 @@ def attemptlogin():
     if pass_match:
         login_backoff_record_success(remote_ip)
         session["loggedin"] = True
-        return redirect("/")
+        ### RE-VALIDATE next HERE TOO -- IT ARRIVED AS A POST BODY
+        ### FIELD FROM THE CLIENT, SO TREAT IT AS UNTRUSTED EVEN THOUGH
+        ### login() ALREADY SANITIZED IT ONCE.
+        next_url = safe_relative_url(request.form.get("next"))
+        return redirect(next_url or "/")
     else:
         login_backoff_record_failure(remote_ip)
         login_failure_note_for_logging(remote_ip)

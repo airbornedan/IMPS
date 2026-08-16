@@ -4,6 +4,7 @@
 <p>Welcome to IMPS</p>
 <form action= "/attemptlogin" method="post">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 	<div >Password</div>
         <div>
                 <input id="password" type="password" name="password" autofocus >

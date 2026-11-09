@@ -80,6 +80,12 @@ def _strip_table_block(sql_text, table_name):
         return sql_text  # malformed dump -- leave it alone
 
     block_end = unlock_pos + len(unlock_marker)
+    # Newer mariadb-dump closes each data block with these two lines.
+    for trailer in ("COMMIT;", "SET AUTOCOMMIT=@OLD_AUTOCOMMIT;"):
+        while block_end < len(sql_text) and sql_text[block_end] == "\n":
+            block_end += 1
+        if sql_text.startswith(trailer, block_end):
+            block_end += len(trailer)
     while block_end < len(sql_text) and sql_text[block_end] == "\n":
         block_end += 1
 
@@ -312,7 +318,7 @@ def _create_backup_snapshot():
     try:
         with open(backup_file, "wb") as outfile:
             subprocess.run(
-                ["mysqldump", "-u", extensions.dbuser, extensions.dbname],
+                ["mysqldump", "-h", extensions.dbhost, "-u", extensions.dbuser, extensions.dbname],
                 stdout=outfile,
                 stderr=subprocess.PIPE,
                 env=dump_env,
@@ -320,6 +326,8 @@ def _create_backup_snapshot():
             )
     except (subprocess.CalledProcessError, OSError) as e:
         logger.error(f"mysqldump failed while creating backup snapshot: {e}")
+        with suppress(OSError):
+            os.remove(backup_file)
         return None, "mysqldump"
 
     # If this fails, the dump above is orphaned (no image half to pair

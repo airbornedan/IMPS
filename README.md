@@ -122,6 +122,10 @@ If you are installing IMPS on your own Linux server, the steps are:
 
 20. Start using the Inventory Management Photo System.
 
+## Support
+
+If IMPS is useful to you, you can [buy me a coffee on Ko-fi](https://ko-fi.com/airbornedan).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

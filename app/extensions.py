@@ -63,6 +63,10 @@ IMPS_IP = imps_config["directories"]["imps_ip"]
 ### wizard -- toml-only, same as [access]/[rate_limit] below.
 INSTANCE_LABEL = imps_config.get("instance", {}).get("label", "")
 
+### LOGIN NOTE -- optional line shown on the login page, e.g. the public
+### demo's "Demo password: imps". Blank/omitted shows nothing. toml-only.
+LOGIN_NOTE = imps_config.get("instance", {}).get("login_note", "")
+
 ### ITEM_IMAGE_DIR HAS TWO JOBS, SO IT NEEDS TWO FORMS. The toml value
 ### (e.g. "static/images/items/") is a plain path relative to
 ### IMPS_DIR, same convention as backup_dir below. Templates use it as

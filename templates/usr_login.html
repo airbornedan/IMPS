@@ -2,6 +2,7 @@
 {% block content %}
 <p class="page_title">Login</p>
 <p>Welcome to IMPS</p>
+{% if login_note %}<p><b>{{ login_note }}</b></p>{% endif %}
 <form action= "/attemptlogin" method="post">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}

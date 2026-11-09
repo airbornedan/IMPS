@@ -47,6 +47,10 @@ password = "imps"
 # VM, etc.). Leave blank, or omit this whole section, for no label.
 label = ""
 
+# Optional. A line shown on the login page, e.g. "Demo password: imps"
+# on a public demo. Leave blank for none.
+login_note = ""
+
 # [rate_limit]
 # Optional. Controls where login-attempt counts (see app/blueprints/auth.py)
 # are tracked. Uncomment and set this if IMPS is served by more than one

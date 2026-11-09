@@ -11,6 +11,7 @@ from app.extensions import (
     ITEM_IMAGE_DIR,
     FLASK_SECRET_KEY,
     INSTANCE_LABEL,
+    LOGIN_NOTE,
     csrf,
     limiter,
     route_to_help_topic,
@@ -185,7 +186,7 @@ def create_app():
     ####################################################################
     @app.context_processor
     def inject_instance_label():
-        return {"instance_label": INSTANCE_LABEL}
+        return {"instance_label": INSTANCE_LABEL, "login_note": LOGIN_NOTE}
 
     ####################################################################
     ### "LAST LIST VIEW" TRACKING (see LIST_VIEW_ENDPOINTS above)

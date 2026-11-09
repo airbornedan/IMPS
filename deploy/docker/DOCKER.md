@@ -1,39 +1,30 @@
 # Running IMPS with Docker
 
-This guide covers installing IMPS via Docker/Docker Compose, pulled from `airbornedan/IMPS`. It's intended for a private/home LAN — don't expose the app to the public internet. The IMPS readme file has more information about using IMPS.
+IMPS is for a private home LAN. Don't expose it to the public internet. The IMPS README has more about using IMPS.
 
-## Requirements
+The image is `ghcr.io/airbornedan/imps` (amd64 and arm64, so a 64-bit Raspberry Pi works). MariaDB runs in its own container; nothing else needs installing besides Docker Engine with the Compose plugin.
 
-* Docker Engine + Docker Compose plugin installed
-* Nothing else — MariaDB runs in its own container, no host MySQL/MariaDB install needed
-
-## 1. Get the repo
+## 1. Get the compose files
 
 ```bash
-git clone https://github.com/airbornedan/IMPS.git
-cd IMPS/deploy/docker
-cp dockerfile ../../
-cp docker-compose.yaml ../..
-cp .env.example ../../.env
+mkdir imps && cd imps
+curl -fsSLO https://raw.githubusercontent.com/airbornedan/IMPS/main/deploy/docker/docker-compose.yml
+curl -fsSL -o .env https://raw.githubusercontent.com/airbornedan/IMPS/main/deploy/docker/.env.example
 ```
 
-## 2. Configure your environment
+## 2. Edit `.env`
 
-Fill in your own values in the `.env` file:
-
-```bash
-nano .env
 ```
-
-Edit `.env` to change the values from the defaults if desired:
-```
-MARIADB_ROOT_PASSWORD=mariadb_pass
-IMPS_DB_PASSWORD=box_pass
 IMPS_IP=192.168.1.50
+IMPS_PORT=80
+MARIADB_ROOT_PASSWORD=change-me-root
+IMPS_DB_PASSWORD=change-me-imps
+IMPS_LABEL=
 ```
 
-* `MARIADB_ROOT_PASSWORD` / `IMPS_DB_PASSWORD` — pick any strong, unique values. Nothing else needs to match these except the containers themselves, which wire it up automatically.
-* `IMPS_IP` — the LAN IP (or hostname) of the machine running Docker. This is what gets baked into the QR codes IMPS generates for each box, so it needs to be something _other devices on your network_ can actually reach — not `127.0.0.1` and not the container's internal IP. Your system running Docker should use a fixed IP address, not DHCP.
+* `IMPS_IP`: the LAN address (or hostname) other devices use to reach the Docker host. It's printed into every box's QR code, so not `127.0.0.1` or a container address. Give the host a fixed IP. If `IMPS_PORT` isn't 80, include the port: `192.168.1.50:8080`.
+* `MARIADB_ROOT_PASSWORD`, `IMPS_DB_PASSWORD`: pick your own strong values. Only the two containers use them.
+* `IMPS_LABEL`: optional; shown next to "IMPS" in the header.
 
 ## 3. Start it
 
@@ -41,72 +32,60 @@ IMPS_IP=192.168.1.50
 docker compose up -d
 ```
 
-First boot does a few things automatically:
-
-* MariaDB initializes its data directory, creates the `box_db` database and a `box_user` account scoped to accept connections from the app container
-* IMPS's config file is generated from a template using the values in `.env` — no manual editing required
-* Compose waits for MariaDB to report itself healthy before starting IMPS, so there's no race between the two containers on first boot
-
-Give it 10–20 seconds on the first run for MariaDB's initialization to finish.
+On first start MariaDB creates the `box_db` database and its user, IMPS writes its config from `.env`, and Compose waits for MariaDB to be healthy before starting IMPS. Allow 10–20 seconds.
 
 ## 4. Finish setup in the browser
 
-Go to `http://<IMPS_IP>/` (or `http://localhost/` if you're on the same machine). You'll land on the setup wizard automatically:
+Open `http://<IMPS_IP>/`. The setup wizard runs once:
 
-1. **Database status** — should already show connected
-2. **Create tables** — one click, builds the schema
-3. **Sample data** — optional, purely cosmetic starter items
-4. **Set your password** — replaces the placeholder login password with a real one you choose. This is the shared password everyone on your LAN will use to log in.
+1. **Database status**: should show connected.
+2. **Create tables**: one click.
+3. **Sample data**: optional starter items.
+4. **Set your password**: the shared password everyone on your LAN uses to log in.
 
-Once you set the password, setup is locked and `/` shows the normal login page from then on.
+After that, `/` shows the login page.
 
-## Data persistence
+## Data
 
-Your inventory data, uploaded photos, generated QR codes, and DB/photo backups all live in Docker volumes and survive container restarts, rebuilds, and `docker compose down` (without `-v`). The only things that get rebuilt from scratch are the application code and config generation — none of your actual inventory data.
+Two volumes hold everything: `db_data` (the database) and `imps_data` (config, item photos, QR codes, backups). They survive restarts, updates and `docker compose down`. `docker compose down -v` deletes them, along with your inventory.
 
-## Stopping / restarting
+`.env` is only read on the first start. To change the IP or the database password later, edit `imps_config.toml` in the `imps_data` volume:
 
 ```bash
-docker compose stop      # stop containers, keep everything
-docker compose up -d     # start them again
-docker compose down      # remove containers, keep volumes/data
+docker compose cp imps:/data/imps_config.toml .
+# edit imps_config.toml, then:
+docker compose cp imps_config.toml imps:/data/imps_config.toml
+docker compose restart imps
 ```
 
-Avoid `docker compose down -v` unless you genuinely want to wipe your database and start over — it deletes the named volumes, including your inventory data.
-
-## Updating to a newer version
+## Updating
 
 ```bash
-git pull
-docker compose build imps
+docker compose pull
 docker compose up -d
 ```
 
-This only rebuilds the app image — your database and uploaded photos are untouched, since they live in separate volumes, not in the image.
+## Stopping
+
+```bash
+docker compose stop      # stop, keep everything
+docker compose down      # remove containers, keep data
+```
+
+## Building the image yourself
+
+From a clone of the repo:
+
+```bash
+git clone https://github.com/airbornedan/IMPS.git
+cd IMPS/deploy/docker
+cp .env.example .env     # then edit it
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
 
 ## Troubleshooting
 
-**Nothing loads at `http://<IMPS_IP>/`**
-
-```bash
-docker compose ps
-```
-
-Confirm both containers show `Up`, and that the `imps` container shows a port mapping like `0.0.0.0:80->80/tcp`.
-
-**Check logs if something looks wrong:**
-
-```bash
-docker compose logs imps
-docker compose logs mariadb
-```
-
-**First run only: if you ever see a database connection error**, it's almost always MariaDB still finishing its first-time initialization — wait a bit and check `docker compose logs mariadb` for `ready for connections`, then IMPS will connect automatically on its own retry (no restart needed).
-
-**If you need to start completely fresh** (wipes all data — only do this intentionally):
-
-```bash
-docker compose down -v
-docker compose up -d
-```
-
+* `docker compose ps`: both containers should be `Up`, IMPS with a port mapping such as `0.0.0.0:80->80/tcp`.
+* `docker compose logs imps` / `docker compose logs mariadb`.
+* A database error on the very first start usually means MariaDB is still initialising; wait for `ready for connections` in its log.
+* Port 80 already taken: set `IMPS_PORT=8080` and `IMPS_IP=<ip>:8080` before the first start.

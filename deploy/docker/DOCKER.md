@@ -4,15 +4,17 @@ IMPS is for a private home LAN. Don't expose it to the public internet. The IMPS
 
 The image is `ghcr.io/airbornedan/imps` (amd64 and arm64, so a 64-bit Raspberry Pi works). MariaDB runs in its own container; nothing else needs installing besides Docker Engine with the Compose plugin.
 
-## 1. Get the compose files
+## 1. Run these three commands
+
+These create `~/imps` and download the two setup files into it.
 
 ```bash
-mkdir imps && cd imps
+mkdir -p ~/imps && cd ~/imps
 curl -fsSLO https://raw.githubusercontent.com/airbornedan/IMPS/main/deploy/docker/docker-compose.yml
 curl -fsSL -o .env https://raw.githubusercontent.com/airbornedan/IMPS/main/deploy/docker/.env.example
 ```
 
-## 2. Edit `.env`
+## 2. Edit ~/imps/.env with a text editor
 
 ```
 IMPS_IP=192.168.1.50
@@ -26,7 +28,9 @@ IMPS_LABEL=
 * `MARIADB_ROOT_PASSWORD`, `IMPS_DB_PASSWORD`: pick your own strong values. Only the two containers use them.
 * `IMPS_LABEL`: optional; shown next to "IMPS" in the header.
 
-## 3. Start it
+## 3. Run the Docker command
+
+Run this from the `~/imps` directory used in step 1:
 
 ```bash
 docker compose up -d

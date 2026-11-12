@@ -1,5 +1,7 @@
 # IMPS 
 IMPS is an open source tool for managing items in storage. My daughter and I wrote it as a fun exercise in coding together.  We wrote IMPS for our own personal use, but are sharing it here for others to use. You can use IMPS to keep an inventory of your stored items, organizing them into boxes, categories, and locations. Once items are in the database, IMPS will help you find and manage them.
+
+![imps — find any stored item by photo, see what is in each box, and print its QR label](https://raw.githubusercontent.com/yasirwhite/opendemo-media/main/airbornedan-IMPS/imps-demo.gif)
 ### The Demo
 There is a working demo of IMPS, set up with sample data, at demo.getimps.com.
 ## Concepts
